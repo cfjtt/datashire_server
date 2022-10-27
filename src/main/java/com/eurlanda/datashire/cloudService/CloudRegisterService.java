@@ -1,0 +1,179 @@
+package com.eurlanda.datashire.cloudService;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.IRepositoryDao;
+import com.eurlanda.datashire.dao.impl.RepositoryDaoImpl;
+import com.eurlanda.datashire.entity.DSVariable;
+import com.eurlanda.datashire.entity.Project;
+import com.eurlanda.datashire.entity.Repository;
+import com.eurlanda.datashire.entity.SquidFlow;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.server.model.CloudOperateRecord;
+import com.eurlanda.datashire.server.model.User;
+import com.eurlanda.datashire.server.utils.SocketUtil;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.service.squidflow.SquidFlowProcess;
+import com.eurlanda.datashire.utility.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Service;
+
+import java.sql.SQLException;
+import java.util.*;
+
+/**
+ * 数列云注册接口(用来创建数据库)
+ * Created by Administrator on 2016/12/23.
+ */
+@Service
+@Scope("prototype")
+public class CloudRegisterService {
+    //private IRelationalDataManager adapter = DataAdapterFactory.getDefaultDataManager();
+    private static String token;
+    private static String key;
+    private static final Logger log = LoggerFactory.getLogger(CloudRegisterService.class);
+    /**
+     * 创建project
+     * @param info
+     * @return
+     */
+    public String cloudProject(String info){
+        IRelationalDataManager adapter = null;
+        ReturnValue out = new ReturnValue();
+        //创建project
+        String result = "error";
+        try {
+            adapter = DataAdapterFactory.getDefaultDataManager();
+            adapter.openSession();
+            List<Map> infoList = JsonUtil.toGsonList(info,Map.class);
+            Map<String,Object> infoMap = infoList.get(0);
+            //Map<String,Object> infoMap = JsonUtil.toHashMap(infoList.get(0));
+            int projectId = Integer.parseInt(infoMap.get("projectId")+"");
+            //查询出repositoryId
+            String sql="select id from ds_sys_repository where name='Cloud' and repository_db_name ='Cloud'";
+            Map<String,Object> map = adapter.query2Object(sql,null);
+            int repositoryId = Integer.parseInt(map.get("ID")+"");
+            //创建project，id和数列云的id一样
+            sql="insert into ds_project(id,repository_id) value ("+projectId+","+repositoryId+")";
+            int n = adapter.execute(sql);
+            if(n>0){
+                result = "success";
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (DatabaseException e) {
+            e.printStackTrace();
+        } finally {
+            if(adapter != null) {
+                adapter.closeSession();
+            }
+        }
+        Map<String,Object> returnMap = new HashMap<>();
+        returnMap.put("Result",result);
+        return JsonUtil.toJsonString(returnMap, DSObjectType.PROJECT, out.getMessageCode());
+    }
+
+    //客户端登录新接口(一个数猎场只能登陆一个用户)
+    public String cloudLogin(String info){
+        ReturnValue out = new ReturnValue();
+        //判断时间是否过期，以及目前现在登录的人数
+        Map<String,Object> infoMap = JsonUtil.toHashMap(info);
+        String spacedId = infoMap.get("SpaceId")+"";
+        String token = infoMap.get("Token")+"";
+        String time = token.split("\\^\\^\\^")[2];
+        String id = token.split("\\^\\^\\^")[0];
+        String email = token.split("\\^\\^\\^")[1];
+        String repositoryId = infoMap.get("RepositoryId")+"";
+        List<Integer> projectIds = JsonUtil.toList(infoMap.get("ProjectIds"),Integer.class);
+        Map<String,Object> returnMap = new HashMap<>();
+        //判断时间是否过去(5分钟)
+        Date nowDate = new Date();
+        long past = nowDate.getTime()-Long.parseLong(time);
+        if(past>Integer.parseInt(SysConf.getValue("SERVER_TIMEOUT"))){
+            returnMap.put("flag","N");
+            out.setMessageCode(MessageCode.LOGIN_TIMEOUT);
+            return JsonUtil.toJsonString(returnMap,DSObjectType.USER,out.getMessageCode());
+        } else if(SocketUtil.SESSION.size()>Integer.parseInt(SysConf.getValue("SERVER_MAX_USER"))){
+            log.error("当前系统登录人数:"+SocketUtil.SESSION.size()+" 系统允许人数:"+SysConf.getValue("SERVER_MAX_USER"));
+            returnMap.put("flag","N");
+            out.setMessageCode(MessageCode.QUEUE_ISMAX);
+            return JsonUtil.toJsonString(returnMap,DSObjectType.USER,out.getMessageCode());
+        } else {
+            //遍历UserSession，查找出当前数猎场
+            /*Map<String,User> userSessions = CommonConsts.UserSession;
+            for(Map.Entry<String,User> userEntry : userSessions.entrySet()){
+                User user = userEntry.getValue();
+                if(user.getId()==Integer.parseInt(id) && StringUtils.isNotNull(user.getSpaceId()) && user.getSpaceId().equals(spacedId)){
+                    returnMap.put("flag","N");
+                    out.setMessageCode(MessageCode.ERR_SPACE_LOGIN);
+                    return JsonUtil.toJsonString(returnMap,DSObjectType.USER,out.getMessageCode());
+                }
+            }*/
+            IRelationalDataManager adapter = null;
+            try {
+                adapter = DataAdapterFactory.getDefaultDataManager();
+                adapter.openSession();
+                //SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                IRepositoryDao repositoryDao = new RepositoryDaoImpl(adapter);
+                String sql="select * from ds_sys_repository where id="+repositoryId;
+                Repository repository = adapter.query2Object(true,sql,null,Repository.class);
+                SquidFlowProcess squidFlowProcess = new SquidFlowProcess(TokenUtil.getToken());
+                List<Project> projectList = new ArrayList<>();
+                //查询出projectId信息，并查询到squidflow
+                for(Integer projectId : projectIds){
+                    Project project = adapter.query2Object(true,"select * from ds_project where id="+projectId.intValue(),null,Project.class);
+                    String squidflowInfo = "{ProjectId:" + projectId + ",RepositoryId:" +repositoryId + "}";
+                    Map<String, Object> squidFlowMap = squidFlowProcess.queryAllSquidFlows(squidflowInfo, out);
+                    List<SquidFlow> squidFlowList = (List<SquidFlow>) squidFlowMap.get("SquidFlows");
+                    List<DSVariable> variables = (List<DSVariable>) squidFlowMap.get("Variables");
+                    if (squidFlowList != null) {
+                        project.setSquidFlowList(squidFlowList);
+                    }
+                    if (variables != null) {
+                        project.setVariables(variables);
+                    }
+                    projectList.add(project);
+                }
+                repository.setProjectList(projectList);
+                returnMap.put("repository",repository);
+                User user = new User();
+                user.setUser_name(email);
+                user.setId(Integer.parseInt(id));
+                user.setSpaceId(spacedId);
+                returnMap.put("User",user);
+                returnMap.put("flag","Y");
+                // 将token与用户信息绑定
+                SocketUtil.SESSION.put(TokenUtil.getToken(), user);
+                //将登陆信息写入数据库(id,时间,操作记录,登录,退出)
+                CloudOperateRecord record = new CloudOperateRecord();
+                record.setUser_id(user.getId());
+                record.setOperate_time(new Date());
+                record.setSpace_id(Integer.parseInt(spacedId.substring(1)));
+                record.setOperate_type(0);
+                record.setContent("用户:"+email+",操作类型:登录,数猎场:"+spacedId);
+                adapter.insert2(record);
+            } catch (Exception e){
+                e.printStackTrace();
+                out.setMessageCode(MessageCode.ERR);
+            } finally {
+                if(adapter != null) {
+                    adapter.closeSession();
+                }
+            }
+        }
+        return  JsonUtil.toJsonString(returnMap,DSObjectType.USER,out.getMessageCode());
+    }
+
+    /**
+     * 测试
+     * @param args
+     */
+    public static void main(String[] args){
+       String sql = "select";
+    }
+
+
+}
+

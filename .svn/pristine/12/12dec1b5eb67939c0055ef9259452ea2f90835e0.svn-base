@@ -1,0 +1,29 @@
+package com.eurlanda.datashire.sprint7.service.user;
+
+import com.sun.org.apache.commons.logging.Log;
+import com.sun.org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Service;
+
+/**
+ * Created by yhc on 2/19/2016.
+ * 关于服务端系统级别的功能
+ */
+@Service
+public class EurlandaSystemService {
+    private String token;//令牌根据令牌得到相应的连接信息
+    public String getKey() {
+        return key;
+    }
+    public void setKey(String key) {
+        this.key = key;
+    }
+
+    private String key;// key值
+    public String getToken() {
+        return token;
+    }
+    public void setToken(String token) {
+        this.token = token;
+    }
+    private static Log log = LogFactory.getLog(EurlandaSystemService.class);
+}

@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.TransformationInputsDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.TransformationInputs" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="TRANSFORMATION_ID" property="transformationId" jdbcType="INTEGER" />
+    <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+    <result column="SOURCE_TRANSFORM_ID" property="source_transform_id" jdbcType="INTEGER" />
+    <result column="SOURCE_TRAN_OUTPUT_INDEX" property="source_tran_output_index" jdbcType="INTEGER" />
+    <result column="IN_CONDITION" property="in_condition" jdbcType="VARCHAR" />
+    <result column="INPUT_VALUE" property="input_value" jdbcType="VARCHAR" />
+    <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+    <result column="INPUT_DATA_TYPE" property="input_Data_Type" jdbcType="INTEGER" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, TRANSFORMATION_ID, RELATIVE_ORDER, SOURCE_TRANSFORM_ID, SOURCE_TRAN_OUTPUT_INDEX, 
+    IN_CONDITION, INPUT_VALUE, DESCRIPTION, INPUT_DATA_TYPE
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_tran_inputs
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_tran_inputs
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="java.util.List" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_tran_inputs (TRANSFORMATION_ID, RELATIVE_ORDER, 
+      SOURCE_TRANSFORM_ID, SOURCE_TRAN_OUTPUT_INDEX, 
+      IN_CONDITION, INPUT_VALUE, DESCRIPTION, 
+      INPUT_DATA_TYPE)
+    values
+    <foreach collection="list" item="item" index="index" separator="," >
+    (#{item.transformationId,jdbcType=INTEGER}, #{item.relative_order,jdbcType=INTEGER},
+      #{item.source_transform_id,jdbcType=INTEGER}, #{item.source_tran_output_index,jdbcType=INTEGER},
+      #{item.in_condition,jdbcType=VARCHAR}, #{item.input_value,jdbcType=VARCHAR}, #{item.description,jdbcType=VARCHAR},
+      #{item.input_Data_Type,jdbcType=INTEGER})
+    </foreach>
+  </insert>
+  <insert id="insertSelective" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.TransformationInputs" >
+    insert into ds_tran_inputs
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="transformationId != null" >
+        TRANSFORMATION_ID,
+      </if>
+      <if test="relative_order != null" >
+        RELATIVE_ORDER,
+      </if>
+      <if test="source_transform_id != null" >
+        SOURCE_TRANSFORM_ID,
+      </if>
+      <if test="source_tran_output_index != null" >
+        SOURCE_TRAN_OUTPUT_INDEX,
+      </if>
+      <if test="in_condition != null" >
+        IN_CONDITION,
+      </if>
+      <if test="input_value != null" >
+        INPUT_VALUE,
+      </if>
+      <if test="description != null" >
+        DESCRIPTION,
+      </if>
+      <if test="input_Data_Type != null" >
+        INPUT_DATA_TYPE,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="transformationId != null" >
+        #{transformationId,jdbcType=INTEGER},
+      </if>
+      <if test="relative_order != null" >
+        #{relative_order,jdbcType=INTEGER},
+      </if>
+      <if test="source_transform_id != null" >
+        #{source_transform_id,jdbcType=INTEGER},
+      </if>
+      <if test="source_tran_output_index != null" >
+        #{source_tran_output_index,jdbcType=INTEGER},
+      </if>
+      <if test="in_condition != null" >
+        #{in_condition,jdbcType=VARCHAR},
+      </if>
+      <if test="input_value != null" >
+        #{input_value,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null" >
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="input_Data_Type != null" >
+        #{input_Data_Type,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.TransformationInputs" >
+    update ds_tran_inputs
+    <set >
+      <if test="transformationId != null" >
+        TRANSFORMATION_ID = #{transformationId,jdbcType=INTEGER},
+      </if>
+      <if test="relative_order != null" >
+        RELATIVE_ORDER = #{relative_order,jdbcType=INTEGER},
+      </if>
+      <if test="source_transform_id != null" >
+        SOURCE_TRANSFORM_ID = #{source_transform_id,jdbcType=INTEGER},
+      </if>
+      <if test="source_tran_output_index != null" >
+        SOURCE_TRAN_OUTPUT_INDEX = #{source_tran_output_index,jdbcType=INTEGER},
+      </if>
+      <if test="in_condition != null" >
+        IN_CONDITION = #{in_condition,jdbcType=VARCHAR},
+      </if>
+      <if test="input_value != null" >
+        INPUT_VALUE = #{input_value,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null" >
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="input_Data_Type != null" >
+        INPUT_DATA_TYPE = #{input_Data_Type,jdbcType=INTEGER},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.TransformationInputs" >
+    update ds_tran_inputs
+    set TRANSFORMATION_ID = #{transformationId,jdbcType=INTEGER},
+      RELATIVE_ORDER = #{relative_order,jdbcType=INTEGER},
+      SOURCE_TRANSFORM_ID = #{source_transform_id,jdbcType=INTEGER},
+      SOURCE_TRAN_OUTPUT_INDEX = #{source_tran_output_index,jdbcType=INTEGER},
+      IN_CONDITION = #{in_condition,jdbcType=VARCHAR},
+      INPUT_VALUE = #{input_value,jdbcType=VARCHAR},
+      DESCRIPTION = #{description,jdbcType=VARCHAR},
+      INPUT_DATA_TYPE = #{input_Data_Type,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <select id="selectByTransId" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select
+    <include refid="Base_Column_List" />
+    from ds_tran_inputs
+    where TRANSFORMATION_ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByTransId" parameterType="java.util.List" >
+    delete from ds_tran_inputs
+    where TRANSFORMATION_ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+
+
+  <update id="updateTransInputSourceTransId" parameterType="java.util.List">
+    update ds_tran_inputs s set s.source_transform_id=0
+    where s.id in
+    <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </update>
+
+  <select id="selectTransInputByLinkIds" parameterType="java.util.Map" resultMap="BaseResultMap">
+    select DISTINCT p.* from ds_transformation_link k
+    inner join ds_transformation t
+    on k.to_transformation_id=t.ID
+    inner join ds_tran_inputs p
+    on t.ID=p.transformation_id
+    where k.id in
+    <foreach collection="linkIds" item="linkId" index="index" open="(" separator="," close=")">
+      #{linkId}
+    </foreach>
+    and p.SOURCE_TRANSFORM_ID in
+    <foreach collection="tranIds" item="tranId" index="index" open="(" separator="," close=")">
+      #{tranId}
+    </foreach>
+  </select>
+
+  <update id="updateTransInputs" parameterType="java.util.List">
+    update ds_tran_inputs set source_transform_id = 0 where id IN
+    <foreach collection="list" item="ids" open="(" separator="," close=")">
+      #{ids}
+    </foreach>
+  </update>
+
+
+    <delete id="deleteByInputIds" parameterType="java.util.List">
+      delete from ds_tran_inputs where id in
+      <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+        #{item}
+      </foreach>
+    </delete>
+
+
+  <delete id="deleteInputsByTransId" parameterType="java.util.List">
+    DELETE from ds_tran_inputs where transformation_id in
+    <foreach collection="list" item="transId" open="(" separator="," close=")">
+      #{transId.transformation_id}
+    </foreach>
+    and SOURCE_TRANSFORM_ID in
+    <foreach collection="list" item="transId" open="(" separator="," close=")">
+      #{transId.source_transform_id}
+    </foreach>
+  </delete>
+
+  <update id="updateInputSourceByTransIdAndSource" parameterType="java.util.List">
+
+      update ds_tran_inputs
+      <set>
+        source_transform_id = 0
+      </set>
+    where
+    <foreach collection="list" item="transIdAndSource" separator="or">
+       (transformation_id = #{transIdAndSource.id} and source_transform_id = #{transIdAndSource.source_transform_id})
+    </foreach>
+  </update>
+
+  <select id="findTransInputCount" parameterType="java.util.List" resultType="java.util.Map">
+    <foreach collection="list" separator="union" item="transIdAndSource">
+      select DISTINCT transformation_id,count(1) as count  from ds_tran_inputs where transformation_id = #{transIdAndSource.transformationId}
+    </foreach>
+  </select>
+
+  <select id="selectTransInputByTransTypeAndInputIds_delete" parameterType="java.util.List" resultType="java.lang.Integer">
+   SELECT s.id FROM  ds_tran_inputs s
+      INNER JOIN ds_transformation t
+       ON s.TRANSFORMATION_ID = t.ID
+      INNER JOIN ds_transformation_type p
+       ON t.TRANSFORMATION_TYPE_ID = p.ID
+       WHERE p.`CODE` in ('CONCATENATE','CHOICE','NUMASSEMBLE','CSVASSEMBLE')
+     AND s.ID in
+     <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+       #{item}
+     </foreach>
+
+  </select>
+
+  <select id="selectTransInputByTransTypeAndInputIds_update" parameterType="java.util.List" resultType="java.lang.Integer">
+    SELECT s.id FROM  ds_tran_inputs s
+    INNER JOIN ds_transformation t
+    ON s.TRANSFORMATION_ID = t.ID
+    INNER JOIN ds_transformation_type p
+    ON t.TRANSFORMATION_TYPE_ID = p.ID
+    WHERE p.`CODE` not in ('CONCATENATE','CHOICE','NUMASSEMBLE','CSVASSEMBLE')
+    AND s.ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+
+  </select>
+  <delete id="deleteTransInputBySquidId" parameterType="java.util.List">
+    delete i from ds_tran_inputs i inner join ds_transformation t on t.ID = i.TRANSFORMATION_ID where t.SQUID_ID in
+    <foreach collection="list" item="squidId" open="(" separator="," close=")">
+      #{squidId}
+    </foreach>
+  </delete>
+
+  <select id="selectTransInputByTransIds" parameterType="java.util.List" resultType="java.lang.Integer">
+    select id from ds_tran_inputs where TRANSFORMATION_ID in
+    <foreach collection="list" item="tranId" open="(" separator="," close=")">
+      #{tranId}
+    </foreach>
+  </select>
+
+  <select id="selectInputByLinkIdsAndTransIds" parameterType="java.util.Map" resultType="java.lang.Integer">
+    select DISTINCT p.id from ds_transformation_link k
+    INNER join ds_tran_inputs p
+    on p.SOURCE_TRANSFORM_ID = k.FROM_TRANSFORMATION_ID
+    and p.TRANSFORMATION_ID = k.TO_TRANSFORMATION_ID
+    where k.id in
+    <foreach collection="linkIds" item="linkId" index="index" open="(" separator="," close=")">
+      #{linkId}
+    </foreach>
+    and p.SOURCE_TRANSFORM_ID in
+    <foreach collection="fromTranIds" item="tranId" index="index" open="(" separator="," close=")">
+      #{tranId}
+    </foreach>
+    and p.TRANSFORMATION_ID in
+    <foreach collection="toTransIds" item="tranId" index="index" open="(" separator="," close=")">
+      #{tranId}
+    </foreach>
+  </select>
+    <update id="updateTransInputsByTransId" parameterType="java.util.List">
+        update ds_tran_inputs
+        <set>
+            source_transform_id = 0
+        </set>
+        where transformation_id in
+        <foreach collection="list" item="transId" index="index" open="(" separator="," close=")">
+            #{transId}
+        </foreach>
+    </update>
+
+
+<!--查询不同tranType对应的不同信息-->
+<select id="findInputsDefintionByTransType" resultType="java.util.Map">
+  select d.`CODE` as code,
+         GROUP_CONCAT(d.INPUT_DATA_TYPE) as inputDataType,
+        GROUP_CONCAT(d.DESCRIPTION) as description,
+        GROUP_CONCAT(d.INPUT_ORDER) as inputOrder,
+        p.ID as transTypeId
+          from ds_tran_input_definition d
+          inner join ds_transformation_type p
+          on d.`CODE`=p.`CODE`
+          group by p.ID
+</select>
+  <select id="selectTransInputByTrans" parameterType="java.util.List" resultType="java.lang.Integer">
+    select * from ds_tran_inputs where TRANSFORMATION_ID in
+    <foreach collection="list" item="tranId" open="(" separator="," close=")">
+      #{tranId}
+    </foreach>
+  </select>
+
+  <update id="updateInpusDataType" parameterType="java.util.Map">
+    update ds_tran_inputs
+    <set>
+      input_Data_Type = #{type}
+    </set>
+    where transformation_id in
+    <foreach collection="idsList" item="transId" index="index" open="(" separator="," close=")">
+      #{transId}
+    </foreach>
+  </update>
+
+
+
+
+</mapper>

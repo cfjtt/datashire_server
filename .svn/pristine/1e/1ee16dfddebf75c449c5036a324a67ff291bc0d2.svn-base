@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.DestImpalaColumnDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.DestImpalaColumn" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="COLUMN_ID" property="column_id" jdbcType="INTEGER" />
+    <result column="SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+    <result column="IS_DEST_COLUMN" property="is_dest_column" jdbcType="INTEGER" />
+    <result column="FIELD_NAME" property="field_name" jdbcType="VARCHAR" />
+    <result column="COLUMN_ORDER" property="column_order" jdbcType="INTEGER" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, COLUMN_ID, SQUID_ID, IS_DEST_COLUMN, FIELD_NAME, COLUMN_ORDER
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_dest_impala_column
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_dest_impala_column
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.DestImpalaColumn" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_dest_impala_column (COLUMN_ID, SQUID_ID, IS_DEST_COLUMN, 
+      FIELD_NAME, COLUMN_ORDER)
+    values (#{column_id,jdbcType=INTEGER}, #{squid_id,jdbcType=INTEGER}, #{is_dest_column,jdbcType=INTEGER}, 
+      #{field_name,jdbcType=VARCHAR}, #{column_order,jdbcType=INTEGER})
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.DestImpalaColumn" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_dest_impala_column
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="column_id != null" >
+        COLUMN_ID,
+      </if>
+      <if test="squid_id != null" >
+        SQUID_ID,
+      </if>
+      <if test="is_dest_column != null" >
+        IS_DEST_COLUMN,
+      </if>
+      <if test="field_name != null" >
+        FIELD_NAME,
+      </if>
+      <if test="column_order != null" >
+        COLUMN_ORDER,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="column_id != null" >
+        #{column_id,jdbcType=INTEGER},
+      </if>
+      <if test="squid_id != null" >
+        #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="is_dest_column != null" >
+        #{is_dest_column,jdbcType=INTEGER},
+      </if>
+      <if test="field_name != null" >
+        #{field_name,jdbcType=VARCHAR},
+      </if>
+      <if test="column_order != null" >
+        #{column_order,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.DestImpalaColumn" >
+    update ds_dest_impala_column
+    <set >
+      <if test="column_id != null" >
+        COLUMN_ID = #{column_id,jdbcType=INTEGER},
+      </if>
+      <if test="squid_id != null" >
+        SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="is_dest_column != null" >
+        IS_DEST_COLUMN = #{is_dest_column,jdbcType=INTEGER},
+      </if>
+      <if test="field_name != null" >
+        FIELD_NAME = #{field_name,jdbcType=VARCHAR},
+      </if>
+      <if test="column_order != null" >
+        COLUMN_ORDER = #{column_order,jdbcType=INTEGER},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.DestImpalaColumn" >
+    update ds_dest_impala_column
+    set COLUMN_ID = #{column_id,jdbcType=INTEGER},
+      SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      IS_DEST_COLUMN = #{is_dest_column,jdbcType=INTEGER},
+      FIELD_NAME = #{field_name,jdbcType=VARCHAR},
+      COLUMN_ORDER = #{column_order,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+
+  <delete id="deleteImpalaColumnByIds" parameterType="java.util.List">
+    delete from ds_dest_impala_column where squid_id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+    <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List">
+        insert into ds_dest_impala_column (COLUMN_ID, SQUID_ID, IS_DEST_COLUMN,
+        FIELD_NAME, COLUMN_ORDER)
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+            (#{item.column_id,jdbcType=INTEGER}, #{item.squid_id,jdbcType=INTEGER},
+            #{item.is_dest_column,jdbcType=INTEGER},
+            #{item.field_name,jdbcType=VARCHAR}, #{item.column_order,jdbcType=INTEGER})
+        </foreach>
+    </insert>
+</mapper>

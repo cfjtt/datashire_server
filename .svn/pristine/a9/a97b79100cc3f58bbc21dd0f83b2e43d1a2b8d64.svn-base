@@ -1,0 +1,66 @@
+# sina weibo add by dang.lu at 2014.1.20
+client_ID=3715747658
+client_SERCRET=02712edea5841797bff4ca230da94bbf
+redirect_URI=http://open.weibo.com/apps
+baseURL=https://api.weibo.com/2/
+accessTokenURL=https://api.weibo.com/oauth2/access_token
+authorizeURL=https://api.weibo.com/oauth2/authorize
+rmURL=https://rm.api.weibo.com/2/
+
+#FtpDownload_Path=C:/javac/eurlanda/ftpdownload
+FtpDownload_Path=/home/dsreport/datashire/ftpdownload
+
+sql.queryTimeout=20
+
+timer=3
+
+# hibernate
+hibernate.hbm2ddl.auto=update
+hibernate.show_sql=false
+hibernate.format_sql=false
+
+socket.compress=0
+
+# KAFKA Brokers
+KAFKA_BROKER_LIST=e81:9192
+KAFKA_LOG_TOPIC=ds_log
+
+# zookeeper
+ZOOKEEPER_ADDRESS=e81,e82,e83:2181
+ZOOKEEPER_GROUP=1
+#ZOOKEEPER_GROUP=2
+ZOOKEEPER_CONSUMER=1
+
+#message
+executeValidationTaskFlag=false
+
+#Hsql_Host_Address=jdbc:hsqldb:hsql://192.168.137.91:9092/
+Hsql_Host_Address=jdbc:hsqldb:hsql://127.0.0.1:9092/
+HsqlDB_SysName=prod
+HSQL_SYS_DB_TYPE=10
+HSQL_USER_NAME=sa
+HSQL_PASSWORD=
+
+# rpc
+rpc.self.port=9003
+#rpc.engine.addr=192.168.137.222
+rpc.engine.addr=127.0.0.1
+rpc.engine.port=11099
+
+# hbase
+hbase.port=2181
+hbase.host=e81,e82,e83
+
+# hana
+hana.port=30115
+hana.host=192.168.137.219
+
+# report
+basePathIp=http://192.168.137.81:8082
+
+report_url=/report/service/report.jspx?repositoryId=%s&squidId=%s
+editmap_url=/report/service/editMap.jspx?repositoryId=%s&squidId=%s
+viewmap_url=/report/service/gisMap.jspx?repositoryId=%s&squidId=%s
+
+#export param
+export_cutting_size=1000000

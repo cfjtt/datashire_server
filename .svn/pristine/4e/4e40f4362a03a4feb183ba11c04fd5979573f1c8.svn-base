@@ -1,0 +1,673 @@
+package com.eurlanda.datashire.utility;
+
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.entity.Squid;
+import org.apache.log4j.Logger;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.SocketAddress;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * 字符串处理工具类
+ * 
+ * @author dang.lu 2013-10-1
+ *
+ */
+public class StringUtils {
+	public static final String EMPTY = "";
+	public static final String NULL = "null";
+	
+    public static boolean isEmpty(String str)
+    {
+        return str == null || str.trim().length() == 0 ;
+    }
+
+    public static boolean isNotEmpty(String str)
+    {
+        return !isEmpty(str);
+    }
+
+    public static String ifNull(String str)
+    {
+    	return isNull(str)?"":str;
+    }
+    public static String ifNull(String str, String defaultStr)
+    {
+    	return isNull(str)?defaultStr:str;
+    }
+    public static String ifNull(Object str)
+    {
+    	return isNull(str)?"":str.toString();
+    }
+    public static String ifNull(Object str, String defaultStr)
+    {
+    	return isNull(str)?defaultStr:str.toString();
+    }
+    
+    public static String valueOf(Map map, String key)
+    {
+    	return map==null||map.get(key)==null?"":map.get(key).toString();
+    }
+    
+    public static int valueOfInt(Map map, String key)
+    {
+    	return map==null||!map.containsKey(key) ? 0 : Integer.parseInt(map.get(key).toString(), 10);
+    }
+    /** 不区分大小写 */
+    public static int valueOfInt2(Map map, String key)
+    {
+    	return valueOfInt(map, key)==0?valueOfInt(map, key.toUpperCase()):valueOfInt(map, key);
+    }
+    public static String valueOf2(Map map, String key)
+    {
+    	return isNull(valueOf(map, key))?valueOf(map, key.toUpperCase()):valueOf(map, key);
+    }
+    
+    public static boolean isNull(String str)
+    {
+    	return str==null || str.trim().length()==0 || NULL.equals(str.trim());
+    }
+
+    public static boolean isNotNull(String str)
+    {
+        return !isNull(str);
+    }
+    
+    public static boolean isBlank(String str){
+        return org.apache.commons.lang.StringUtils.isBlank(str);
+    }
+    
+    public static boolean isNotBlank(String str){
+        return org.apache.commons.lang.StringUtils.isNotBlank(str);
+    }
+    
+    public static boolean isNull(Object obj)
+    {
+    	return obj==null || isNull(obj.toString());
+    }
+    
+    public static boolean isNotNull(Object obj)
+    {
+    	return !isNull(obj);
+    }
+    
+    public static String trim(String str)
+    {
+        return str != null ? str.trim() : null;
+    }
+
+    public static String trimToNull(String str)
+    {
+        String ts = trim(str);
+        return isEmpty(ts) ? null : ts;
+    }
+
+    public static String trimToEmpty(String str)
+    {
+        return str != null ? str.trim() : EMPTY;
+    }
+    
+    public static boolean equals(String str1, String str2)
+    {
+        return str1 != null ? str1.equals(str2) : str2 == null;
+    }
+
+    public static  boolean equals(int a, int b, int c)
+    {
+		return a==b && a==c;
+	}
+	
+    public static boolean equalsIgnoreCase(String str1, String str2)
+    {
+        return str1 != null ? str1.equalsIgnoreCase(str2) : str2 == null;
+    }
+    
+    public static String capitalize(String str)
+    {
+        int strLen;
+        if(str == null || (strLen = str.length()) == 0)
+            return str;
+        else
+            return new StringBuffer(strLen).append(Character.toTitleCase(str.charAt(0))).append(str.substring(1)).toString();
+    }
+
+	/**
+	 * 在给定数字前补足零
+	 * @param num 数字
+	 * @param len 指定字符串长度
+	 * @return 返回字符串（数字前加零，个数为len-String.valueOf(num).length()）
+	 */
+	public static String supplyNumber(long num, int len){
+		len = len-Long.toString(num, 10).length();
+		StringBuffer returnStr = new StringBuffer(len);
+		for(int i=0; i<len; i++){
+			returnStr.append("0");
+		}
+		return returnStr.append(num).toString();
+	}
+	
+	public static String supplyNumber(int num, int len){
+		len = len-Long.toString(num, 10).length();
+		StringBuffer returnStr = new StringBuffer(len);
+		for(int i=0; i<len; i++){
+			returnStr.append("0");
+		}
+		return returnStr.append(num).toString();
+	}
+	
+	public static String supplyNumber(String num, int len){
+		len = len-num.length();
+		StringBuffer returnStr = new StringBuffer(len);
+		for(int i=0; i<len; i++){
+			returnStr.append("0");
+		}
+		return returnStr.append(num).toString();
+	}
+	
+	/** 在给定数字前补足零或空格 */
+	public static String supplyNumber(Object num, int len, 
+			boolean addspaceORzero, boolean beforeORAfter){
+		int l=String.valueOf(num).length();
+		len = len-l;
+		String ret="";
+		for(int i=0; i<len; i++){
+			ret +=addspaceORzero?" ": "0";
+		}
+		return !beforeORAfter?(num+ret):(ret+num);
+	}
+	public static String supplyNumber(String num, int len, 
+			boolean addspaceORzero, boolean beforeORAfter){
+		int l=String.valueOf(num).length();
+		len = len-l;
+		String ret="";
+		for(int i=0; i<len; i++){
+			ret +=addspaceORzero?" ": "0";
+		}
+		return !beforeORAfter?(num+ret):(ret+num);
+	}
+    public static byte[] copyOfRange(byte[] original, int from, int to) {
+        int newLength = to - from;
+        if (newLength < 0)
+            throw new IllegalArgumentException(from + " > " + to);
+        byte[] copy = new byte[newLength];
+        System.arraycopy(original, from, copy, 0,
+                         Math.min(original.length - from, newLength));
+        return copy;
+    }
+    
+    public static byte[] copyOfRange2(byte[] original, int from, int length) {
+        byte[] copy = new byte[length];
+        System.arraycopy(original, from, copy, 0,
+                         Math.min(original.length - from, length));
+        return copy;
+    }
+    
+    public static String list2String(List list, int lastN){
+    	if(list!=null){
+    		int s = list.size();
+    		StringBuilder b = new StringBuilder();
+    		b.append("[").append(s).append("] ");
+    		for(int i=s-1; i>=s-lastN && i>=0; i--){
+    			b.append(list.get(i)).append(",");
+    		}
+    		return b.toString();
+    	}
+    	return "";
+    }
+    
+	/**
+	 * 转换协议字节数组为字符串
+	 * 
+	 * @param data 协议字节数组
+	 * @return 字符串形式
+	 * */
+	public static final String bytes2Str(byte[] data, String charsetName) {
+		try { // 获得字符串编码方式（针对协议数据段）
+			return new String(data, 0, data.length, charsetName);
+		} catch (UnsupportedEncodingException e) {
+			logger.error("UnsupportedEncodingException", e);
+			return new String(data);
+		}
+	}
+
+	/**
+	 * 转换字符串到协议字节数组格式
+	 * 
+	 * @param data 字符串
+	 * @return 字节数组格式
+	 * */
+	public static final byte[] str2Bytes(String data, String charsetName) {
+		logger.trace("convertStringToProtocolDataBytes:" + data);
+		try { // 获得字符串编码方式（针对协议数据段）
+			return data==null?null:data.getBytes(charsetName);
+		} catch (UnsupportedEncodingException e) {
+			logger.error("UnsupportedEncodingException", e);
+			return data==null?null:data.getBytes();
+		}
+	}
+
+	public static String bytes2Str(byte[] data) {
+		return bytes2Str(data, CommonConsts.Socket_Character_Encoding);
+	}
+	
+	public static byte[] str2Bytes(String data) {
+		return str2Bytes(data, CommonConsts.Socket_Character_Encoding);
+	}
+	
+	/**
+	 * <p>
+	 * 作用描述：获取指定客户端IP
+	 * </p>
+	 * <p>
+	 * 修改说明：
+	 * </p>
+	 * 
+	 * @param socketAddress
+	 * @return
+	 */
+	public static String getIp(SocketAddress socketAddress) {
+		String ip = socketAddress==null?"":socketAddress.toString();
+		if(isNotNull(ip)){
+			logger.trace("begin remoteAddress! "+socketAddress);
+			//int begin = ip.indexOf("/");
+			//int end = ip.indexOf(":");
+			ip = ip.substring(ip.indexOf("/") + 1, ip.indexOf(":"));
+			logger.trace("end remoteAddress:" + ip);
+		}
+		return ip;
+	}
+	
+	/** 线程堆栈信息 */
+    public final static String toString(Throwable e) {
+    	if(e==null) e = new Throwable();
+    	StringBuffer buffer = new StringBuffer();    
+        StackTraceElement[] stackTraceElements = e.getStackTrace();   
+        StackTraceElement stackTraceElement = null;
+        buffer.append("\r\n[").append(Thread.currentThread().getName()).append("]\t"+e.getClass().getName());
+        if(e.getMessage()!=null)buffer.append(" : "+e.getMessage());  
+        for(int i=1; i<stackTraceElements.length; i++){
+        	stackTraceElement = stackTraceElements[i];
+        	if(!stackTraceElement.getClassName().startsWith("com.eurlanda.") ||
+        			stackTraceElement.getClassName().startsWith("com.eurlanda.datashire.adapter.") ||
+        			stackTraceElement.getClassName().startsWith("com.eurlanda.datashire.socket.")
+        			){
+        		continue;
+        	}
+        	 buffer
+        	 //.append("\r\n[").append(i).append("]")
+        	 .append("\r\n\t");
+             buffer.append(stackTraceElement.getClassName());   
+             buffer.append('.');   
+             buffer.append(stackTraceElement.getMethodName()).append("(");   
+             buffer.append(stackTraceElement.getLineNumber()).append(")");   
+        }
+        return buffer.toString().replaceAll("com.eurlanda.datashire.", EMPTY);
+	}
+    /** 精简线程堆栈信息 */
+    public final static String toString2(Throwable e) {
+    	if(e==null) e = new Throwable();
+    	StringBuffer buffer = new StringBuffer("\r\n");    
+        StackTraceElement[] stackTraceElements = e.getStackTrace();   
+        StackTraceElement stackTraceElement = null;
+        if(e.getMessage()!=null)buffer.append(" : "+e.getMessage());  
+        for(int i=stackTraceElements.length-1; i>=0; i--){
+        	 stackTraceElement = stackTraceElements[i];    
+             buffer.append(stackTraceElement.getClassName().substring(stackTraceElement.getClassName().lastIndexOf(".")+1));   
+             buffer.append('.');   
+             buffer.append(stackTraceElement.getMethodName()).append("|");
+        }
+        return buffer.toString();
+	}
+    
+	public static String toString(Map map, boolean showIndex){
+		if(map==null) return "";
+		StringBuffer buffer = new StringBuffer();
+		 Iterator it = map.keySet().iterator();
+		 Object tmp=null;
+		 int index=1;
+		 while(it.hasNext()){
+			 tmp = it.next();
+			if(showIndex) buffer.append(index+++"\t"+tmp+"\t"+map.get(tmp)+"\r\n");
+			else buffer.append(tmp+"\t"+map.get(tmp)+"\r\n");
+		 }
+		 return buffer.toString();
+	}
+	
+	public static String byte2String(long len){
+		DecimalFormat fmt = new DecimalFormat("00.00");
+		String ret = "";
+		long kb = 1048576L; //1024*1024L; 
+		long mb = 1073741824L; //1024*1024*1024L; 
+		long gb = 1099511627776L; //1024*1024*1024*1024L;
+		if(len>=1024 && len<=kb){
+			ret = fmt.format((double) len / 1024) + " KB";
+		}
+		else if (len>kb && len<=mb) {
+			ret = fmt.format((double) len / kb) + " MB";
+		}
+		else if (len>0 && len<1024) {
+			ret =  len+" 字节";
+		}
+		else if (len>mb && len<=gb) {
+			ret = fmt.format((double) len / mb) + " GB";
+		}
+		else if(len == 0){
+			ret = "00.00 字节";
+		}
+		else{
+			ret = String.valueOf(len); // 负数、大于1024G
+		}
+		return ret;
+	}
+	
+	
+	/** for sql 文件 */
+	public static String toString(String filePath, String fileEncoding) {
+		BufferedReader reader = null;
+		StringBuilder ret = new StringBuilder();
+		String line = null;
+		try {
+			reader = new BufferedReader(
+						new InputStreamReader(
+							new FileInputStream(filePath), fileEncoding));
+			while ((line = reader.readLine()) != null) {
+				if(isNotNull(line) && 
+						!line.trim().startsWith("--")){ // 单行注释
+					ret.append(line.trim());
+				}
+				ret.append(" "); // 跨行
+			}
+		} catch (Exception e) {
+			logger.error("read file error: "+filePath, e);
+		} finally {
+			if(reader!=null)
+				try {
+					reader.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+		}
+		return ret.toString();
+	}
+
+    public static <T> List<T> asList(T... a) {
+    	return a==null||a.length==0?new ArrayList<T>():Arrays.asList(a);
+    }
+    
+    /* Appends all of the elements in the specified collection to the end of this list. (fk:NullPointerException)*/
+    public static void addAll(List src, List list){
+    	if(src!=null&&!src.isEmpty()&&list!=null&&!list.isEmpty()){
+    		src.addAll(list);
+    	}
+    }
+    
+	/** 随机数字，包含from-to*/
+	public static final int ranInt(int from, int to){
+		return from+random.nextInt(to-from+1);	
+	}
+	
+	/** 随机串，包含大小写字母、数字 */
+	public static final String ranStr(int length){
+		StringBuilder str= new StringBuilder(length);
+		for(int i=0; i<length; i++){
+			switch(ranInt(1,2)){
+				case 2: str.append(Integer.toString(ranInt(0,9), 10)); break;
+				case 1: str.append(new String(new char[]{"ABCDEFGHIJKLMNOPQRSTUVWXYZ".charAt(ranInt(0,5))}, 0, 1)); break;
+				//case 3: str.append(String.valueOf("abcdefghijklmnopqrstuvwxyz".charAt(ranInt(0,25)))); break;
+			}
+		}
+		return str.toString();	
+	}
+	
+	/** 微软通用GUID，36位随机字符串 */
+	public static final String generateGUID(){
+		return ranStr(8)+"-"+ranStr(4)+"-"+ranStr(4)+"-"+ranStr(4)+"-"+ranStr(12);
+	}
+	/**
+	 * 获取文件内容。
+	 * @date 2011-11-7 
+	 * @param f 输入文件，编码为自动探测。
+	 * @param charset 文件编码
+	 * @return 文件内容。
+	 */
+	public static String toString(File f,String charset){
+		String pageString = null;
+		try {
+			InputStream in = new FileInputStream(f);
+			pageString = toString(in,charset);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return pageString;
+	}
+	
+	/**
+	 * 获取输入流的内容。
+	 * @date 2011-11-7 
+	 * @param is 字符流
+	 * @param charset 输入流的字符编码，如果不明确charset请使用{@link #is}
+	 * @return InputStream 的字符串内容
+	 */
+	public static String toString(InputStream is,String charset){
+		String pageString = null;
+		try {
+			InputStreamReader isr=new InputStreamReader(is,charset);
+			BufferedReader br = new BufferedReader(isr);
+			StringBuffer sb = new StringBuffer();
+			String line = null;
+			while ((line = br.readLine()) != null) {
+				sb.append(line + "\n");
+			}
+			pageString = sb.toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}finally{
+				try {
+					if (is!=null) is.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+		}
+		return pageString;
+	}
+	
+	/**
+	 * 替换
+	 * replace(这里用一句话描述这个方法的作用)
+	 * TODO(这里描述这个方法适用条件 – 可选) 
+	 * 
+	 * @Title: replace
+	 * @Description: TODO
+	 * @param name
+	 * @return 设定文件 
+	 * @return String 返回类型 
+	 * @throws 
+	 * @author bo.dang
+	 */
+	public static String replace(String name){
+		String str = null;
+		if(isNull(name)){
+			return null;
+		} else if(!name.startsWith("_") && !name.endsWith("_")) {
+			str = name.replace(" ", "_").replace(".", "_").replace("+", "_").replace("-", "_").replace("(", "_").replace(")", "_")
+					.replace("=", "_").replace(",", "_").replace("/", "_").replace("\\", "_").replace("'", "_")
+					.replace("\"", "_").replace("{", "_").replace("}", "_").replace("~", "_").replace("·", "_")
+					.replace("`", "_").replace("!", "_").replace("@", "_").replace("#", "_").replace("$", "_")
+					.replace("%", "_").replace("^", "_").replace("&", "_").replace("*", "_");
+		} else {
+			if(name.startsWith("_")){
+				str = name.substring(1, name.length());
+			}
+			if(name.endsWith("_")){
+				str = name.substring(0, name.length()-1);
+			}
+			str = replace(str);
+		}
+		if (!isNull(str)){
+			String s = str.substring(0, 1);
+			if (s.matches("[0-9]")){
+				str = "col_"+str;
+			}
+			/*
+			if (str.length()>40){
+				str = str.substring(0, 40);
+			}*/
+		}
+		return str;
+	}
+
+
+	public static String replaceSource(String name){
+		String str = null;
+		int i = 0;
+		if(isNull(name)){
+			return null;
+		} else{
+			str = name.replace(" ", "_").replace(".", "_").replace("+", "_").replace("-", "_").replace("(", "_").replace(")", "_")
+					.replace("=", "_").replace(",", "_").replace("/", "_").replace("\\", "_").replace("'", "_")
+					.replace("\"", "_").replace("{", "_").replace("}", "_").replace("~", "_").replace("·", "_")
+					.replace("`", "_").replace("!", "_").replace("@", "_").replace("#", "_").replace("$", "_")
+					.replace("%", "_").replace("^", "_").replace("&", "_").replace("*", "_").replace(":", "_");
+		}
+		if (!isNull(str)){
+			String s = str.substring(0, 1);
+			//当str只是单个 "_" 时做特殊处理
+			if (str.length() == 1 && s.equals("_")){
+				 str = "col_" + str + i;
+				 i++;
+			} else if (s.matches("[0-9]")&&str.length()==1){
+				str = "col_"+str;
+			}
+			/*
+			if (str.length()>40){
+				str = str.substring(0, 40);
+			}*/
+		}
+		return str;
+	}
+
+	/**
+	 * 设置重复名称后自动创建序号
+	 * @param adapter3
+	 * @param squidName
+	 * @param squidFlowId
+	 * @return
+	 */
+	public static String getSquidName(IRelationalDataManager adapter3, String squidName, int squidFlowId){
+		squidName=squidName.replaceAll("[^a-z,A-Z,0-9]", "_");
+		Map<String, Object> params = new HashMap<String, Object>();
+		int cnt = 1;
+		squidName="e_"+squidName;
+		String tempName = squidName;
+		while (true) {
+			params.put("name", tempName);
+			params.put("squid_flow_id", squidFlowId);
+			Squid squid = adapter3.query2Object(true, params, Squid.class);
+			if (squid==null){
+				return tempName;
+			}
+			tempName = squidName +"_"+ cnt;
+			cnt++;
+		}
+	}
+
+	//判断是否含有中文和特殊字符
+	public static boolean isHavaChinese(String columName) {
+		Pattern p = Pattern.compile(".*[\\u4e00-\\u9faf].*");
+		Matcher m = p.matcher(columName);
+		if (m.find()) {
+			return true;
+		}
+		String regEx = "[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
+		p = Pattern.compile(regEx);
+		m=p.matcher(columName);
+		if(m.find()){
+			return true;
+		}
+		return false;
+
+	}
+	//判断是否是CSN类型的数据
+	public static boolean isCSN(String name) {
+		Pattern p = Pattern.compile("'[1-9]\\d*(,[1-9]\\d*)*'");
+		Matcher m = p.matcher(name);
+		if (m.matches()) {
+			return true;
+		}
+		return false;
+	}
+
+    //判断是否是CSN类型的数据
+    public static boolean isCSN2(String name) {
+        Pattern p = Pattern.compile("^'(([0-9])+(\\.[0-9]+)?)(,([0-9])+(\\.[0-9]+)?)*'$");
+        Matcher m = p.matcher(name);
+        if (m.matches()) {
+            return true;
+        }
+        return false;
+    }
+
+    //判断是否是Integer类型的数据
+	public static boolean isInteger(String name) {
+		Pattern p = Pattern.compile("[0-9]+");
+		Matcher m = p.matcher(name);
+		if (m.matches()) {
+			return true;
+		}
+		return false;
+	}
+	//判断是否是数字类型的数据
+	public static boolean isDigital (String name) {
+		Pattern p= Pattern.compile("'([0-9]\\d*(\\.[0-9]+)?)+(,[0-9]\\d*(\\.[0-9]+)?)*'");
+		Matcher m = p.matcher(name);
+		if (m.matches()) {
+			return true;
+		}
+		return false;
+	}
+	//判断是否已数字开头
+	public static boolean isStartWithNumber(String str){
+		byte[]	strBytes = str.getBytes();
+		if(strBytes[0] >= 48 && strBytes[0] <= 57){
+			return true;
+		}else {
+			return false;
+		}
+
+	}
+
+
+//	public static void main(String[] args) {
+//		String str = "__1我的dwewre.232!dsfa*dsfd(   dafdafdafda dfal)_+@399_";
+//		System.out.println(replace(str));
+//	}
+
+    private static final Random random = new Random();
+    private static final Logger logger = Logger.getLogger(StringUtils.class);
+
+    public static void main(String[] args) {
+        String name = "541515";
+        Pattern p = Pattern.compile("^(([0-9])+(\\.[0-9]+)?)(,([0-9])+(\\.[0-9]+)?)*$");
+        Matcher m = p.matcher(name);
+        if (m.matches()) {
+            System.out.println(1);
+        }
+        System.out.println(2);
+    }
+}

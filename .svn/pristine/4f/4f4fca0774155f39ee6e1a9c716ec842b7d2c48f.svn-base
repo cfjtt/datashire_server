@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.ColumnDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.Column" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+    <result column="SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+    <result column="NAME" property="name" jdbcType="VARCHAR" />
+    <result column="DATA_TYPE" property="data_type" jdbcType="INTEGER" />
+    <result column="COLLATION" property="collation" jdbcType="INTEGER" />
+    <result column="NULLABLE" property="nullable" jdbcType="CHAR" />
+    <result column="LENGTH" property="length" jdbcType="INTEGER" />
+    <result column="PRECISION" property="precision" jdbcType="INTEGER" />
+    <result column="SCALE" property="scale" jdbcType="INTEGER" />
+    <result column="IS_GROUPBY" property="is_groupby" jdbcType="CHAR" />
+    <result column="AGGREGATION_TYPE" property="aggregation_type" jdbcType="INTEGER" />
+    <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+    <result column="ISUNIQUE" property="isUnique" jdbcType="CHAR" />
+    <result column="ISPK" property="isPK" jdbcType="CHAR" />
+    <result column="CDC" property="cdc" jdbcType="INTEGER" />
+    <result column="IS_BUSINESS_KEY" property="is_Business_Key" jdbcType="INTEGER" />
+    <result column="SORT_LEVEL" property="sort_level" jdbcType="INTEGER" />
+    <result column="SORT_TYPE" property="sort_type" jdbcType="INTEGER" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, RELATIVE_ORDER, SQUID_ID, NAME, DATA_TYPE, COLLATION, NULLABLE, LENGTH,`PRECISION`,
+    SCALE, IS_GROUPBY, AGGREGATION_TYPE, DESCRIPTION, ISUNIQUE, ISPK, CDC, IS_BUSINESS_KEY, 
+    SORT_LEVEL, SORT_TYPE
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_column
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_column
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List" >
+    insert into ds_column (RELATIVE_ORDER, SQUID_ID, NAME,
+      DATA_TYPE, COLLATION, NULLABLE, 
+      LENGTH, `PRECISION`, SCALE,
+      IS_GROUPBY, AGGREGATION_TYPE, DESCRIPTION, 
+      ISUNIQUE, ISPK, CDC, IS_BUSINESS_KEY, 
+      SORT_LEVEL, SORT_TYPE)
+    values
+    <foreach collection="list" item="column" index="index" separator="," >
+    (#{column.relative_order,jdbcType=INTEGER}, #{column.squid_id,jdbcType=INTEGER}, #{column.name},
+      #{column.data_type,jdbcType=INTEGER}, #{column.collation,jdbcType=INTEGER}, #{column.nullable,jdbcType=CHAR},
+      #{column.length,jdbcType=INTEGER}, #{column.precision,jdbcType=INTEGER}, #{column.scale,jdbcType=INTEGER},
+      #{column.is_groupby,jdbcType=CHAR}, #{column.aggregation_type,jdbcType=INTEGER}, #{column.description,jdbcType=VARCHAR},
+      #{column.isUnique,jdbcType=CHAR}, #{column.isPK,jdbcType=CHAR}, #{column.cdc,jdbcType=INTEGER}, #{column.is_Business_Key,jdbcType=INTEGER},
+      #{column.sort_level,jdbcType=INTEGER}, #{column.sort_type,jdbcType=INTEGER})
+    </foreach>
+  </insert>
+  <insert id="insertSelective" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.Column" >
+    insert into ds_column
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="relative_order != null" >
+        RELATIVE_ORDER,
+      </if>
+      <if test="squid_id != null" >
+        SQUID_ID,
+      </if>
+      <if test="name != null" >
+        NAME,
+      </if>
+      <if test="data_type != null" >
+        DATA_TYPE,
+      </if>
+      <if test="collation != null" >
+        COLLATION,
+      </if>
+      <if test="nullable != null" >
+        NULLABLE,
+      </if>
+      <if test="length != null" >
+        LENGTH,
+      </if>
+      <if test="precision != null" >
+        PRECISION,
+      </if>
+      <if test="scale != null" >
+        SCALE,
+      </if>
+      <if test="is_groupby != null" >
+        IS_GROUPBY,
+      </if>
+      <if test="aggregation_type != null" >
+        AGGREGATION_TYPE,
+      </if>
+      <if test="description != null" >
+        DESCRIPTION,
+      </if>
+      <if test="isUnique != null" >
+        ISUNIQUE,
+      </if>
+      <if test="isPK != null" >
+        ISPK,
+      </if>
+      <if test="cdc != null" >
+        CDC,
+      </if>
+      <if test="is_Business_Key != null" >
+        IS_BUSINESS_KEY,
+      </if>
+      <if test="sort_level != null" >
+        SORT_LEVEL,
+      </if>
+      <if test="sort_type != null" >
+        SORT_TYPE,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="relative_order != null" >
+        #{relative_order,jdbcType=INTEGER},
+      </if>
+      <if test="squid_id != null" >
+        #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="name != null" >
+        #{name},
+      </if>
+      <if test="data_type != null" >
+        #{data_type,jdbcType=INTEGER},
+      </if>
+      <if test="collation != null" >
+        #{collation,jdbcType=INTEGER},
+      </if>
+      <if test="nullable != null" >
+        #{nullable,jdbcType=CHAR},
+      </if>
+      <if test="length != null" >
+        #{length,jdbcType=INTEGER},
+      </if>
+      <if test="precision != null" >
+        #{precision,jdbcType=INTEGER},
+      </if>
+      <if test="scale != null" >
+        #{scale,jdbcType=INTEGER},
+      </if>
+      <if test="is_groupby != null" >
+        #{is_groupby,jdbcType=CHAR},
+      </if>
+      <if test="aggregation_type != null" >
+        #{aggregation_type,jdbcType=INTEGER},
+      </if>
+      <if test="description != null" >
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="isUnique != null" >
+        #{isUnique,jdbcType=CHAR},
+      </if>
+      <if test="isPK != null" >
+        #{isPK,jdbcType=CHAR},
+      </if>
+      <if test="cdc != null" >
+        #{cdc,jdbcType=INTEGER},
+      </if>
+      <if test="is_Business_Key != null" >
+        #{is_Business_Key,jdbcType=INTEGER},
+      </if>
+      <if test="sort_level != null" >
+        #{sort_level,jdbcType=INTEGER},
+      </if>
+      <if test="sort_type != null" >
+        #{sort_type,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.Column" >
+    update ds_column
+    <set >
+      <if test="relative_order != null" >
+        RELATIVE_ORDER = #{relative_order,jdbcType=INTEGER},
+      </if>
+      <if test="squid_id != null" >
+        SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="name != null" >
+        NAME = #{name},
+      </if>
+      <if test="data_type != null" >
+        DATA_TYPE = #{data_type,jdbcType=INTEGER},
+      </if>
+      <if test="collation != null" >
+        COLLATION = #{collation,jdbcType=INTEGER},
+      </if>
+      <if test="nullable != null" >
+        NULLABLE = #{nullable,jdbcType=CHAR},
+      </if>
+      <if test="length != null" >
+        LENGTH = #{length,jdbcType=INTEGER},
+      </if>
+      <if test="precision != null" >
+        PRECISION = #{precision,jdbcType=INTEGER},
+      </if>
+      <if test="scale != null" >
+        SCALE = #{scale,jdbcType=INTEGER},
+      </if>
+      <if test="is_groupby != null" >
+        IS_GROUPBY = #{is_groupby,jdbcType=CHAR},
+      </if>
+      <if test="aggregation_type != null" >
+        AGGREGATION_TYPE = #{aggregation_type,jdbcType=INTEGER},
+      </if>
+      <if test="description != null" >
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="isUnique != null" >
+        ISUNIQUE = #{isUnique,jdbcType=CHAR},
+      </if>
+      <if test="isPK != null" >
+        ISPK = #{isPK,jdbcType=CHAR},
+      </if>
+      <if test="cdc != null" >
+        CDC = #{cdc,jdbcType=INTEGER},
+      </if>
+      <if test="is_Business_Key != null" >
+        IS_BUSINESS_KEY = #{is_Business_Key,jdbcType=INTEGER},
+      </if>
+      <if test="sort_level != null" >
+        SORT_LEVEL = #{sort_level,jdbcType=INTEGER},
+      </if>
+      <if test="sort_type != null" >
+        SORT_TYPE = #{sort_type,jdbcType=INTEGER},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.Column" >
+    update ds_column
+    set RELATIVE_ORDER = #{relative_order,jdbcType=INTEGER},
+      SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      NAME = #{name},
+      DATA_TYPE = #{data_type,jdbcType=INTEGER},
+      COLLATION = #{collation,jdbcType=INTEGER},
+      NULLABLE = #{nullable,jdbcType=CHAR},
+      LENGTH = #{length,jdbcType=INTEGER},
+      PRECISION = #{precision,jdbcType=INTEGER},
+      SCALE = #{scale,jdbcType=INTEGER},
+      IS_GROUPBY = #{is_groupby,jdbcType=CHAR},
+      AGGREGATION_TYPE = #{aggregation_type,jdbcType=INTEGER},
+      DESCRIPTION = #{description,jdbcType=VARCHAR},
+      ISUNIQUE = #{isUnique,jdbcType=CHAR},
+      ISPK = #{isPK,jdbcType=CHAR},
+      CDC = #{cdc,jdbcType=INTEGER},
+      IS_BUSINESS_KEY = #{is_Business_Key,jdbcType=INTEGER},
+      SORT_LEVEL = #{sort_level,jdbcType=INTEGER},
+      SORT_TYPE = #{sort_type,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+
+  <update id="updateDataTypeByColumnId" parameterType="com.eurlanda.datashire.server.model.Column">
+     update ds_column
+      set
+      DATA_TYPE = #{data_type,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+
+  </update>
+
+  <delete id="deleteBatch" parameterType="java.util.List">
+    DELETE  from ds_column where id in
+    <foreach item="idItem" collection="list" open="(" separator="," close=")">
+      #{idItem}
+    </foreach>
+  </delete>
+
+  <select id="findTransByColumnId" parameterType="java.util.Map" resultType="java.lang.Integer">
+    select dt.id from ds_transformation dt where dt.squid_id=#{SquidId} and dt.column_id in
+    <foreach collection="ColumnIds" item="ColumnId" open="(" separator="," close=")">
+      #{ColumnId}
+    </foreach>
+  </select>
+
+
+  <select id="findLeftTransAndLinkAndColumn" parameterType="java.util.List" resultType="java.util.Map">
+    select t.to_transformation_id,t.transLinkId,dt1.transformation_type_id,t.from_transformation_id from (SELECT
+    dtl.to_transformation_id,
+    dtl.id as transLinkId,
+    dtl.from_transformation_id
+    FROM
+    ds_transformation dt,
+    ds_transformation_link dtl
+    WHERE
+    dt.id = dtl.FROM_TRANSFORMATION_ID
+    AND dt.id in
+    <foreach collection="list" item="transId" open="(" separator="," close=")">
+      #{transId}
+    </foreach>
+    ) t,ds_transformation dt1 where t.to_transformation_id = dt1.id
+  </select>
+
+  <select id="findRightTransAndLinkAndRefColumn" parameterType="java.util.List" resultType="java.util.Map">
+      SELECT
+        dtl.from_transformation_id,
+        dtl.id as transLinkId
+      FROM
+        ds_transformation dt,
+        ds_transformation_link dtl
+      WHERE
+        dt.id = dtl.TO_TRANSFORMATION_ID
+      and
+        dt.id in
+        <foreach collection="list" item="transId" open="(" separator="," close=")">
+          #{transId}
+        </foreach>
+  </select>
+
+
+  <select id="findTransformationById" resultType="java.util.Map" parameterType="java.util.List">
+      select dt.id,dt.column_id from ds_transformation dt where dt.id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </select>
+
+  <delete id="deleteDestHdfsColumn" parameterType="java.util.List">
+    delete from ds_dest_hdfs_column where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+
+  <delete id="deleteDestImpalaColumn" parameterType="java.util.List">
+    delete from ds_dest_impala_column where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+       #{id}
+    </foreach>
+  </delete>
+
+  <delete id="deleteESColumn" parameterType="java.util.List">
+    delete from ds_es_column where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+       #{id}
+    </foreach>
+  </delete>
+
+  <update id="updateCassandraColumn" parameterType="java.util.List">
+    update ds_dest_cassandra_column set column_id = 0 where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+       #{id}
+    </foreach>
+  </update>
+
+  <update id="updateHiveColumn" parameterType="java.util.List">
+    update ds_dest_hive_column set column_id = 0 where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+       #{id}
+    </foreach>
+  </update>
+
+  <update id="updateUserDefinedColumn" parameterType="java.util.List">
+    update ds_userdefined_datamap_column set column_id = 0 where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+       #{id}
+    </foreach>
+  </update>
+
+  <update id="updateStatisticColumn" parameterType="java.util.List">
+    update ds_statistics_datamap_column set column_id=0 where column_id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </update>
+
+  <delete id="deleteTransLink" parameterType="java.util.List">
+    delete from ds_transformation_link where id in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+       #{id}
+    </foreach>
+  </delete>
+
+  <select id="findSquidByColumnId" resultType="java.lang.Integer" parameterType="java.lang.Integer">
+    SELECT
+	  ds.id
+    FROM
+	  ds_squid ds,
+	  ds_column dc
+    WHERE
+	  ds.id = dc.squid_id
+    AND dc.id = #{id}
+  </select>
+
+
+  <select id="findTransInputByTrans" parameterType="java.util.List" resultType="java.lang.Integer">
+      select dti.id from ds_transformation dt,ds_tran_inputs dti where dt.transformation_type_id > 0 and dti.transformation_id = dt.id and dt.id in
+    <foreach collection="list" item="transId" open="(" separator="," close=")">
+        #{transId}
+    </foreach>
+  </select>
+
+
+  <select id="selectColumnBySquIds" parameterType="java.util.Map" resultType="java.lang.Integer">
+    select id from ds_column n where n.SQUID_ID =#{squid_id}
+    and n.`NAME`!=#{tag}
+    <!--<foreach collection="squIds" itsquidModelBasequid" open="(" separator="," close=")">
+    squidModelBasequid}
+    </foreach>-->
+
+  </select>
+
+  <select id="selectColumnBySquIdAndName" parameterType="com.eurlanda.datashire.server.model.Column" resultType="java.lang.Integer">
+    select COUNT(*) from ds_column n where n.SQUID_ID =#{squid_id}
+    and n.`NAME`=#{name}
+    <!--<foreach collection="squIds" itsquidModelBasequid" open="(" separator="," close=")">
+    squidModelBasequid}
+    </foreach>-->
+
+  </select>
+
+  <delete id="deleteColumnByIds" parameterType="java.util.List">
+    delete from ds_column where id  in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+
+  <select id="findByFromSquidId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select * from ds_column dc where squid_id=#{id}
+  </select>
+
+  <delete id="deleteColumnBySquidId" parameterType="java.util.List">
+    delete from ds_column where SQUID_ID in
+    <foreach collection="list" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+
+  <!--批量删除  测试-->
+  <select id="selectColumnBySquidIds" parameterType="java.util.Map" resultType="java.lang.Integer">
+    select n.id from ds_column n where n.SQUID_ID in
+    <foreach collection="squIds" item="id" index="index"  open="(" separator="," close=")">
+         #{id}
+    </foreach>
+    and n.`NAME`!=#{tag}
+  </select>
+    <select id="selectColumnBySquidId" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+        select id from ds_column where SQUID_ID=#{squidId} order by RELATIVE_ORDER
+    </select>
+
+  <select id="selectColumnBySquid_Id" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select * from ds_column where SQUID_ID=#{squidId}
+  </select>
+
+  <select id="selectColumnIdBySquidId" parameterType="java.util.Map" resultType="java.lang.Integer">
+    select dc.id from ds_column dc WHERE SQUID_ID=#{squid} AND NAME IN
+    <foreach collection="names" item="name" index="index" open="(" separator="," close=")">
+      #{name}
+    </foreach>
+  </select>
+</mapper>

@@ -1,0 +1,147 @@
+package com.eurlanda.datashire.server.dao;
+
+import com.eurlanda.datashire.entity.SquidJoin;
+import com.eurlanda.datashire.server.model.Base.DataSquidBaseModel;
+import com.eurlanda.datashire.server.model.Base.SquidModelBase;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by zhudebin on 16/1/12.
+ */
+@Repository
+public interface SquidDao {
+    int deleteByPrimaryKey(Integer id);
+
+    int insert(SquidModelBase record);
+
+    int insertSelective(SquidModelBase record);
+
+    SquidModelBase selectByPrimaryKey(Integer id);
+
+    int updateByPrimaryKeySelective(SquidModelBase record);
+
+    int updateByPrimaryKey(SquidModelBase record);
+
+    void save(SquidModelBase squidModelBase);
+
+    void update(SquidModelBase squidModelBase);
+
+    List<SquidModelBase> findAll();
+    List<Map<String,Object>> findNextSquidByFromSquid(int fromSquid);
+
+    //根据类型id查squid_type_id
+    Map<String,Object> findSquidType(int squidType);
+
+    List<Integer> selectFromSquidBySquLinkIds(List<Integer> squidLinkIds);
+
+    List<Integer> selectToSquidBySquLinkIds(List<Integer> squidLinkIds);
+
+    List<SquidModelBase> selectSquBySquLinkIds(List<Integer> squidLinkIds);
+
+
+    List<Map<String,Object>> selectSquBySquTypeAndSquIds(Map<String,Object> map);
+
+    Map<String,Object> findSquidBySquidId(int id);
+
+
+    DataSquidBaseModel selectExceSquByFromSquIds(Map<String,Object> map);
+
+
+
+    int updateSquStatus(Integer squIds);
+
+
+    List<DataSquidBaseModel> selectSquBySquIds(List<Integer> squidLinkIds);
+
+
+    //批量删除squid
+    int deleteSquid(List<Integer> list);
+    //根据squidId 删SourceTable column
+    int deleteSourceTableColumnBySquidId(List<Integer> list);
+    //根据squidId 删SourceTable
+    int deleteSourceTableBySquidId(List<Integer> squidIds);
+    //根据squidId 删除ES column
+    int deleteEsColumn(List<Integer> squidIds);
+    //根据squidId 删除HDFS落地与Column
+    int deleteHDFSColumn(List<Integer> squidIds);
+    //根据squidId 删除Impala落地Column
+    int deleteImpalaColumn(List<Integer> squidIds);
+    //根据squidId 删除Join
+    int deleteJoin(List<Integer> squidIds);
+    //根据squidId 删除userdefinedDatamapColumn
+    int deleteUserdefinedDatamapColumn(List<Integer> squidIds);
+    //根据squidId 删除userdefinedParametersColumn
+    int deleteUserdefinedParametersColumn(List<Integer> squidIds);
+    //根据squidId 删除dest_hive
+    int deleteDestHiveColumn(List<Integer> squidIds);
+    //根据squidId 删除destCassandraColumn
+    int deleteDestCassandraColumn(List<Integer> squidIds);
+    //根据squidId 删除statistics_datamap_column
+    int deleteStatisticsDatamapColumn(List<Integer> squidIds);
+    //根据squidId 删除statistics_parameters_column
+    int deleteStatisticsParametersColumn(List<Integer> squidIds);
+
+    /**
+     *
+     * @param id 对应几个落地的squid 类型做的操作
+     * @return
+     */
+    int deleteEsColumnBySquId(Integer id);
+    int deleteHDFSColumnBySquId(Integer squId);
+    int deleteImpalaColumnBySquId(Integer squId);
+    int updateHiveColumnBySquIds(Integer squId);
+    int updateCASSSColumnBySquIds(Integer squId);
+
+
+    /**
+     * 删除测试  squid Link
+     */
+    List<Integer> selectExceptionSquSquIds(Map<String,Object> map);
+
+    /**
+     * 修改squid状态
+     * @param squidIds
+     * @return
+     */
+    int updateSquStatusBySquIds(List<Integer> squidIds);
+
+    /**
+     *根据sourceTableId查Exsquid
+     */
+    List<SquidModelBase> selectBySourceTable(int tableId);
+
+    /**
+     * DataSquidBaseModel的属性中引用该实体类。 所以用的是老的实体类
+     * @param squid
+     * @return
+     */
+    List<SquidJoin> selectJoinBySquid(Integer squid);
+
+
+    List<Map<String,Object>> selectExceViewSquByTypeAndSquIds(Map<String,Object> map);
+
+
+    //查询squidID 查询squid类型
+    Integer selectSquidTypeById(Integer id);
+
+    List<Integer> selectSourceTableIdBySquids(List<Integer> squidIds);
+
+    Map<String,Object> selectProjectBySquidId(int squidId);
+
+    //查询squidID 查询squid类型
+    List<Integer> selectSquidTypesByIds(List<Integer> ids);
+
+    //根据column 查询squidName
+    String getSquidNameByColumnId(int column);
+
+    int getSquidTypeById(int squid);
+
+
+    //修改抽取squid 最后增量值
+    int updateSquidByLastValue(Map<String,Object> map);
+
+
+}

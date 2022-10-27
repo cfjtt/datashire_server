@@ -1,0 +1,561 @@
+package com.eurlanda.datashire.server.utils.dbsource;
+
+import cn.com.jsoft.jframe.utils.ClassUtils;
+import cn.com.jsoft.jframe.utils.jdbc.*;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.socket.ServerEndPoint;
+import com.eurlanda.datashire.utility.converter.*;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.io.IOException;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * JDBC 提供基础的Jdbc封装，方便使用，在使用前请用{@link #setConnectionProvider(IConnectionProvider)} 设置数据库连接
+ * @author Gene.zhang
+ * @date 2012-9-20
+ */
+public class JDBCTemplate {
+	protected Log log = LogFactory.getLog(this.getClass());
+	protected IConnectionProvider connectionProvider;
+	/**
+	 * 构造一个JDBCTemplate,注意使用此构造函数后，请设置正确的数据源或设置驱动名称、连接字符串、用户名、密码等信息后才能工作
+	 */
+	public JDBCTemplate(IConnectionProvider provider) {
+		this.connectionProvider=provider;
+	}
+
+	public IConnectionProvider getConnectionProvider() {
+		return connectionProvider;
+	}
+
+	public void setConnectionProvider(IConnectionProvider connectionProvider) {
+		this.connectionProvider = connectionProvider;
+	}
+
+	/**
+	 * 执行一个sql.
+	 * @date 2014-2-21
+	 * @author jiwei.zhang
+	 * @param sql
+	 */
+	public void execute(final String sql) throws Exception{
+		this.execute(new StatementCallback<Integer>() {
+
+			@Override
+			public Integer doSomething(Statement stmt) {
+				try {
+					stmt.execute(sql);
+				} catch (SQLException e) {
+					e.printStackTrace();
+					throw new RuntimeException(e);
+				}
+				return null;
+			}
+		});
+	
+	}
+
+	/**
+	 * 获取数据库中的连接，首先从DataSource 中获取，如果获取失败，则从连接字符串中获取
+	 */
+	public Connection getConnection() {
+		Connection ret = null;
+		try {
+			ret = this.connectionProvider.getConnection();
+		} catch (Exception e) {
+			throw new RuntimeException("获取数据库连接失败！");
+		}
+		return ret;
+	}
+	
+	/**
+	 * 执行插入操作，如果执行成功，返回刚插入记录的ID。
+	 * @date 2012-9-20
+	 * @param sql 待执行的insert语句
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 刚插入的记录的自增长ID。
+	 */
+	public Integer insert(String sql, Object... sqlArgs) {
+		return this.executeUpdate(sql,new PreparedStatementCallback<Integer>() {
+			public Integer doSomething(PreparedStatement stmt) {
+				Integer key = null;
+				try {
+					DatabaseMetaData dmd = stmt.getConnection().getMetaData();
+					stmt.executeUpdate();
+					if(dmd.supportsGetGeneratedKeys()){
+						ResultSet  rs = stmt.getGeneratedKeys(); 
+						if(rs.next()){
+							key =rs.getInt(1);
+						}
+					}
+				} catch (SQLException e) {
+					throw new RuntimeException("插入失败！"+e.getMessage(),e);
+				}
+				return key;
+			}
+		},sqlArgs);
+	}
+	/**
+	 * 使用SQL语句查询并封装成一个Integer，用于查询记录的一个字段
+	 * @date 2012-9-20
+	 * @param sql sql语句
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 如果没有记录，返回null
+	 */	
+	public Integer queryForInt(String sql, Object... sqlArgs) {
+		return this.execute(sql,new ResultSetCallback<Integer>() {
+			public Integer doSomething(ResultSet rs) {
+				try {
+					if(rs!= null && rs.next()){
+						return rs.getInt(1);
+					}
+				} catch (SQLException e) {
+					throw new RuntimeException("查询失败！"+e.getMessage(),e);
+				}
+				return null;
+			}
+		},sqlArgs);
+	}
+	/**
+	 * 使用SQL语句查询并封装成一个List，用于查询多条记录
+	 * @date 2012-9-20
+	 * @param sql sql语句
+	 *  @param map 字段名和类型的映射
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 多个记录的List&ltMap&gt 封装,如果没有记录，返回空arrayList
+	 */
+	public List<Map<String,Object>> queryForList(String sql,final Map<String,String> map, Object... sqlArgs) {
+		return this.execute(sql,new ResultSetCallback<List<Map<String,Object>>>() {
+			public List<Map<String,Object>> doSomething(ResultSet rs) {
+				List<Map<String,Object>> ret = new ArrayList<Map<String,Object>>();
+				try {
+					while(rs.next()){
+						ret.add(record2Map(rs,map));
+					}
+				} catch (SQLException e) {
+					throw new RuntimeException("查询失败！"+e.getMessage(),e);
+				}
+				return ret;
+			}
+		},sqlArgs);
+	}
+	/**
+	 * 查询一个对象列表。
+	 * @date 2014-2-21
+	 * @author jiwei.zhang
+	 * @param sql
+	 * @param cls
+	 * @param sqlArgs
+	 * @return
+	 */
+	public <T> List<T> queryForList(String sql,Map<String,String> map, Class<T> cls,Object... sqlArgs) {
+		List<Map<String,Object>> list = this.queryForList(sql,map, sqlArgs);
+		List<T> newRows = new ArrayList<T>();
+		for(Map<String,Object> row :list){
+			newRows.add(this.record2Bean(row, cls));
+		}
+		return newRows;
+	}
+	/**
+	 * 使用SQL语句查询并封装成一个Map，用于查询一条记录,字段名始终为大写
+	 * @date 2012-9-20
+	 * @param sql sql语句
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 单个记录的Map 封装，如果没有结果，返回null
+	 */
+	public Map<String,Object> queryForMap(String sql,final Map<String,String> map, Object... sqlArgs) {
+		return this.execute(sql,new ResultSetCallback<Map<String,Object>>() {
+			public Map<String,Object> doSomething(ResultSet rs) {
+				try {
+					if(rs.next()){
+						return record2Map(rs,map);
+					}
+				} catch (SQLException e) {
+					throw new RuntimeException("查询失败！"+e.getMessage(),e);
+				}
+				return null;
+			}
+		},sqlArgs);
+	}
+
+	/**
+	 * 查询一个对象 
+	 * @date 2014-2-20
+	 * @author jiwei.zhang
+	 * @param sql
+	 * @param cls
+	 * @param sqlArgs
+	 */
+	public <T> T queryForObject(String sql,Class<T> cls ,Map<String,String> map,Object ...sqlArgs){
+		Map<String,Object> result = queryForMap(sql, map,sqlArgs);
+		
+		if(result!=null && result.size()>0){
+			return this.record2Bean(result, cls);
+		}
+		return null;
+	}
+	/**
+	 * 执行一个更改SQL，sql语句可以是update, 可以是delete
+	 * @date 2012-9-20
+	 * @param sql 待执行的update或delete语句
+	 * @param sqlArgs sql语句占位符的值
+	 * @return
+	 */
+	public int update(final String sql, final Object... sqlArgs) {
+		return this.executeUpdate(sql,new PreparedStatementCallback<Integer>() {
+			public Integer doSomething(PreparedStatement stmt) {
+				try {
+					return stmt.executeUpdate();
+				} catch (SQLException e) {
+					log.error(e);
+					throw new RuntimeException("修改失败！"+e.getMessage(),e);
+				}
+			}
+		},sqlArgs);
+	}
+	
+	/**
+	 * 创建一个空的statement，使用IJdbcStatementCallback执行一个操作，执行此操作会自动关闭数据库和statement
+	 * @date 2012-9-20
+	 * @param <T> 
+	 * @param callBack 要执行的动作
+	 * @return 执行返回的结果
+	 */
+	public <T> T execute(final StatementCallback<T> callBack) {
+		return this.execute(new ConnectionCallback<T>() {
+			public T doSomething(Connection conn) {
+				T ret = null;
+				Statement stmt = null;
+				try {
+					stmt = conn.createStatement();
+					ret= callBack.doSomething(stmt);
+				} catch (SQLException e) {
+					throw new RuntimeException("执行失败！"+e.getMessage(),e);
+				}finally{
+					try {
+						if(stmt!=null)stmt.close();
+					} catch (SQLException e) {
+						throw new RuntimeException("关闭失败！"+e.getMessage(),e);
+					}
+				}
+				return ret;
+			}
+		});
+	}
+	/**
+	 * 使用IConnCallback执行一个操作
+	 * @date 2012-9-20
+	 * @param <T> 
+	 * @param callBack 要执行的动作
+	 * @return 执行返回的结果
+	 */
+	public <T> T execute(ConnectionCallback<T> callBack) {
+		Connection conn = this.getConnection();
+		T ret = null;
+		try {
+			ret= callBack.doSomething(conn);
+		} catch (Exception e) {
+			throw new RuntimeException("执行失败！"+e.getMessage(),e);
+		}finally{
+			closeConnection(conn);
+		}
+		return ret;
+	}
+	/**
+	 * 使用 IJdbcResultSetCallback 执行一个操作，执行些操作，相关的connection,statement,resultset均会自动关闭。
+	 * @date 2012-9-20
+	 * @param <T>
+	 * @param callBack 要执行的动作
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 执行返回的结果
+	 */
+	public <T> T execute(String sql,final ResultSetCallback<T> callBack,Object ...sqlArgs) {
+		
+		return this.executeQuery(sql, new PreparedStatementCallback<T>() {
+			public T doSomething(PreparedStatement stmt) {
+				ResultSet rs = null;
+				T ret = null;
+				try {
+					rs = stmt.executeQuery();
+					ret = callBack.doSomething(rs);
+				} catch (SQLException e) {
+					log.error("错误码信息:"+e.getErrorCode());
+					throw new RuntimeException("ErrorCode:"+e.getErrorCode()+",查询失败!"+e.getMessage(),e);
+				}finally{
+					closeResultSet(rs);
+				}
+				return ret;
+			}
+		},  sqlArgs);
+	}
+	/**
+	 * 使用 IJdbcResultSetCallback 执行一个操作，执行些操作，相关的connection,statement,resultset均会自动关闭。
+	 * @date 2012-9-20
+	 * @param <T>
+	 * @param callBack 要执行的动作
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 执行返回的结果
+	 */
+	public <T> T executeUpdate(final String sql,final PreparedStatementCallback<T> callBack, final Object... sqlArgs) {
+		return this.execute(new ConnectionCallback<T>() {
+			public T doSomething(Connection conn) {
+				T ret = null;
+				PreparedStatement stmt = null;
+				try {
+					stmt = conn.prepareStatement(sql);
+					if (!(conn.getMetaData() instanceof org.apache.phoenix.jdbc.PhoenixDatabaseMetaData)){
+						stmt.setQueryTimeout(ServerEndPoint.querytimeout);
+					}
+					if(sqlArgs!=null){
+						for (int i = 0; i < sqlArgs.length; i++) {
+							stmt.setObject(i + 1, sqlArgs[i]);
+						}
+					}
+					ret= callBack.doSomething(stmt);
+				} catch (SQLException e) {
+					throw new RuntimeException("查询失败！"+e.getMessage(),e);
+				}finally{
+					try {
+						if(stmt!=null)stmt.close();
+					} catch (SQLException e) {
+						throw new RuntimeException("statement关闭失败！"+e.getMessage(),e);
+					}
+				}
+				return ret;
+			}
+		});
+	}
+	public <T> T executeQuery(final String sql,final PreparedStatementCallback<T> callBack, final Object... sqlArgs) {
+		return this.execute(new ConnectionCallback<T>() {
+			public T doSomething(Connection conn) {
+				T ret = null;
+				PreparedStatement stmt = null;
+				try {
+					stmt = (PreparedStatement) conn.prepareStatement(sql,ResultSet.TYPE_FORWARD_ONLY,  
+		                    ResultSet.CONCUR_READ_ONLY);
+					if (!(conn.getMetaData() instanceof org.apache.phoenix.jdbc.PhoenixDatabaseMetaData)){
+						//stmt.setQueryTimeout(ServerEndPoint.querytimeout);(hive不支持此方法)
+						//stmt.setFetchSize(10000);
+						//stmt.setFetchDirection(ResultSet.FETCH_REVERSE);
+					}
+					if(sqlArgs!=null){
+						for (int i = 0; i < sqlArgs.length; i++) {
+							stmt.setObject(i + 1, sqlArgs[i]);
+						}
+					}
+					ret= callBack.doSomething(stmt);
+				} catch (SQLException e) {
+					throw new RuntimeException("查询失败！"+e.getMessage(),e);
+				}finally{
+					try {
+						if(stmt!=null)stmt.close();
+					} catch (SQLException e) {
+						throw new RuntimeException("statement关闭失败！"+e.getMessage(),e);
+					}
+				}
+				return ret;
+			}
+		});
+	}
+	/**
+	 * 使用 PreparedStatement 执行一个操作，执行些操作，相关的connection,statement,resultset均会自动关闭。
+	 * @date 2012-9-20
+	 * @param sqlArgs sql语句占位符的值
+	 * @return 执行返回的结果
+	 */
+	public void execute(final String sql, final Object... sqlArgs) {
+		this.execute(sql,new PreparedStatementCallback<Object>() {
+			@Override
+			public Object doSomething(PreparedStatement stmt) {
+				try {
+					stmt.execute();
+				} catch (SQLException e) {
+					e.printStackTrace();
+				}
+				return null;
+			}
+		},sqlArgs);
+	}
+	/**
+	 * 取表的所有字段名。
+	 * @date 2012-9-20
+	 * @param tableName 要获取字段名的表
+	 * @return 所有字段名的List ,如果没有字段则返回空List
+	 */
+	public List<String> getTableFieldNames(final String tableName){
+		return this.execute(new ConnectionCallback<List<String>>() {
+			public List<String> doSomething(Connection conn) {
+				List<String> columnNameList = new ArrayList<String>(); 
+				ResultSet rs=null;
+				try {
+		            rs =  conn.getMetaData().getColumns(null, null, tableName, "%"); 
+		            while(rs.next()) { 
+		               columnNameList.add(rs.getString(4)); 
+		            } 
+				} catch (SQLException e) {
+					throw new RuntimeException("获取字段名失败！"+e.getMessage(),e);
+				}finally{
+					closeResultSet(rs);
+				}
+				
+				return columnNameList;
+			}
+		});
+	}
+	/**
+	 * 将 ResultSet当前游标处的记录转换为HashMap
+	 * @date 2012-9-20
+	 * @param rs ResultSet
+	 * @return HashMap<字段名，字段值> 字段名始终为大写
+	 */
+	protected Map<String,Object> record2Map(ResultSet rs,Map<String,String> map){
+		Map<String,Object> ret = null;
+		if(rs!= null){
+			try {
+				ret= new HashMap<String, Object>();
+				ResultSetMetaData  metaData = rs.getMetaData();
+				int colCount = metaData.getColumnCount();
+				for(int i=1;i<=colCount;i++){
+					String key = metaData.getColumnName(i);
+					if(key.indexOf(".")>-1){
+						key=key.substring(key.indexOf(".")+1);
+					}
+					if(null!=map)
+					{
+						if(null!=map.get(key)&&StringUtils.isNotBlank(map.get(key).toString()))
+						{
+							//1.先去匹配sourcecolumn中的length,如果为-1,表示大字段类型，不取值，直接显示(无法显示的字段类型)
+							//2.如果不为-1，则根据数据库类型和字段类型判断是否需要转换。
+							if(-1==Integer.parseInt(map.get(key).toString().split("&")[1]))
+							{
+								ret.put(key.toUpperCase(), "无法显示的字段类型");
+							}else
+							{
+								//根据数据库类型 和字段类型去转换器匹配
+								switch (DataBaseType.parse(Integer.parseInt(map.get(key).toString().split("&")[2]))) 
+								{
+								case ORACLE:
+									ret=OracleDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case MYSQL:
+									ret=MysqlDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case SQLSERVER:
+									ret=SqlServerDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case HBASE_PHOENIX:
+									ret=baseDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case DB2:
+									ret= Db2DataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case HANA:
+									ret=baseDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case HIVE:
+									ret=baseDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								case TERADATA:
+										ret = baseDataTypeConverter.getValue(ret, key, rs, Integer.parseInt(map.get(key).toString().split("&")[0]));
+									break;
+								default:
+									break;
+								}
+										
+							}
+						}else{
+							ret.put(key.toUpperCase(), "");
+						}
+					}else
+					{
+						Object obj = rs.getObject(key);
+						ret.put(key.toUpperCase(), obj==null ? "" : obj);
+					}
+				}
+			} catch (SQLException e) {
+				throw new RuntimeException("数据转换失败！"+e.getMessage(),e);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return ret;
+	}
+
+	
+	protected <T> T record2Bean(Map<String,Object> data,Class<T> beanCls){
+		T bean = null;
+		if(data!= null){
+			try {
+				bean = beanCls.newInstance();
+				List<String> fields = ClassUtils.getClassFields(beanCls);
+				for(String x:fields){
+					Class type = beanCls.getDeclaredField(x).getType();
+					Object val = data.get(x.toUpperCase());
+					if(val!=null && type.isAssignableFrom(val.getClass())){
+						ClassUtils.setFieldValue(bean, x, val);
+					}
+				}
+			} catch (SQLException e) {
+				throw new RuntimeException("数据转换失败！"+e.getMessage(),e);
+			} catch (InstantiationException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return bean;
+	}
+	/**
+	 * 关闭数据库连接。如果连接处于事务模式，则跳过关闭
+	 * 
+	 * @param connection
+	 */
+	protected void closeConnection(Connection connection) {
+		try {
+			if (connection != null 	&&  !connection.isClosed()){ // 未关闭
+				//if(connection.getAutoCommit()==true) {	// 非事务状态。
+					try {
+						log.debug("jdbcTemplate:关闭连接");
+						connection.close();
+					} catch (SQLException e) {
+						e.printStackTrace();
+					}
+					connection = null;
+				//}else{
+				//	log.debug("jdbcTemplate:connection处于事务模式，跳过关闭");
+				//}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+
+	/**
+	 * 关闭数据库连接。
+	 * 
+	 * @param rs
+	 */
+	protected  void closeResultSet(ResultSet rs) {
+		if (rs != null) {
+			try {
+				rs.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			rs = null;
+		}
+	}
+}

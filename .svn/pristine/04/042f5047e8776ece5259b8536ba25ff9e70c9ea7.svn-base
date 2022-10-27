@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.VariableDao">
+    <resultMap type="com.eurlanda.datashire.server.model.DSVariable" id="objMap">
+        <id property="id" column="ID" />
+        <result property="project_id" column="PROJECT_ID" />
+        <result property="squid_flow_id" column="SQUID_FLOW_ID" />
+        <result property="squid_id" column="SQUID_ID" />
+        <result property="variable_scope" column="VARIABLE_SCOPE" />
+        <result property="variable_name" column="VARIABLE_NAME" />
+        <result property="variable_type" column="VARIABLE_TYPE" />
+        <result property="variable_length" column="VARIABLE_LENGTH" />
+        <result property="variable_precision" column="VARIABLE_PRECISION" />
+        <result property="variable_scale" column="VARIABLE_SCALE" />
+        <result property="variable_value" column="VARIABLE_VALUE" />
+        <result property="add_date" column="ADD_DATE" />
+    </resultMap>
+    <select id="getVariablesByProjectId" resultMap="objMap" parameterType="java.lang.Integer">
+        select * from ds_variable where project_id=#{project_id}
+    </select>
+</mapper>

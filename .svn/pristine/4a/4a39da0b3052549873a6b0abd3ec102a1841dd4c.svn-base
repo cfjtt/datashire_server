@@ -1,0 +1,173 @@
+package com.eurlanda.datashire.sprint7.service.squidflow;
+
+import com.eurlanda.datashire.entity.DocExtractSquid;
+import com.eurlanda.datashire.entity.SquidLink;
+import com.eurlanda.datashire.enumeration.DMLType;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.packet.InfoNewMessagePacket;
+import com.eurlanda.datashire.sprint7.packet.PushMessagePacket;
+import com.eurlanda.datashire.sprint7.service.squidflow.subservice.ExtractServicesub;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import org.apache.log4j.Logger;
+import org.apache.poi.poifs.filesystem.NotOLE2FileException;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+
+/**
+ * DocExtractSquid处理类
+ * @author bo.dang
+ * @date 2014年5月6日
+ */
+@Service
+public class DocExtractSquidService {
+    public static final Logger logger = Logger.getLogger(DocExtractSquidService.class);
+    private String token;
+    private String key;
+
+    // 异常处理机制
+    ReturnValue out = new ReturnValue();
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
+    }
+
+    public ReturnValue getOut() {
+        return out;
+    }
+
+    public void setOut(ReturnValue out) {
+        this.out = out;
+    }
+
+    /**
+     * 创建DocExtractSquid
+     * 
+     * @param info
+     * @return
+     * @author bo.dang
+     * @date 2014年5月6日
+     */
+    public String createDocExtractSquid(String info) {
+    	out = new ReturnValue();
+        Map<String, Class<?>> paramsMap = new HashMap<String, Class<?>>();
+        paramsMap.put("DocExtractSquid", DocExtractSquid.class);
+        paramsMap.put("SquidLink", SquidLink.class);
+        Map<String, Object> resultMap = new ExtractServicesub(TokenUtil.getToken()).execute(info, paramsMap, DMLType.INSERT.value(), out);
+        
+        InfoNewMessagePacket<Map<String, Object>> infoMessage = new InfoNewMessagePacket<Map<String, Object>>();
+        infoMessage.setCode(out.getMessageCode().value());
+        if (out.getMessageCode()==MessageCode.SUCCESS){
+        	infoMessage.setInfo(resultMap);
+        }else{
+        	infoMessage.setInfo(new HashMap<String, Object>());
+        }
+        infoMessage.setDesc("创建DocExtractSquid");
+        return JsonUtil.object2Json(infoMessage);
+    }
+
+    /**
+     * 获取DocExractSquid的元数据
+     * 
+     * @param info
+     * @return
+     * @author bo.dang
+     * @date 2014年5月6日
+     */
+    public String getSourceDataByDocExtractSquid(String info) {
+    	out = new ReturnValue();
+        Map<String, Object> infoMap = JsonUtil.toHashMap(info);
+        InfoNewMessagePacket<Map<String, Object>> infoMessage = new InfoNewMessagePacket<Map<String, Object>>();
+        //增加定时器，当数据量非常多的时候，防止超时
+        Timer timer = new Timer(false);
+        final Map<String,Object> returnMap = new HashMap<>();
+        returnMap.put("1",1);
+        key = TokenUtil.getKey();
+        token = TokenUtil.getToken();
+        try{
+            //多线程的时候，key值会改变
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    PushMessagePacket.pushMap(returnMap,DSObjectType.STAGE,"1004","0001",key,token,MessageCode.BATCH_CODE.value());
+                }
+            },25*1000,25*1000);
+            Map<String, Object> resultMap = new ExtractServicesub(TokenUtil.getToken()).getSourceDataByExtractSquid(infoMap, out);
+            // 有源数据或者解析成功
+            if(StringUtils.isNotNull(resultMap)){
+                infoMessage.setCode(out.getMessageCode().value());
+            }
+            // 没有有源数据或者解析失败
+            else {
+                infoMessage.setCode(MessageCode.ERR_EXTRACT_SQUID_NO_DATA.value());
+            }
+            infoMessage.setInfo(resultMap);
+            //不需要注释
+            //infoMessage.setDesc("获取DocExractSquid的元数据");
+        } catch (NotOLE2FileException e){
+            timer.cancel();
+            timer.purge();
+            logger.error(e);
+            //统一错误提示接口
+            infoMessage.setCode(MessageCode.ERR_EXTRACT_SQUID_NO_DATA.value());
+        } catch (Exception e){
+            timer.cancel();
+            timer.purge();
+            logger.error(e);
+            logger.error("抽取file foler connection中的文件失败");
+            infoMessage.setCode(MessageCode.ERR_EXTRACT_SQUID_NO_DATA.value());
+        } finally {
+            timer.cancel();
+            timer.purge();
+        }
+        String result=JsonUtil.object2Json(infoMessage);
+        return result;
+    }
+
+    /**
+     * 更新DocExtarctSquid信息
+     * 
+     * @param info
+     * @return
+     * @author bo.dang
+     * @date 2014年5月7日
+     */
+    public String updateDocExtractSquid(String info) {
+    	out = new ReturnValue();
+        Map<String, Class<?>> paramsMap = new HashMap<String, Class<?>>();
+        paramsMap.put("DocExtractSquid", DocExtractSquid.class);
+        // 更新DocExtractSquid
+        Map<String, Object> resultMap = new ExtractServicesub(TokenUtil.getToken()).execute(info, paramsMap, DMLType.UPDATE.value(), out);
+        InfoNewMessagePacket<Map<String, Object>> infoMessage = new InfoNewMessagePacket<Map<String, Object>>();
+        infoMessage.setCode(out.getMessageCode().value());
+        if (out.getMessageCode()==MessageCode.SUCCESS){
+        	infoMessage.setInfo(resultMap);
+        }else{
+        	infoMessage.setInfo(new HashMap<String, Object>());
+        }
+        infoMessage.setDesc("更新DocExtarctSquid信息");
+        return JsonUtil.object2Json(infoMessage);
+    }
+
+
+
+}

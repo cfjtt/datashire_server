@@ -1,0 +1,602 @@
+package com.eurlanda.datashire.sprint7.service.squidflow;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.common.util.ConstantsUtil;
+import com.eurlanda.datashire.dao.IColumnDao;
+import com.eurlanda.datashire.dao.IReferenceColumnDao;
+import com.eurlanda.datashire.dao.ISquidDao;
+import com.eurlanda.datashire.dao.ISquidJoinDao;
+import com.eurlanda.datashire.dao.ISquidLinkDao;
+import com.eurlanda.datashire.dao.ITransformationDao;
+import com.eurlanda.datashire.dao.ITransformationInputsDao;
+import com.eurlanda.datashire.dao.ITransformationLinkDao;
+import com.eurlanda.datashire.dao.dest.IEsColumnDao;
+import com.eurlanda.datashire.dao.dest.IHdfsColumnDao;
+import com.eurlanda.datashire.dao.dest.ImpalaColumnDao;
+import com.eurlanda.datashire.dao.dest.impl.EsColumnDaoImpl;
+import com.eurlanda.datashire.dao.dest.impl.HdfsColumnDaoImpl;
+import com.eurlanda.datashire.dao.dest.impl.ImpalaColumnDaoImpl;
+import com.eurlanda.datashire.dao.impl.ColumnDaoImpl;
+import com.eurlanda.datashire.dao.impl.ReferenceColumnDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidJoinDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidLinkDaoImpl;
+import com.eurlanda.datashire.dao.impl.TransformationDaoImpl;
+import com.eurlanda.datashire.dao.impl.TransformationInputsDaoImpl;
+import com.eurlanda.datashire.dao.impl.TransformationLinkDaoImpl;
+import com.eurlanda.datashire.entity.Column;
+import com.eurlanda.datashire.entity.ReferenceColumn;
+import com.eurlanda.datashire.entity.ReferenceColumnGroup;
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.entity.SquidJoin;
+import com.eurlanda.datashire.entity.SquidLink;
+import com.eurlanda.datashire.entity.Transformation;
+import com.eurlanda.datashire.entity.TransformationInputs;
+import com.eurlanda.datashire.entity.TransformationLink;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.enumeration.JoinType;
+import com.eurlanda.datashire.enumeration.MessageBubbleCode;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.service.squidflow.subservice.MessageBubbleService;
+import com.eurlanda.datashire.utility.CommonConsts;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import com.eurlanda.datashire.validator.SquidValidationTask;
+import org.apache.log4j.Logger;
+
+import java.sql.SQLException;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * SquidLink 业务处理类
+ * @author yi.zhou
+ *
+ */
+public class LinkProcess{
+
+	/**
+	 * 记录LinkProcess日志
+	 */
+	static Logger logger = Logger.getLogger(LinkProcess.class);
+    
+    private String token;//令牌根据令牌得到相应的连接信息
+
+	public LinkProcess(String token) {
+		this.token = token;
+	}
+	
+	/**
+	 * 删除suqidLink
+	 * @param info
+	 * @param out
+	 * @return
+	 */
+	public Map<String, Object> deleteSquidLink(String info, ReturnValue out) {
+		logger.debug(String.format("deleteSquidLink=%s", info));
+		Map<String, Object> outputMap = new HashMap<String, Object>();
+		IRelationalDataManager adapter3 = null;
+		SquidLink squidLink = null;
+		DataAdapterFactory adapterFactory = null;
+		try {
+			//序列化JSONArray
+			squidLink =  JsonUtil.object2HashMap(info, SquidLink.class);
+			//单一实例化
+			adapter3 =DataAdapterFactory.getDefaultDataManager();
+			adapter3.openSession();
+			ISquidDao squidDao = new SquidDaoImpl(adapter3);
+			ISquidJoinDao squidJoinDao = new SquidJoinDaoImpl(adapter3);
+			ISquidLinkDao squidLinkDao = new SquidLinkDaoImpl(adapter3);
+			Squid formSquid = squidDao.getObjectById(squidLink.getFrom_squid_id(), Squid.class);
+			Squid toSquid = squidDao.getObjectById(squidLink.getTo_squid_id(), Squid.class);
+			if (formSquid!=null){
+				// dest es squid
+				if(toSquid.getSquid_type() == SquidTypeEnum.DESTES.value()) {
+					IEsColumnDao esColumnDao = new EsColumnDaoImpl(adapter3);
+					// 删除 esColumn
+					esColumnDao.deleteEsColumnBySquidId(toSquid.getId());
+					// dest hdfs squid
+				}else  if(toSquid.getSquid_type() == SquidTypeEnum.DEST_HDFS.value() || toSquid.getSquid_type()==SquidTypeEnum.DESTCLOUDFILE.value()) {
+					IHdfsColumnDao hdfsColumnDao = new HdfsColumnDaoImpl(adapter3);
+					// 删除 hdfsColumn
+					hdfsColumnDao.deleteHdfsColumnBySquidId(toSquid.getId());
+				}//dest impala squid
+				else  if(toSquid.getSquid_type() == SquidTypeEnum.DEST_IMPALA.value()) {
+					ImpalaColumnDao impalaColumnDao = new ImpalaColumnDaoImpl(adapter3);
+					// 删除 impalaColumn
+					impalaColumnDao.deleteImpalaColumnBySquidId(toSquid.getId());
+				} else if(toSquid.getSquid_type() == SquidTypeEnum.GROUPTAGGING.value()){
+					//获取到删除的column或trans
+					outputMap.putAll(this.delColumnsAndTransByTagLink(adapter3, squidLink));
+				} else {
+					SquidJoin
+							squidJoin =
+							squidJoinDao.getSquidJoinByParams(formSquid.getId(), toSquid.getId());
+					if (squidJoin != null) {
+						boolean
+								delJoined =
+								squidJoinDao.delSquidJoinByParams(squidJoin.getTarget_squid_id(),
+										squidJoin.getJoined_squid_id());
+						if (delJoined) {
+							outputMap.put("DelSquidJoinId", squidJoin.getId());
+							//删除squidJoin的JoinType为BASETABLE时 执行更新squidJoin
+							SquidJoin upSquidJoin = squidJoinDao.getUpSquidJoinByJoin(squidJoin);
+							outputMap.put("updSquidJoin", upSquidJoin);
+						}
+					}
+					//获取到删除的column或trans
+					outputMap.putAll(this.delColumnsAndTransByLink(adapter3, squidLink));
+				}
+				//删除squid
+				//squidLinkDao.delSquidLinkByParams(formSquid.getId(), toSquid.getId());
+				squidLinkDao.delete(squidLink.getId(), SquidLink.class);
+			}else{
+				out.setMessageCode(MessageCode.NODATA);
+				return null;
+			}
+		} catch (Exception e) {
+			logger.error("[删除deleteSquidLink=========================================exception]", e);
+			try {
+				adapter3.rollback();
+			} catch (SQLException e1) {
+				logger.error("rollback err!", e1);
+			}
+			logger.error(MessageFormat.format("deleteSquidLink异常  id={0}", 
+					squidLink.getId()), e);
+			out.setMessageCode(MessageCode.SQL_ERROR);
+		}finally {
+			adapter3.closeSession();
+            CommonConsts.addValidationTask(new SquidValidationTask(TokenUtil.getToken(), adapter3, MessageBubbleService.setMessageBubble(squidLink.getFrom_squid_id(), squidLink.getFrom_squid_id(), null, MessageBubbleCode.WARN_SQUID_NO_LINK.value())));
+            CommonConsts.addValidationTask(new SquidValidationTask(TokenUtil.getToken(), adapter3, MessageBubbleService.setMessageBubble(squidLink.getTo_squid_id(), squidLink.getTo_squid_id(), null, MessageBubbleCode.WARN_SQUID_NO_LINK.value())));
+		}
+		return outputMap;
+	}
+	
+	/**
+	 * 删除squidLink，处理的相关信息（ReferenceColumn、Trans,TransLink,Group等)
+	 * @param adapter3
+	 * @param squidLink
+	 * @return
+	 * @throws SQLException
+	 * @throws Exception 
+	 */
+	public Map<String, Object> delColumnsAndTransByLink(IRelationalDataManager adapter3, SquidLink squidLink) throws Exception{
+		Map<String, Object> outputMap = new HashMap<String,Object>();
+		List<Integer> sourceColumns = new ArrayList<Integer>();
+		List<Integer> transformations = new ArrayList<Integer>();
+		List<Integer> transformationLinks = new ArrayList<Integer>();
+		
+		//初始化数据访问层
+		IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter3);
+		ITransformationDao transDao = new TransformationDaoImpl(adapter3);
+		ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter3);
+		ITransformationLinkDao transLinkDao = new TransformationLinkDaoImpl(adapter3);
+		IColumnDao columnDao = new ColumnDaoImpl(adapter3);
+		ISquidDao squidDao = new SquidDaoImpl(adapter3);
+
+		List<Integer> groupIdList = new ArrayList<Integer>();
+		List<ReferenceColumn> refColumns = refColumnDao.getRefColumnListBySquid(squidLink.getFrom_squid_id(), 
+				squidLink.getTo_squid_id());
+		if (refColumns!=null&&refColumns.size()>0){
+			for (ReferenceColumn referenceColumn : refColumns) {
+				sourceColumns.add(referenceColumn.getColumn_id());
+				if (!groupIdList.contains(referenceColumn.getGroup_id())){
+					groupIdList.add(referenceColumn.getGroup_id());
+				}
+				Transformation transformation = transDao.getTransformationById(squidLink.getTo_squid_id(), 
+						referenceColumn.getColumn_id());
+				if (transformation!=null){
+					// 根据transformation_id 查询trans_input集合  放在Link之前删除（如果只是删除link，可以进行重置）
+					List<TransformationInputs> transInputs = transInputsDao.getTransInputListByTransId(transformation.getId());
+					if (null != transInputs && transInputs.size() > 0) {
+						transInputsDao.delTransInputsByTransId(transformation.getId());
+					}
+					List<TransformationLink> links = transLinkDao.getTransLinkByTransId(transformation.getId());
+					if (links!=null&&links.size()>0){
+						for (TransformationLink transformationLink : links) {
+							transformationLinks.add(transformationLink.getId());
+							transInputsDao.resetTransformationInput(transformationLink.getFrom_transformation_id(),
+									transformationLink.getTo_transformation_id(), null);
+						}
+						transLinkDao.delTransLinkByTranId(transformation.getId());
+					}
+					transDao.delete(transformation.getId(), Transformation.class);
+					transformations.add(transformation.getId());
+				}
+			}
+			refColumnDao.deleReferenceColumnBySquidId(squidLink.getFrom_squid_id(), 
+					squidLink.getTo_squid_id());
+		}
+		for (Integer groupId : groupIdList) {
+			refColumnDao.delete(groupId, ReferenceColumnGroup.class);
+		}
+		outputMap.put("delSourceColumnIds", sourceColumns);
+		outputMap.put("delVTransformIds", transformations);
+		outputMap.put("delTransLinkIds", transformationLinks);
+
+		return outputMap;
+	}
+
+	/**
+	 * 删除groupTaggingLink相关信息
+	 * @param adapter3
+	 * @param squidLink
+	 * @return
+	 * @throws Exception
+     */
+	public Map<String, Object> delColumnsAndTransByTagLink(IRelationalDataManager adapter3, SquidLink squidLink) throws Exception{
+		Map<String, Object> outputMap = new HashMap<String,Object>();
+		List<Integer> sourceColumns = new ArrayList<Integer>();
+		List<Integer> transformations = new ArrayList<Integer>();
+		List<Integer> transformationLinks = new ArrayList<Integer>();
+
+		//初始化数据访问层
+		IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter3);
+		ITransformationDao transDao = new TransformationDaoImpl(adapter3);
+		ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter3);
+		ITransformationLinkDao transLinkDao = new TransformationLinkDaoImpl(adapter3);
+		IColumnDao columnDao = new ColumnDaoImpl(adapter3);
+		ISquidDao squidDao = new SquidDaoImpl(adapter3);
+
+		List<Integer> groupIdList = new ArrayList<Integer>();
+		List<ReferenceColumn> refColumns = refColumnDao.getRefColumnListBySquid(squidLink.getFrom_squid_id(),
+				squidLink.getTo_squid_id());
+		//删除Trans
+		List<Transformation> transformationLists = transDao.getTransListBySquidId(squidLink.getTo_squid_id());
+		if (transformationLists!=null){
+			for(Transformation transformation : transformationLists){
+				// 根据transformation_id 查询trans_input集合  放在Link之前删除（如果只是删除link，可以进行重置）
+				List<TransformationInputs> transInputs = transInputsDao.getTransInputListByTransId(transformation.getId());
+				if (null != transInputs && transInputs.size() > 0) {
+					transInputsDao.delTransInputsByTransId(transformation.getId());
+				}
+				List<TransformationLink> links = transLinkDao.getTransLinkByTransId(transformation.getId());
+				if (links!=null&&links.size()>0){
+					for (TransformationLink transformationLink : links) {
+						transformationLinks.add(transformationLink.getId());
+						transInputsDao.resetTransformationInput(transformationLink.getFrom_transformation_id(),
+								transformationLink.getTo_transformation_id(), null);
+					}
+					transLinkDao.delTransLinkByTranId(transformation.getId());
+				}
+				transDao.delete(transformation.getId(), Transformation.class);
+				transformations.add(transformation.getId());
+			}
+		}
+		if (refColumns!=null&&refColumns.size()>0){
+			for (ReferenceColumn referenceColumn : refColumns) {
+				sourceColumns.add(referenceColumn.getColumn_id());
+				if (!groupIdList.contains(referenceColumn.getGroup_id())){
+					groupIdList.add(referenceColumn.getGroup_id());
+				}
+			}
+			refColumnDao.deleReferenceColumnBySquidId(squidLink.getFrom_squid_id(),
+					squidLink.getTo_squid_id());
+		}
+		for (Integer groupId : groupIdList) {
+			refColumnDao.delete(groupId, ReferenceColumnGroup.class);
+		}
+		List<Column> columnList = columnDao.getColumnListBySquidId(squidLink.getTo_squid_id());
+		List<Integer> columns = new ArrayList<>();
+		for(Column column : columnList){
+			if(ConstantsUtil.CN_GROUP_TAG.equals(column.getName())){
+				continue;
+			}
+			columns.add(column.getId());
+		}
+		outputMap.put("delColumnIds",columns);
+		String sql="delete from ds_column where squid_id="+squidLink.getTo_squid_id() +" and name != '"+ConstantsUtil.CN_GROUP_TAG+"'";
+		adapter3.execute(sql);
+		outputMap.put("delSourceColumnIds", sourceColumns);
+		outputMap.put("delVTransformIds", transformations);
+		outputMap.put("delTransLinkIds", transformationLinks);
+
+		return outputMap;
+	}
+	/**
+	 * Extract Squid到Stage SquidModelBase、Stage Squid到 Data Mining Squid的连线
+	 * @param squidLink
+	 * @return
+	 * @author bo.dang
+	 * @date 2014年6月3日
+	 */
+	public Map<String, Object> link2ExtractStage(SquidLink squidLink, ReturnValue out) {
+		Map<String, Object> squidLinkMap = new HashMap<String, Object>();
+/*		// 获得StageSquidID
+		//StageSquid stageSquid = squidAndSquidLink.getStageSquid();
+		SquidLink squidLink = squidAndSquidLink.getSquidLink();*/
+		squidLink.setType(DSObjectType.SQUIDLINK.value());
+
+		int sourceSquidId = squidLink.getFrom_squid_id();
+		int toSquidId = squidLink.getTo_squid_id();
+		// Transformation面板中的目标列在创建squidLink或者join之后，导入了源squid的所有列，应该为空，由用户根据需要来导入。
+		List<Column> toColumns = new ArrayList<Column>();
+		Column newColumn = null;
+		IRelationalDataManager adapter3 = null;
+		List<Transformation> newTransformationList = new ArrayList<Transformation>();
+		try {
+		    int squidTypeId = 0;
+			adapter3 = DataAdapterFactory.getDefaultDataManager();
+			adapter3.openSession();
+			
+			ISquidDao squidDao = new SquidDaoImpl(adapter3);
+			ISquidLinkDao squidLinkDao = new SquidLinkDaoImpl(adapter3);
+			ISquidJoinDao squidJoinDao = new SquidJoinDaoImpl(adapter3);
+			IColumnDao columnDao = new ColumnDaoImpl(adapter3);
+			IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter3);
+			
+		    // 根据SquidId来判断是StageSquid还是DataMiningSquid
+			squidTypeId = squidDao.getSquidTypeById(toSquidId);
+
+			if(squidLink.getId()<=0){ //创建link （ extract->stage ）
+				if(StringUtils.isNull(squidLink.getKey())){
+					squidLink.setKey(StringUtils.generateGUID());
+				}
+				squidLink.setId(squidLinkDao.insert2(squidLink));
+				//new MessageBubbleService(token).isolateSquid(DMLType.INSERT, DSObjectType.SQUIDLINK, squidLink.getFrom_squid_id(), squidLink.getTo_squid_id(), null, squidLink);
+			}
+			// 把squidId返回给client端
+			squidLinkMap.put("newSquidLinkId", squidLink.getId());
+			// 如果是StageSquid
+			if(squidTypeId == DSObjectType.STAGE.value() || squidTypeId == DSObjectType.STREAM_STAGE.value() || squidTypeId == DSObjectType.GROUPTAGGING.value()) {
+				// 创建join
+				SquidJoin newSquidJoin = new SquidJoin();
+				newSquidJoin.setJoined_squid_id(toSquidId);
+				newSquidJoin.setTarget_squid_id(sourceSquidId);
+				List<SquidJoin> joinList = squidJoinDao.getSquidJoinListByJoinedId(toSquidId);
+				if (joinList == null || joinList.isEmpty()) {
+					//joinList = new ArrayList<SquidJoin>(1);
+					newSquidJoin.setPrior_join_id(1);
+					newSquidJoin.setJoinType(JoinType.BaseTable.value());
+				} else {
+					newSquidJoin.setPrior_join_id(joinList.size() + 1);
+					newSquidJoin.setJoinType(JoinType.InnerJoin.value());
+					newSquidJoin.setJoin_Condition("");
+				}
+				newSquidJoin.setKey(StringUtils.generateGUID());
+				newSquidJoin.setId(squidJoinDao.insert2(newSquidJoin));
+				// 把squidJoin返回到client端
+				squidLinkMap.put("newSquidJoin", newSquidJoin);
+			}
+			// 如果是DataMiningSquid
+			else if(squidTypeId == DSObjectType.DATAMINING.value()){
+			    squidLinkMap.put("newSquidJoin", null);
+			}
+			List<Column> sourceColumns = columnDao.getColumnListBySquidId(sourceSquidId);
+			int no=1;
+			for(int x=0;x<sourceColumns.size();x++){
+				if(StringUtils.isHavaChinese(sourceColumns.get(x).getName())){
+					sourceColumns.get(x).setName("col_"+no);
+					no++;
+				}
+			}
+			List<Column> columns = columnDao.getColumnListBySquidId(toSquidId);
+			int columnSize = 0;
+			if(columns!=null && !columns.isEmpty()){
+				columnSize = columns.size(); // 已存在目标列的个数
+			}
+			
+			TransformationService transformationService = new TransformationService(TokenUtil.getToken());
+			Transformation newTrans = null;
+			List<ReferenceColumn> newReferenceColumnList = null;
+			if(StringUtils.isNotNull(sourceColumns) && !sourceColumns.isEmpty()) {
+				List<ReferenceColumnGroup> rg = refColumnDao.getRefColumnGroupListBySquidId(toSquidId);
+				ReferenceColumnGroup columnGroup = new ReferenceColumnGroup();
+				columnGroup.setKey(StringUtils.generateGUID());
+				columnGroup.setReference_squid_id(toSquidId);
+				columnGroup.setRelative_order(rg==null||rg.isEmpty()?1:rg.size()+1);
+				columnGroup.setId(refColumnDao.insert2(columnGroup));
+				Squid extSquid = squidDao.getObjectById(sourceSquidId, Squid.class);
+				// 创建referenceColumn的信息集合
+				Column column = null;
+				ReferenceColumn ref = null;
+				newReferenceColumnList = new ArrayList<ReferenceColumn>();
+				for (int i=0; i<sourceColumns.size(); i++) {
+					column = sourceColumns.get(i);
+	//				if (extSquid.getSquid_type()==SquidTypeEnum.EXTRACT.value()
+	//						&&column.getName().equals("extraction_date")){
+	//					continue;
+	//				}
+					// 创建引用列
+					ref = transformationService.initReference(adapter3, column, column.getId(), 
+							column.getRelative_order(), extSquid, toSquidId, columnGroup);
+					newReferenceColumnList.add(ref);
+					// 创建新增列对应的虚拟变换
+					newTrans = transformationService.initTransformation(adapter3, toSquidId, 
+			        		column.getId(), TransformationTypeEnum.VIRTUAL.value(), 
+			        		column.getData_type(), 1);
+					newTransformationList.add(newTrans);
+				}
+				//stageSquid.setSourceColumns(newReferenceColumnList);
+			}
+			// 如果是DataMiningSquid
+			else if(squidTypeId == DSObjectType.DATAMINING.value()){
+			    squidLinkMap.put("newColumns", null);
+			}
+			// 把ReferenceCloumn返回到Client端
+			squidLinkMap.put("newSourceColumns", newReferenceColumnList);
+			// 把Transformation返回到Client端
+			squidLinkMap.put("newVTransforms", newTransformationList);
+			squidLinkMap.put("newColumns", toColumns);
+			//stageSquid.setColumns(toColumns);
+			// 获取所有相关数据（join、源/目标column、虚拟/真实transformation、transformation link）
+			//setStageSquidData(TokenUtil.getToken(), true, adapter2, stageSquid);
+            //消除stagesquid的消息泡
+			CommonConsts.addValidationTask(new SquidValidationTask(TokenUtil.getToken(), adapter3,  MessageBubbleService.setMessageBubble(sourceSquidId, sourceSquidId, null, MessageBubbleCode.WARN_SQUID_NO_LINK.value())));
+			CommonConsts.addValidationTask(new SquidValidationTask(TokenUtil.getToken(), adapter3,  MessageBubbleService.setMessageBubble(toSquidId, toSquidId, null, MessageBubbleCode.WARN_SQUID_NO_LINK.value())));
+			return squidLinkMap;
+		} catch (Exception e) {
+			logger.error("创建stage squid异常", e);
+			try {
+				adapter3.rollback();
+			} catch (SQLException e1) { // 数据库回滚失败（程序不能处理该异常）！
+				logger.fatal("rollback err!", e1);
+			}
+			out.setMessageCode(MessageCode.SQL_ERROR);
+		} finally {
+			adapter3.closeSession();
+		}
+		return new HashMap<String, Object>();
+	}
+
+
+	/**
+	 * 创建TaggingLink
+	 */
+	public  Map<String, Object> createTaggingSquidLink(SquidLink squidLink, ReturnValue out){
+		Map<String, Object> squidLinkMap = new HashMap<String, Object>();
+		squidLink.setType(DSObjectType.SQUIDLINK.value());
+		int sourceSquidId = squidLink.getFrom_squid_id();
+		int toSquidId = squidLink.getTo_squid_id();
+		// Transformation面板中的目标列在创建squidLink或者join之后，导入了源squid的所有列，不能为空全部生成。
+		List<Column> toColumns = new ArrayList<Column>();
+		IRelationalDataManager adapter3 = null;
+		List<Transformation> newTransformationList = new ArrayList<Transformation>();
+		Map<String,String> nowMap = new HashMap<>();
+		Map<String,String> refMaps = new HashMap<>();
+		try {
+			adapter3 = DataAdapterFactory.getDefaultDataManager();
+			adapter3.openSession();
+			ISquidDao squidDao = new SquidDaoImpl(adapter3);
+			ISquidLinkDao squidLinkDao = new SquidLinkDaoImpl(adapter3);
+			IColumnDao columnDao = new ColumnDaoImpl(adapter3);
+			IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter3);
+			ITransformationInputsDao transformationInputsDao = new TransformationInputsDaoImpl(adapter3);
+			if(squidLink.getId()<=0){ //创建link （ extract->stage ）
+				if(StringUtils.isNull(squidLink.getKey())){
+					squidLink.setKey(StringUtils.generateGUID());
+				}
+				squidLink.setId(squidLinkDao.insert2(squidLink));
+			}
+			// 把squidId返回给client端
+			squidLinkMap.put("newSquidLinkId", squidLink.getId());
+			List<Column> sourceColumns = columnDao.getColumnListBySquidId(sourceSquidId);
+			List<Column> nextColumns = columnDao.getColumnListBySquidId(toSquidId);
+			for(int i=0;i<nextColumns.size();i++){
+				nowMap.put(nextColumns.get(i).getName(),nextColumns.get(i).getName());
+			}
+			int no=1;
+			String regexName = "(tag){1}[0-9]*";
+			String regex="[0-9]+";
+			for(int x=0;x<sourceColumns.size();x++){
+				if(StringUtils.isHavaChinese(sourceColumns.get(x).getName())){
+					sourceColumns.get(x).setName("col_"+no);
+					no++;
+				}
+				if(sourceColumns.get(x).getName().matches(regexName)){
+					refMaps.put(sourceColumns.get(x).getId()+"",sourceColumns.get(x).getName());
+				}
+			}
+			//替换重复的名字(两个map集合比较，只替换重复的)
+			for(Map.Entry<String,String> refMap : refMaps.entrySet()){
+				//for(Map.Entry<String,String> now : nowMap.entrySet()){
+					if(nowMap.containsValue(refMap.getValue())){
+						String numStr = refMap.getValue().substring(refMap.getValue().indexOf(ConstantsUtil.CN_GROUP_TAG)+3);
+						String value = (ConstantsUtil.CN_GROUP_TAG+(Integer.parseInt(!numStr.matches(regex)?"0":numStr)+1));
+						while(refMaps.containsValue(value)){
+							numStr = value.substring(value.indexOf(ConstantsUtil.CN_GROUP_TAG)+3);
+							value = (ConstantsUtil.CN_GROUP_TAG+(Integer.parseInt(!numStr.matches(regex)?"0":numStr)+1));
+						}
+						refMap.setValue(value);
+					}
+				//}
+			}
+			TransformationService transformationService = new TransformationService(TokenUtil.getToken());
+			List<ReferenceColumn> newReferenceColumnList = null;
+			List<TransformationLink> transformationLinks = null;
+			if(StringUtils.isNotNull(sourceColumns) && !sourceColumns.isEmpty()) {
+				List<ReferenceColumnGroup> rg = refColumnDao.getRefColumnGroupListBySquidId(toSquidId);
+				ReferenceColumnGroup columnGroup = new ReferenceColumnGroup();
+				columnGroup.setKey(StringUtils.generateGUID());
+				columnGroup.setReference_squid_id(toSquidId);
+				columnGroup.setRelative_order(rg==null||rg.isEmpty()?1:rg.size()+1);
+				columnGroup.setId(refColumnDao.insert2(columnGroup));
+				Squid extSquid = squidDao.getObjectById(sourceSquidId, Squid.class);
+				// 创建referenceColumn的信息集合
+				Column column = null;
+				ReferenceColumn ref = null;
+				newReferenceColumnList = new ArrayList<>();
+				transformationLinks = new ArrayList<>();
+				Transformation newTransRight = null;
+				Transformation newTransLeft = null;
+				TransformationLink transformationLink = null;
+				int transformationToId;
+				int transformationFromId;
+				for (int i=0; i<sourceColumns.size(); i++) {
+					column = sourceColumns.get(i);
+					// 创建引用列
+					ref = transformationService.initReference(adapter3, column, column.getId(),
+							column.getRelative_order(), extSquid, toSquidId, columnGroup);
+					newReferenceColumnList.add(ref);
+					// 创建新增列对应的虚拟变换（面板右边）
+					/*newTrans = transformationService.initTransformation(adapter3, toSquidId,
+							column.getId(), TransformationTypeEnum.VIRTUAL.value(),
+							column.getData_type(), 1);*/
+					newTransRight = transformationService.initTransformation(adapter3, toSquidId,
+							ref.getId(), TransformationTypeEnum.VIRTUAL.value(),
+							ref.getData_type(), 1);
+					newTransformationList.add(newTransRight);
+					//变换面板左边的
+					//解决名字重复问题
+					/*while(nowMap.containsKey(column.getName()) ){
+						String numStr = column.getName().substring(column.getName().indexOf(ConstantsUtil.CN_GROUP_TAG)+3);
+						column.setName(ConstantsUtil.CN_GROUP_TAG+(Integer.parseInt(!numStr.matches(regex)?"0":numStr)+1));
+
+					}*/
+					//nameMap.put(column.getName(),column.getName());
+					if(refMaps.containsKey(column.getId()+"")){
+						column.setName(refMaps.get(column.getId()+""));
+					}
+					//先查出column的个数，从而确定order的值
+					Map<String,Object> paramMap = new HashMap<>();
+					paramMap.put("squid_id",toSquidId);
+					List<Column> existColumn = adapter3.query2List2(true,paramMap,Column.class);
+					int columnSize = 0;
+					if(existColumn!=null){
+						columnSize = existColumn.size();
+					}
+					Column newColumn = transformationService.initColumn(adapter3,column,columnSize+1,toSquidId,null);
+					newTransLeft = transformationService.initTransformation(adapter3,toSquidId,newColumn.getId(),TransformationTypeEnum.VIRTUAL.value(),column.getData_type(),1);
+					newTransformationList.add(newTransLeft);
+					//设置Transformation连线
+					transformationToId = newTransLeft.getId();
+					transformationFromId = newTransRight.getId();
+					// 创建 transformation link
+					transformationLink = transformationService.initTransformationLink(adapter3,transformationFromId,transformationToId,i+1);
+					transformationLinks.add(transformationLink);
+					// 更新TransformationInputs
+					transformationInputsDao.updTransInputs(transformationLink,newTransLeft);
+
+					toColumns.add(newColumn);
+				}
+			}
+			// 把ReferenceCloumn返回到Client端
+			squidLinkMap.put("newSourceColumns", newReferenceColumnList);
+			// 把Transformation返回到Client端
+			squidLinkMap.put("newVTransforms", newTransformationList);
+			squidLinkMap.put("newColumns", toColumns);
+			squidLinkMap.put("newTransLinks",transformationLinks);
+
+			return squidLinkMap;
+		} catch (Exception e) {
+			logger.error("创建GroupTagging Link异常", e);
+			try {
+				adapter3.rollback();
+			} catch (SQLException e1) { // 数据库回滚失败（程序不能处理该异常）！
+				logger.fatal("rollback err!", e1);
+			}
+			out.setMessageCode(MessageCode.SQL_ERROR);
+		} finally {
+			adapter3.closeSession();
+		}
+		return new HashMap<String, Object>();
+	}
+}

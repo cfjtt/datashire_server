@@ -1,0 +1,746 @@
+package com.eurlanda.datashire.adapter.datatype;
+
+import cn.com.jsoft.jframe.utils.StringUtils;
+import cn.com.jsoft.jframe.utils.ValidateUtils;
+import com.eurlanda.datashire.entity.Column;
+import com.eurlanda.datashire.entity.ReferenceColumn;
+import com.eurlanda.datashire.entity.SourceColumn;
+import com.eurlanda.datashire.entity.operation.ColumnInfo;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.enumeration.datatype.DbBaseDatatype;
+import com.eurlanda.datashire.enumeration.datatype.SystemDatatype;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
+
+public class DataTypeConvertor {
+	/**
+	 * 映射缓存
+	 */
+	private static Map<String, TypeMapping> inMapping;
+	private static Map<String, TypeMapping> outMapping;
+	//private static Set<String> inVarMapping;		// 带变量的映射，如varchar(n),number(p|s),varchar(13)
+	private static Logger logger = LoggerFactory.getLogger(DataTypeConvertor.class);
+
+	static{
+		try {
+			loadMapping();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void loadMapping() throws Exception{
+		logger.info("-------------start loadMapping-----------------");
+		inMapping= new HashMap<String, TypeMapping>();
+		outMapping= new HashMap<String, TypeMapping>();
+	//	inVarMapping = new HashSet<>();
+//		InputStream in = DataTypeConvertor.class.getResourceAsStream("dataTypeMapping.csv");
+		InputStream in = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("config/dataTypeMapping.csv");
+		BufferedReader br = new BufferedReader(new InputStreamReader(in,"GBK"));
+
+		String line=br.readLine();
+		String[] headers = line.split(",");
+		for(int i=1;i<headers.length;i++){
+			headers[i]=StringUtils.find(headers[i], "\\[(\\d+)\\]",1);
+		}
+		br.readLine();
+		while((line=br.readLine())!=null){
+		  String[] parts = line.split(",");
+		  String sysType = parts[0].trim();
+		  String finalJavaType = parts[1].trim();
+		  for(int i=2;i<parts.length;i++){		// 从第三列开始。
+			  String dbId = headers[i];
+			  String dbType = parts[i].trim();
+			  String dbTypeNoSign = parts[i].replaceAll("[<>]", "").replaceAll("=.*$", "").trim();
+			  TypeMapping mapping = new TypeMapping();
+			  mapping.setSysDataType(sysType);		// 系统数据类型。
+			  mapping.setJavaType(StringUtils.find(dbType, "=(.*?)$", 1).trim());		// java接收类型
+			  mapping.setInMapping(true);
+			  mapping.setDbDataType(dbTypeNoSign);	// 数据库中的类型。
+			  mapping.setFinalJavaType(finalJavaType); 	// 最终运算使用的java类型。
+			  mapping.setDbType(DataBaseType.parse(Integer.parseInt(dbId)));
+			  if(!ValidateUtils.isEmpty(dbType)
+					  && !"N/A".equals(dbType)
+					  && !"-".equals(dbType)
+				){
+//				  if(dbType.indexOf("(")>-1){
+//					  inVarMapping.add(dbType);
+//				  }
+				  if(dbType.indexOf(">")>-1){		// outMapping
+					String key =   dbId+"_"+sysType;
+					outMapping.put(key, mapping);
+					logger.info("mapping out:{} -> {}",key,mapping);
+				  }
+				  if(dbType.indexOf("<")>-1){		// inMapping.
+					String key =   dbId+"_"+dbTypeNoSign;
+					inMapping.put(key, mapping);
+					logger.info("mapping in:{} -> {}",key,mapping);
+				  }
+			  }
+		  }
+		}
+		br.close();
+		logger.info("-------------end loadMapping-----------------");
+	}
+	
+	/**
+	 * 将sourceColumn转换为column，会自动转换数据类型、精度、小数据点位数、长度。
+	 * @return
+	 */
+	public static Column getInColumnByColumn(Integer dbType, Column tempCol){
+		Column column = new Column();
+		SourceColumn col = getSourceColumnByReferenceColumns(tempCol);
+		TypeMapping val = getInTypeMappingBySourceColumn(dbType, col);
+		SystemDatatype sysType = val == null ? SystemDatatype.UNKNOWN : SystemDatatype.parse(val.getSysDataType().replaceAll("\\(.*?\\)", ""));
+		DbBaseDatatype dbBaseType = DbBaseDatatype.parse(col.getData_type());
+		column.setName(col.getName());
+		column.setNullable(col.isNullable());
+		column.setLength(col.getLength());
+		column.setPrecision(col.getPrecision());
+		column.setScale(col.getScale());
+		column.setData_type(sysType.value());
+		column.setSquid_id(tempCol.getSquid_id());
+		switch (sysType) {		//  设置精度、长度等信息。
+		case NVARCHAR:
+		case VARBINARY:
+		case BINARY:
+		case NCHAR:
+			String len = StringUtils.find(val.getSysDataType(), "\\((.*?)\\)", 1);
+			if(!ValidateUtils.isEmpty(len)){
+				if("max".equals(len)){
+					column.setLength(-1);
+				}else if("n".equals(len)){
+					column.setLength(col.getLength());
+				}else{
+					column.setLength(Integer.parseInt(len));
+				}
+			}
+			break;
+		case DECIMAL:
+			String len2 = StringUtils.find(val.getSysDataType(), "\\((.*?)\\)", 1);
+			if(!ValidateUtils.isEmpty(len2)){
+				String[] params = len2.split("\\|");
+				if(params[0].equals("p")){
+					column.setPrecision(col.getPrecision());
+				}else{
+					column.setPrecision(Integer.parseInt(params[0]));
+				}
+				if(params.length>1){
+					if(params[1].equals("s")){
+						column.setScale(col.getScale());
+					}else{
+						column.setScale(Integer.parseInt(params[1]));
+					}
+				}
+			}
+			break;
+		case FLOAT:
+			if (dbType==DataBaseType.HANA.value()&&col.getPrecision()==34){
+				column.setPrecision(0);
+			}
+			break;
+		default:
+			break;
+		}
+		//最后更新length设置，如果不为Unicode编码的类型，该类型length*2
+		switch (dbBaseType) {
+		case VARCHAR:
+		case VARCHAR2:
+		case CHAR:
+		case CHARACTER:
+			int length = column.getLength();
+			if ((dbType==DataBaseType.SQLSERVER.value()||dbType==DataBaseType.ORACLE.value())&&length!=-1){
+				column.setLength(length*2);
+			}
+			break;
+		default:
+			break;
+		}
+		return column;
+	}
+	
+	/**
+	 * 将sourceColumn转换为column，会自动转换数据类型、精度、小数据点位数、长度。
+	 * @return
+	 */
+	public static SourceColumn getInColumnBySourceColumn(Integer dbType, SourceColumn col){
+		SourceColumn column = new SourceColumn();
+		TypeMapping val = getInTypeMappingBySourceColumn(dbType, col);
+		SystemDatatype sysType = val == null ? SystemDatatype.UNKNOWN : SystemDatatype.parse(val.getSysDataType().replaceAll("\\(.*?\\)", ""));
+		DbBaseDatatype dbBaseType = DbBaseDatatype.parse(col.getData_type());
+		column.setName(col.getName());
+		column.setNullable(col.isNullable());
+		column.setLength(col.getLength());
+		column.setIspk(col.isIspk());
+		column.setIsunique(col.isIsunique());
+		column.setPrecision(col.getPrecision());
+		column.setScale(col.getScale());
+		column.setData_type(sysType.value());
+		switch (sysType) {		//  设置精度、长度等信息。
+		case NVARCHAR:
+		case VARBINARY:
+		case BINARY:
+		case NCHAR:
+			String len = StringUtils.find(val.getSysDataType(), "\\((.*?)\\)", 1);
+			if(!ValidateUtils.isEmpty(len)){
+				if("max".equals(len)){
+					column.setLength(-1);
+				}else if("n".equals(len)){
+					column.setLength(col.getLength());
+				}else{
+					column.setLength(Integer.parseInt(len));
+				}
+			}
+			int length = column.getLength();
+			if (dbType==DataBaseType.HBASE_PHOENIX.value()&&length==0){
+				column.setLength(-1);
+			}
+			break;
+		case DECIMAL:
+			String len2 = StringUtils.find(val.getSysDataType(), "\\((.*?)\\)", 1);
+			if(!ValidateUtils.isEmpty(len2)){
+				String[] params = len2.split("\\|");
+				if(params[0].equals("p")){
+					column.setPrecision(col.getPrecision());
+				}else{
+					column.setPrecision(Integer.parseInt(params[0]));
+				}
+				if(params.length>1){
+					if(params[1].equals("s")){
+						column.setScale(col.getScale());
+					}else{
+						column.setScale(Integer.parseInt(params[1]));
+					}
+				}
+			}
+			break;
+		case FLOAT:
+			if (dbType==DataBaseType.HANA.value()&&col.getPrecision()==34){
+				column.setPrecision(0);
+			}
+
+			break;
+		default:
+			break;
+		}
+		//最后更新length设置，如果不为Unicode编码的类型，该类型length*2
+		switch (dbBaseType) {
+		case VARCHAR:
+		case VARCHAR2:
+		case CHAR:
+		case CHARACTER:
+			int length = column.getLength();
+			if ((dbType==DataBaseType.SQLSERVER.value()||dbType==DataBaseType.ORACLE.value())&&length!=-1){
+				column.setLength(length*2);
+			}
+			if (dbType==DataBaseType.HBASE_PHOENIX.value()&&length==0){
+				column.setLength(-1);
+			}
+			break;
+		default:
+			break;
+		}
+		return column;
+	}
+	
+	/**
+	 * 将sourceColumn转换为column，会自动转换数据类型、精度、小数据点位数、长度。
+	 * @return
+	 */
+	public static SystemDatatype getSystemDatatypeByColumnInfo(Integer dbType, ColumnInfo info){
+		SourceColumn col = getSourceColumnByColumnInfo(info);
+		TypeMapping val = getInTypeMappingBySourceColumn(dbType, col);
+		SystemDatatype sysType = val == null ? SystemDatatype.UNKNOWN : SystemDatatype.parse(val.getSysDataType().replaceAll("\\(.*?\\)", ""));
+		return sysType;
+	}
+	
+	/**
+	 * 通过sourceColumn取到映射 。
+	 * @param dbType
+	 * @param col
+	 * @return
+	 */
+	public static TypeMapping getInTypeMappingBySourceColumn(Integer dbType,
+			SourceColumn col) {
+		String key = "";
+		DbBaseDatatype columnType = DbBaseDatatype.parse(col.getData_type());
+		switch(columnType){
+		case DECIMAL:
+			if (dbType==DataBaseType.HANA.value()&&col.getPrecision()==34){
+				key = dbType+"_"+columnType.name();
+				if (inMapping.containsKey(key)) {
+					return inMapping.get(key);
+				}
+			}
+		case NUMERIC:
+		case BIT:
+			key = dbType+"_"+columnType.name() + "(" + col.getPrecision() + "|"+ col.getScale() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(p|s)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(" + col.getPrecision() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(p)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name();
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			break;
+		case NUMBER:
+			key = dbType+"_"+columnType.name() + "(" + col.getPrecision() + "|"+ col.getScale() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			if (col.getPrecision()>0&&col.getScale()==0){
+				key = dbType+"_"+columnType.name() + "(p|0)";
+				if (inMapping.containsKey(key)) {
+					return inMapping.get(key);
+				}
+			}
+			if (col.getPrecision()==0&&col.getScale()>0){
+				key = dbType+"_"+columnType.name() + "(*|s)";
+				if (inMapping.containsKey(key)) {
+					return inMapping.get(key);
+				}
+			}
+			if (col.getPrecision()>0){
+				key = dbType+"_"+columnType.name() + "(" + col.getPrecision() + ")";
+				if (inMapping.containsKey(key)) {
+					return inMapping.get(key);
+				}
+			}
+			if (col.getPrecision()!=0&&col.getScale()!=0){
+				key = dbType+"_"+columnType.name() + "(p|s)";
+				if (inMapping.containsKey(key)) {
+					return inMapping.get(key);
+				}
+			}
+			key = dbType+"_"+columnType.name() + "(p)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name();
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			break;
+		case FLOAT:
+			key = dbType+"_"+columnType.name() + "(" + col.getPrecision() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(p)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(" + col.getLength() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(n)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name();
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			break;
+		case NVARCHAR:
+		case NVARCHAR2:
+		case VARCHAR:
+		case VARCHAR2:
+		case VARBINARY:
+		case NCHAR:
+		case CHAR:
+		case CHARACTER:
+		case TIME:
+		case REAL:
+		case BINARY:
+		case ALPHANUM:
+		case SHORTTEXT:
+			key = dbType+"_"+columnType.name() + "(" + col.getLength() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(n)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name();
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			break;
+		case TIMESTAMP:
+			key = dbType+"_"+columnType.name() + "(" + col.getLength() + ")";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(s)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(p)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name();
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			break;
+		default:
+			key = dbType+"_"+columnType.name();
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			key = dbType+"_"+columnType.name() + "(n)";
+			if (inMapping.containsKey(key)) {
+				return inMapping.get(key);
+			}
+			break;
+		}
+		return null;
+	}
+
+	/**
+	 * 按column取类型映射。
+	 * @param dbType 数据类型
+	 * @param col	列
+	 * @return
+	 */
+	public static TypeMapping getOutTypeMappingByColumn(Integer dbType, ColumnInfo col){
+		String key = "";
+		SystemDatatype columnType = col.getSystemDatatype();
+		String colName = columnType.name();
+		switch (columnType) {
+		case DECIMAL:
+			//if ( col.getPrecision() > 0 && col.getScale() > 0){
+				key = dbType+"_"+colName+"("+col.getPrecision()+"|"+col.getScale()+")";
+				if (outMapping.containsKey(key)){
+					return outMapping.get(key);
+				}
+				key = dbType+"_"+colName+"(p|s)";
+				if (outMapping.containsKey(key)){
+					return outMapping.get(key);
+				}
+			//}else if(col.getPrecision() > 0){
+				key = dbType+"_"+colName+"("+col.getPrecision()+")";
+				if (outMapping.containsKey(key)){
+					return outMapping.get(key);
+				}
+				key = dbType+"_"+colName+"(p)";
+				if (outMapping.containsKey(key)){
+					return outMapping.get(key);
+				}
+			//}else{
+				key = dbType+"_"+colName;
+				if (outMapping.containsKey(key)){
+					return outMapping.get(key);
+				}
+			//}
+			
+			break;
+		case NCHAR:
+		case NVARCHAR:
+		case VARBINARY:
+		case BINARY:
+			if (col.getLength()==-1){
+				key = dbType+"_"+colName+"(max)";
+				if (outMapping.containsKey(key)){
+					return outMapping.get(key);
+				}
+			}
+			//fix bug-3967 --某些类型的column落地到数据库中再预览就会预览失败
+//			key = dbType+"_"+colName+"("+col.getLength()+")";
+//			if (outMapping.containsKey(key)){
+//				return outMapping.get(key);
+//			}
+			key = dbType+"_"+colName+"(n)";
+			if (outMapping.containsKey(key)){
+				return outMapping.get(key);
+			}
+			key = dbType+"_"+colName;
+			if (outMapping.containsKey(key)){
+				return outMapping.get(key);
+			}
+			break;
+		default:
+			key = dbType+"_"+colName;
+
+			//当落地对象为sqlserver时，将datetime类型转化成datetime2
+			if(dbType==DataBaseType.SQLSERVER.value() && "DATETIME".equals(colName)){
+				if(outMapping.containsKey(key)) {
+					TypeMapping map = outMapping.get(key);
+					map.setDbDataType("DATETIME2");
+					return map;
+				}
+			} else {
+				if (outMapping.containsKey(key)) {
+					return outMapping.get(key);
+				}
+			}
+			break;
+		}
+		return null;
+	}
+	
+	/**
+	 * 取column的落地数据类型。
+	 * @param dbType
+	 * @param col
+	 * @return
+	 */
+	public static String getOutTypeByColumn(Integer dbType, ColumnInfo col){
+		//在ORACLE中NVARCHAR最大为2000
+		if (dbType==DataBaseType.ORACLE.value()&&col.getLength()>2000){
+			col.setLength(-1);
+		}
+		//在SQLSERVER中最大值为4000
+		else if (dbType==DataBaseType.SQLSERVER.value()&&col.getLength()>4000){
+			col.setLength(-1);
+		}
+		else if (dbType==DataBaseType.MYSQL.value()&&col.getLength()>4000){
+			col.setLength(-1);
+		}
+		else if (dbType==DataBaseType.DB2.value()){
+			if (col.getSystemDatatype()==SystemDatatype.NCHAR&&col.getLength()>256){
+				col.setLength(-1);
+			}
+			if (col.getSystemDatatype()==SystemDatatype.NVARCHAR&&col.getLength()>4000){
+				col.setLength(-1);
+			}
+		}
+		else if (dbType==DataBaseType.HANA.value()&&col.getLength()>5000) {
+			col.setLength(-1);
+		}
+		//落地特殊处理
+		if (col.getSystemDatatype()==SystemDatatype.MAP
+				||col.getSystemDatatype()==SystemDatatype.ARRAY){
+			col.setSystemDatatype(SystemDatatype.NVARCHAR);
+			col.setLength(-1);
+		}
+		else if(col.getSystemDatatype()==SystemDatatype.CSV){
+			//bug 4798 将csv转换成clob
+			col.setSystemDatatype(SystemDatatype.NVARCHAR);
+		}else {
+
+		}
+		TypeMapping val = getOutTypeMappingByColumn(dbType, col);
+		if(val!=null){
+
+			/*if (dbType==DataBaseType.ORACLE.value()&&col.getLength()==-1){
+				outString = outString.replace("-1", "2000");
+			}else if (dbType==DataBaseType.HBASE_PHOENIX.value()&&col.getLength()==-1){
+				outString = outString.replace("(-1)", "");
+			}else if (dbType!=DataBaseType.HBASE_PHOENIX.value()&&col.getLength()==-1){
+				outString = outString.replace("-1", "MAX");
+			}*/
+			String outString = "";
+			if(dbType==DataBaseType.DB2.value()
+					&& "VARCHAR(n)".equals(val.getDbDataType())
+					&&"NVARCHAR(n)".equals(val.getSysDataType())){
+				outString = val.getDbDataType().replace("n", col.getLength()*3 + "").replace("p", col.getPrecision() + "").replace("s", col.getScale() + "").replace("|", ",");
+			} else {
+				outString = val.getDbDataType().replace("n", col.getLength() + "").replace("p", col.getPrecision() + "").replace("s", col.getScale() + "").replace("|", ",");
+			}
+			if (dbType==DataBaseType.SQLSERVER.value()&&col.getLength()==-1){
+				outString = outString.replace("-1", "max");
+			}
+			return outString;
+		}
+		return null;
+	}
+	
+	/**
+	 * 取column的落地数据类型。
+	 * @param dbType
+	 * @param col
+	 * @return
+	 */
+	public static String getOutTypeBySourceColumn(Integer dbType, SourceColumn col){
+		//在ORACLE中NVARCHAR最大为2000
+		if (dbType==DataBaseType.ORACLE.value()&&col.getLength()>2000){
+			col.setLength(-1);
+		}
+		//在SQLSERVER中最大值为4000
+		else if (dbType==DataBaseType.SQLSERVER.value()&&col.getLength()>4000){
+			col.setLength(-1);
+		}
+		else if (dbType==DataBaseType.MYSQL.value()&&col.getLength()>4000){
+			col.setLength(-1);
+		}
+		else if (dbType==DataBaseType.DB2.value()){
+			if (col.getData_type()==SystemDatatype.NCHAR.value()&&col.getLength()>256){
+				col.setLength(-1);
+			}
+			if (col.getData_type()==SystemDatatype.NVARCHAR.value()&&col.getLength()>4000){
+				col.setLength(-1);
+			}
+		}
+		else if (dbType==DataBaseType.HANA.value()&&col.getLength()>5000){
+			col.setLength(-1);
+		}
+		TypeMapping val = getInTypeMappingBySourceColumn(dbType, col);
+		if(val!=null){
+			String outString = val.getDbDataType().replace("n", col.getLength()+"").replace("p", col.getPrecision()+"").replace("s", col.getScale()+"").replace("|", ",");
+			/*if (dbType==DataBaseType.ORACLE.value()&&col.getLength()==-1){
+				outString = outString.replace("-1", "2000");
+			}else if (dbType==DataBaseType.HBASE_PHOENIX.value()&&col.getLength()==-1){
+				outString = outString.replace("(-1)", "");
+			}else if (dbType!=DataBaseType.HBASE_PHOENIX.value()&&col.getLength()==-1){
+				outString = outString.replace("-1", "MAX");
+			}*/
+			if (dbType==DataBaseType.SQLSERVER.value()&&col.getLength()==-1){
+				outString = outString.replace("-1", "max");
+			}
+			return outString;
+		}
+		return null;
+	}
+
+	public static SourceColumn getSourceColumnByReferenceColumns(Column column){
+		SourceColumn source = new SourceColumn();
+		source.setData_type(column.getData_type());
+		source.setLength(column.getLength());
+		source.setPrecision(column.getPrecision());
+		source.setScale(column.getScale());
+		source.setName(column.getName());
+		source.setNullable(column.isNullable());
+		source.setIspk(column.isIsPK());
+		source.setIsunique(column.isIsUnique());
+		return source;
+	}
+	
+	public static SourceColumn getSourceColumnByColumnInfo(ColumnInfo column){
+		SourceColumn source = new SourceColumn();
+		source.setData_type(column.getDbBaseDatatype().value());
+		source.setLength(column.getLength()==null?0:column.getLength());
+		source.setPrecision(column.getPrecision()==null?0:column.getPrecision());
+		source.setScale(column.getScale()==null?0:column.getScale());
+		source.setName(column.getName());
+		source.setNullable(column.isNullable());
+		source.setIspk(column.isPrimary());
+		source.setIsunique(column.isUniqueness());
+		return source;
+	}
+	
+	public static ReferenceColumn getReferenceColumnBySourceColumn(SourceColumn column){
+		ReferenceColumn source = new ReferenceColumn();
+		source.setData_type(column.getData_type());
+		source.setLength(column.getLength());
+		source.setPrecision(column.getPrecision());
+		source.setScale(column.getScale());
+		source.setName(column.getName());
+		source.setNullable(column.isNullable());
+		source.setFK(column.isIspk());
+		source.setIsUnique(column.isIsunique());
+		return source;
+	}
+	
+	public static SourceColumn getSourceColumnByReferenceColumns(Column column, SourceColumn sourceColumn){
+		SourceColumn source = sourceColumn;
+		source.setData_type(column.getData_type());
+		source.setLength(column.getLength());
+		source.setPrecision(column.getPrecision());
+		source.setScale(column.getScale());
+		source.setName(column.getName());
+		source.setNullable(column.isNullable());
+		source.setIspk(column.isIsPK());
+		source.setIsunique(column.isIsUnique());
+		return source;
+	}
+	
+	public static Column getColumnBySourceColumn(SourceColumn sourceColumn){
+		Column column = new Column();
+		column.setId(sourceColumn.getId());
+		column.setData_type(sourceColumn.getData_type());
+		column.setLength(sourceColumn.getLength());
+		column.setPrecision(sourceColumn.getPrecision());
+		column.setScale(sourceColumn.getScale());
+		column.setName(sourceColumn.getName());
+		column.setNullable(sourceColumn.isNullable());
+		column.setIsPK(sourceColumn.isIspk());
+		column.setIsUnique(sourceColumn.isIsunique());
+		return column;
+	}
+	
+	public static ColumnInfo getColumnInfoByColumn(Column column){
+		ColumnInfo info = new ColumnInfo();
+		info.setSystemDatatype(SystemDatatype.parse(column.getData_type()));
+		info.setLength(column.getLength());
+		info.setPrecision(column.getPrecision());
+		info.setScale(column.getScale());
+		info.setName(column.getName());
+		info.setNullable(column.isNullable());
+		info.setIdentity(column.isIsAutoIncrement());
+		info.setPrimary(column.isIsPK());
+		info.setUniqueness(column.isIsUnique());
+		return info;
+	}
+	
+	public static void main1(String[] args) throws Exception {
+		// System.out.println(outMapping);
+		// System.out.println(inMapping);
+		System.out.println(outMapping.size());
+		System.out.println(inMapping.size());
+		SourceColumn col = new SourceColumn();
+		col.setName("ScrapReasonID");
+		//col.setData_type(DbBaseDatatype.DECIMAL.value());
+		col.setData_type(DbBaseDatatype.MAP.value());
+		col.setPrecision(0);
+		col.setScale(0);
+		col.setLength(0);
+		SourceColumn tm = getInColumnBySourceColumn(DataBaseType.MYSQL.value(), col);
+		System.out.println("name:"+SystemDatatype.parse(tm.getData_type()).name()+","+tm.toString());
+	}
+	
+	public static void main(String[] args) throws Exception {
+		System.out.println(outMapping.size());
+		System.out.println(inMapping.size());
+		ColumnInfo col = new ColumnInfo() ;
+		col.setName("test");
+		col.setDbBaseDatatype(DbBaseDatatype.VARCHAR);
+		col.setPrecision(0);
+		col.setScale(0);
+		col.setLength(200);
+		SourceColumn source = getSourceColumnByColumnInfo(col);
+		String tm = getOutTypeBySourceColumn(DataBaseType.MYSQL.value(), source);
+		System.out.println(tm);
+	}
+	
+	public DataType getDataTypeByColumn(Integer dbType, Column col) {
+		// 1. 通过 col 的name,dbType 构造key.
+		SystemDatatype columnType = SystemDatatype.parse(col.getData_type());
+		String key = dbType + "_" + columnType.value();
+		if (outMapping.containsKey(key)) {
+			TypeMapping val = inMapping.get(key);
+			if (col.getScale() > 0 || col.getPrecision() > 0) {
+				return new DataType(val.getDbDataType(), col.getPrecision(),
+						col.getScale());
+			} else if (col.getLength() > 0) {
+				return new DataType(val.getDbDataType(), col.getLength());
+			} else {
+				return new DataType(val.getDbDataType());
+			}
+		}
+		return null;
+	}
+}

@@ -1,0 +1,2 @@
+-- 修改版本号
+update ds_sys_server_parameter set VALUE='2.4.0' where NAME='VERSION';

@@ -1,0 +1,210 @@
+package com.eurlanda.datashire.server;
+
+import com.alibaba.fastjson.JSONObject;
+import com.eurlanda.datashire.common.rpc.IEngineService;
+import com.eurlanda.datashire.common.rpc.IServerService;
+import com.eurlanda.datashire.common.rpc.ServerServiceImpl;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.enumeration.datatype.DbBaseDatatype;
+import com.eurlanda.datashire.server.service.ServerParameterService;
+import com.eurlanda.datashire.server.socket.SocketServer;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.server.utils.SysUtil;
+import com.eurlanda.datashire.socket.AgreementProtocol;
+import com.eurlanda.datashire.socket.Heartbeat;
+import com.eurlanda.datashire.sprint7.service.squidflow.UserNewProcess;
+import com.eurlanda.datashire.utility.*;
+import org.apache.avro.ipc.NettyServer;
+import org.apache.avro.ipc.NettyTransceiver;
+import org.apache.avro.ipc.specific.SpecificRequestor;
+import org.apache.avro.ipc.specific.SpecificResponder;
+import org.jboss.netty.channel.DefaultChannelFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Created by zhudebin on 2017/6/12.
+ */
+public class DatashireServer {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DatashireServer.class);
+
+    /** 主服务对象 */
+    private static SocketServer mainServer;
+    private static IServerService iServerService;
+    private static IEngineService iEngineService;
+    private static NettyTransceiver client;
+    /**  */
+    protected static Map<String, Object> serverParameter;
+
+    private static void initServerParams() throws Exception{
+        // 获取参数集合
+        ServerParameterService serverParameterService = CommonConsts.application_Context.getBean(ServerParameterService.class);
+
+        serverParameter = serverParameterService.getServerParameter();
+        LOGGER.debug("serverParameter: " + serverParameter);
+        // 服务器版本号 1.7.0版本后，版本号保存在数据库中
+        if(StringUtils.isNotNull(serverParameter.get("VERSION"))){
+            CommonConsts.VERSION = String.valueOf(serverParameter.get("VERSION"));
+        }
+        if(StringUtils.isNotNull(serverParameter.get("SPLIT_COLUMN_FILTER"))) {
+            String filter = serverParameter.get("SPLIT_COLUMN_FILTER").toString();
+            Set<Map.Entry<String, Object>> set = JSONObject.parseObject(filter).entrySet();
+            for(Map.Entry<String, Object> en : set) {
+                String[] dataTypes = en.getValue().toString().split(",");
+                Set<Integer> dtSet = new HashSet<>();
+                for(String str : dataTypes) {
+                    dtSet.add(DbBaseDatatype.parse(str.toUpperCase().trim()).value());
+                }
+                CommonConsts.SPLIT_COLUMN_FILTER.put(DataBaseType.parse(en.getKey().trim()).value(), dtSet);
+            }
+        }
+
+        // 超级用户密码
+        if(StringUtils.isNotNull(serverParameter.get("SuperUserPwd"))){
+            CommonConsts.SuperUserPwd = String.valueOf(serverParameter.get("SuperUserPwd"));
+        }
+        //过期时间
+        if(StringUtils.isNull(serverParameter.get("LimitedTime"))) {
+            throw new Exception("数据库缺少配置项,请检查后启动");
+        } else {
+            CommonConsts.LimitedTime= DesUtils.decryptBasedDes(String.valueOf(serverParameter.get("LimitedTime")));
+        }
+        //license
+        if(!serverParameter.containsKey("LicenseKey")) {
+            throw new Exception("数据库缺少配置项,请检查后启动");
+        } else {
+            if(StringUtils.isNotNull(serverParameter.get("LicenseKey"))){
+                UserNewProcess process = new UserNewProcess();
+                int squidCnt = SysUtil.decodeLicenseKey(String.valueOf(serverParameter.get("LicenseKey")));
+                CommonConsts.MaxSquidCount = squidCnt;
+            }
+        }
+        // 启动日志同步客户端（装载日志）
+        new Thread() {
+
+            @Override
+            public void run() {
+                try {
+                    LogConsumerUtils.consumSFLog();
+                } catch (Exception e) {
+                    LOGGER.debug("客户端日志同步异常 ",e);
+                }
+                LOGGER.debug("===========启动日志客户端=========");
+            }
+        }.start();
+        // 定时推送日志
+        new Thread() {
+            @Override
+            public void run() {
+                try {
+                    LogConsumerUtils.pushSchedule();
+                } catch (Exception e) {
+                    LOGGER.debug("定时推送日志 ",e);
+                }
+                LOGGER.debug("===========定时推送日志=========");
+            }
+
+        }.start();
+    }
+
+    private static SocketServer getSocketServer() {
+        SocketServer socketServer = new SocketServer();
+        socketServer.setPort(
+                Integer.parseInt(serverParameter.get("ServerPort").toString()));
+        return socketServer;
+    }
+
+    /**
+     * 设置服务对象
+     * */
+    private static void setMainServer(SocketServer s) {
+        LOGGER.trace("setMainServer");
+        mainServer = s;
+        AgreementProtocol.instantHandler();
+        AgreementProtocol.instantProtocol();
+    }
+
+    /**
+     * 得到服务对象
+     * */
+    private static SocketServer getMainServer() {
+        return mainServer;
+    }
+
+    private static void initRPCServer(){
+        try {
+            Integer port = Integer.valueOf(SysConf.getValue("rpc.self.port"));
+            // 创建一个远程对象
+            DefaultChannelFuture.setUseDeadLockChecker(false);
+            iServerService = new ServerServiceImpl();
+            SpecificResponder reponse = new SpecificResponder(IServerService.class, iServerService);
+            new NettyServer(reponse, new InetSocketAddress(port));
+            LOGGER.info("RPC service started，listen on port:" + port);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static IEngineService getEngineService() throws NumberFormatException, IOException {
+        if (isEngineNotConnected()) {
+            synchronized (DatashireServer.class){
+                if (isEngineNotConnected()) {
+                    LOGGER.debug("初始化engine连接");
+                    DefaultChannelFuture.setUseDeadLockChecker(false);
+                    client = new NettyTransceiver(new InetSocketAddress(SysConf.getValue("rpc.engine.addr"), Integer.parseInt(SysConf.getValue("rpc.engine.port"))));
+                    iEngineService = SpecificRequestor.getClient(IEngineService.class, client);
+                }
+                //						iEngineService = SpecificRequestor.getClient(IEngineService.class, client);
+            }
+        }
+        return iEngineService;
+    }
+
+    public static boolean isEngineNotConnected(){
+        if(iEngineService == null) {
+            LOGGER.debug("iEngineService 未初始化..");
+        }
+        if(client==null) {
+            LOGGER.debug("client==null");
+        }else if(!client.isConnected()) {
+            LOGGER.debug("!client.isConnected()");
+        }
+        return iEngineService == null;
+    }
+
+    /**
+     * main入口
+     * */
+    public static void main(String[] args) throws Exception {
+        final long startTime = System.currentTimeMillis();
+        LOGGER.info("datashire server start up!");
+        // 启动spring
+        ApplicationContext context = new ClassPathXmlApplicationContext(new String[] {"config/applicationContext.xml"});
+        CommonConsts.application_Context=context;
+        Constants.context = context;
+        // 1. 初始化系统配置参数
+        initServerParams();
+        // 设置RPC接口的的端口绑定
+        initRPCServer();
+        //getEngineService();
+        // 2. 设置server运行时参数
+        DatashireServer.setMainServer(getSocketServer());
+        // 3. 指定netty日志处理器
+//        InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
+        // 4. 启动server-socket（netty）
+        DatashireServer.getMainServer().start();
+        // 5. 启动server-socket 心跳 (keep TCP alive)
+        Heartbeat.TimerScanning();
+        long endTime = System.currentTimeMillis();
+        LOGGER.info("datashire server start up sucessfully in "+(endTime-startTime)+" ms.");
+    }
+}

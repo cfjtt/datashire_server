@@ -1,0 +1,337 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.entity.DBSourceTable;
+import com.eurlanda.datashire.entity.DbSquid;
+import com.eurlanda.datashire.entity.SourceTable;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.exception.SystemErrorException;
+import com.eurlanda.datashire.server.dao.SourceColumnDao;
+import com.eurlanda.datashire.server.dao.SourceTableDao;
+import com.eurlanda.datashire.server.dao.SquidDao;
+import com.eurlanda.datashire.server.dao.SquidLinkDao;
+import com.eurlanda.datashire.server.utils.dbsource.AdapterDataSourceManager;
+import com.eurlanda.datashire.server.utils.dbsource.INewDBAdapter;
+import com.eurlanda.datashire.server.utils.entity.DBConnectionInfo;
+import com.eurlanda.datashire.server.utils.entity.operation.BasicTableInfo;
+import com.eurlanda.datashire.utility.*;
+import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by eurlanda - new 2 on 2017/7/10.
+ */
+@Service
+public class SourceTableService {
+    private static final Logger logger = LoggerFactory.getLogger(SourceTableService.class);
+    @Autowired
+    private SourceTableDao sourceTableDao;
+    @Autowired
+    private SquidLinkDao squidLinkDao;
+    @Autowired
+    private SourceColumnDao sourceColumnDao;
+    @Autowired
+    private SquidDao squidDao;
+    @Autowired
+    private RepositoryService repService;
+
+    /**
+     * 获取SourceTable
+     * @param dbSourceSquid
+     * @param type
+     * @return
+     * @throws Exception
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public String getSourceTable(DbSquid dbSourceSquid,int type) throws Exception{
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = new HashMap<String, Object>();
+        List<SourceTable> sourceTables = new ArrayList<SourceTable>();
+        //保存缓存表里没有改变的表名
+        List<DBSourceTable> sameTable = new ArrayList<>();
+        //保存数据源里没有改变的表名
+        List<BasicTableInfo> sameTableInfo = new ArrayList<>();
+        INewDBAdapter adaoterSource = null;
+        List<Integer> cancelSquidIds=new ArrayList<>();
+        int updateSquidStatus=0;
+        boolean falg=false;
+        try {
+            if(dbSourceSquid!=null){
+                if(dbSourceSquid.getSquid_type()== SquidTypeEnum.CLOUDDB.value()
+                        && (dbSourceSquid.getHost().equals(SysConf.getValue("cloud_host")+":3306"))){
+                    /*dbSourceSquid.setHost(SysConf.getValue("cloud_db_ip_port"));*/
+                    //获取数据库的链接信息
+                    int squidFlowId = dbSourceSquid.getSquidflow_id();
+                    //确定链接信息
+                    String dbUrl = repService.getDBUrlBySquidFlowId(squidFlowId);
+                    dbSourceSquid.setHost(dbUrl);
+                }
+                if(dbSourceSquid.getSquid_type() == SquidTypeEnum.TRAININGDBSQUID.value()
+                        && (dbSourceSquid.getHost().equals(SysConf.getValue("train_db_host")))){
+                    //dbSourceSquid.setHost(SysConf.getValue("train_db_real_host"));
+                    int squidFlowId = dbSourceSquid.getSquidflow_id();
+                    //确定链接信息
+                    String dbUrl = repService.getDBUrlBySquidFlowId(squidFlowId);
+                    dbSourceSquid.setHost(dbUrl);
+                }
+                if (type == DataBaseType.HIVE.value()) {
+                    dbSourceSquid.setHost(SysConf.getValue("hive.host"));
+                    dbSourceSquid.setPort(Integer.parseInt(SysConf.getValue("hive.port")));
+                }
+                //查询下游所有的抽取squid
+                 cancelSquidIds=squidLinkDao.selectSquidByFromSquId(dbSourceSquid.getId());
+                //修改这squid状态。
+                if(cancelSquidIds!=null && cancelSquidIds.size()>0){
+                     updateSquidStatus=squidDao.updateSquStatusBySquIds(cancelSquidIds);
+                }
+                //筛选条件
+                String filter = dbSourceSquid.getFilter();
+                String oldFileter = filter;
+                // 获取数据源
+                DBConnectionInfo dbs=new DBConnectionInfo();
+                this.setConnectionInfo(dbs,dbSourceSquid);
+                adaoterSource = AdapterDataSourceManager.getAdapter(dbs);
+                // 获取db_squid的id
+                int dbSquidId = dbSourceSquid.getId();
+                logger.debug("[获取到的db_squid_id=]" + dbSquidId);
+
+                // 获取工作流中存在的sourceTable
+                List<DBSourceTable> tables =sourceTableDao.getDbSourceTablesForExtracted(dbSquidId);
+
+                //获取筛选过后的DBsourceTable
+                List<BasicTableInfo> tableList = new ArrayList<BasicTableInfo>();
+
+                if (dbs.getDbType() == DataBaseType.HANA) {
+                    //支持多条件过滤
+                    for (String filters : filter.split(",")) {
+                        tableList.addAll(adaoterSource.getAllTables(SQLUtils.sqlserverFilter(filters), dbs.getDbName()));
+                    }
+                } else if (dbs.getDbType() == DataBaseType.HIVE) {
+                    //支持多条件过滤
+                    for (String filters : filter.split(",")) {
+                        tableList.addAll(adaoterSource.getAllTables(filters, dbs.getDbName()));
+                    }
+                } else {
+                    //支持多条件过滤
+                    for (String filters : filter.split(",")) {
+                        tableList.addAll(adaoterSource.getAllTables(SQLUtils.sqlserverFilter(filters)));
+                    }
+                }
+                //要添加的集合
+                List<DBSourceTable> addTables=null;
+                //要删除的Table
+                List<Integer> ids=new ArrayList<>();
+                //要作废的squidId
+                List<Integer> squidIds=new ArrayList<>();
+                //返回squidId
+                List<Integer> resultSquidIds=new ArrayList<>();
+                int count=0;
+                String nameTable=null;
+                if(tables==null||tables.size()==0){
+                    //BasicTableInfo到DBSourceTable的转换(全部换成新的adpter以及对象的替换需要时间,暂时采取这种,后续调整)
+                    addTables = this.convertTableName(tableList, dbSourceSquid);
+                }else{
+                    //点重新链接时要进行相应的判断（判断表名是否改变或者源数据是否删除表和新增表）
+                    if (tables.size() > 0 && tableList.size() > 0) {
+                        for (BasicTableInfo basicTableInfo : tableList) {
+                            for(DBSourceTable dbSourceTable :tables){
+                                if (StringUtils.isNotNull(basicTableInfo.getScheme())) {
+                                    nameTable=basicTableInfo.getScheme()+"."+basicTableInfo.getTableName();
+                                }else{
+                                    nameTable=basicTableInfo.getTableName();
+                                }
+                                //判断源数据里的表名是否和缓存表里的表名是否相同
+                                if(nameTable.equals(dbSourceTable.getTable_name())){
+                                    sameTable.add(dbSourceTable);
+                                    sameTableInfo.add(basicTableInfo);
+                                    break;
+                                }
+                            }
+                        }
+                        //拿出要新添加的表名
+                        tableList.removeAll(sameTableInfo);
+                        //拿出要删除的表名
+                        tables.removeAll(sameTable);
+                    }
+                    //需要删除的Table
+                    /*if(tables!=null&&tables.size()!=0){
+                        for (DBSourceTable sourceTable : tables){
+                            ids.add(sourceTable.getId());
+                            //判断当前要删除的table是否已抽取，如果已抽取就作废抽取的squid
+                            if(sourceTable.isIs_extracted()){
+                                //根据sourceTableId查squid
+                                List<SquidModelBase> squids=squidDao.selectBySourceTable(sourceTable.getId());
+                                if(squids!=null&&squids.size()>0){
+                                    //作废
+                                    for (SquidModelBase squidModelBase:squids){
+                                        squidIds.add(squidModelBase.getId());
+                                        resultSquidIds.add(squidModelBase.getId());
+                                    }
+                                }
+                                if(squidIds!=null&&squidIds.size()>0){
+                                    //根据squidid把对应的squid状态改为1
+                                    count=squidDao.updateSquStatusBySquIds(squidIds);
+                                    squidIds.clear();
+                                }
+                            }
+                        }
+                        if(ids!=null&&ids.size()!=0){
+                            //删除有改变的Table
+                            count= sourceTableDao.deleteDbSourceTableById(ids);
+                        }
+                        logger.debug("[需要删除的表的个数=]" + ids.size());
+                    }*/
+                    //要添加的Table BasicTableInfo到DBSourceTable的转换
+                    addTables = this.convertTableName(tableList, dbSourceSquid);
+                }
+                //删除那些已经不存在的表 2017-11-28
+                if(tables!=null && tables.size()>0){
+                    List<Integer> dbTablesIds=new ArrayList<>();
+                    for(DBSourceTable sourceTable:tables){
+                        dbTablesIds.add(sourceTable.getId());
+                    }
+                    sourceTableDao.deleteDbSourceTableById(dbTablesIds);
+                }
+
+
+                logger.debug("[需要增加的表的个数=]" + addTables.size());
+                if(addTables!=null&&addTables.size()>0){
+                    //批量添加sourceTable
+                    count =sourceTableDao.insertDBSourceTable(addTables);
+                }
+
+                // 根据db_squid_id查询到所有的表
+//                List<DBSourceTable> allTables = sourceTableDao.getDbSourceTablesForExtracted(dbSquidId);
+                List<DBSourceTable> allTables = new ArrayList<>();
+                allTables.addAll(sameTable);
+                allTables.addAll(addTables);
+                logger.debug("[操作执行完后的表个数=]" + allTables.size());
+                System.out.println("您链接的数据库中要创建的表有" + addTables.size() + "个;");
+                // 没有匹配到表
+                if (allTables.size() == 0) {
+                    map.put("ListSourceTable", sourceTables);
+                    if (type == DataBaseType.HIVE.value()) {
+                        return JsonUtil.toJsonString(map, DSObjectType.HIVE, out.getMessageCode());
+                    } else {
+                        return JsonUtil.toJsonString(map, DSObjectType.DBSOURCE, out.getMessageCode());
+                    }
+                }
+
+                for (int i=0;i<allTables.size();i++){
+                    // 封装返回数据
+                    this.setSourceTable(allTables.get(i), sourceTables);
+                }
+                //返回数据
+                map.put("ListSourceTable", sourceTables);
+                //下游抽取Squid作废
+                map.put("ErrorSquidIdList",cancelSquidIds);
+                if (type == DataBaseType.HIVE.value()) {
+                    return JsonUtil.toJsonString(map, DSObjectType.HIVE, out.getMessageCode());
+                } else {
+                    return JsonUtil.toJsonString(map, DSObjectType.DBSOURCE, out.getMessageCode());
+                }
+            }else{
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+                return JsonUtil.toJsonString(null, null, out.getMessageCode());
+            }
+        }catch (SystemErrorException e) {
+            logger.error("getSourceTable is error",e);
+            out.setMessageCode(MessageCode.ERR_DATABASE_CONNECT);
+            map.put("ListSourceTable", sourceTables);
+            if (type == DataBaseType.HIVE.value()) {
+                out.setMessageCode(MessageCode.HIVE_DATABASENAME_NOTEXIST);
+                return JsonUtil.toJsonString(map, DSObjectType.HIVE, out.getMessageCode());
+            } else {
+                return JsonUtil.toJsonString(map, DSObjectType.DBSOURCE, out.getMessageCode());
+            }
+        } catch (Exception e) {
+            logger.error("getSourceTable is error", e);
+            out.setMessageCode(MessageCode.SQL_ERROR);
+            map.put("ListSourceTable", sourceTables);
+            if (type == DataBaseType.HIVE.value()) {
+                if (e instanceof SQLException) {
+                    SQLException exception = (SQLException) e;
+                    if (exception.getSQLState().equals("08S01")) {
+                        out.setMessageCode(MessageCode.HIVE_DATABASENAME_NOTEXIST);
+                    }
+                }
+                if (e instanceof NoSuchObjectException) {
+                    out.setMessageCode(MessageCode.HIVE_DATABASENAME_NOTEXIST);
+                }
+                return JsonUtil.toJsonString(map, DSObjectType.HIVE, out.getMessageCode());
+            } else {
+                return JsonUtil.toJsonString(map, DSObjectType.DBSOURCE, out.getMessageCode());
+            }
+        } finally {
+            if (adaoterSource != null) adaoterSource.close();
+        }
+    }
+
+    /**
+     * 连接对象设置值
+     *
+     * @param
+     * @param
+     */
+    private void setConnectionInfo(DBConnectionInfo dbs,DbSquid dbSquid){
+        dbs.setHost(dbSquid.getHost());
+        dbs.setPort(dbSquid.getPort());
+        dbs.setUserName(dbSquid.getUser_name());
+        dbs.setPassword(dbSquid.getPassword());
+        dbs.setDbName(dbSquid.getDb_name());
+        dbs.setDbType(DataBaseType.parse(dbSquid.getDb_type()));
+    }
+
+    /**
+     * 对象转换
+     *
+     * @param tableList
+     * @return
+     */
+    private List<DBSourceTable> convertTableName(List<BasicTableInfo> tableList, DbSquid dbSquid) {
+        List<DBSourceTable> sourceTables = new ArrayList<DBSourceTable>();
+        for (BasicTableInfo basicTableInfo : tableList) {
+            DBSourceTable dbSourceTable = new DBSourceTable();
+            if (StringUtils.isNotNull(basicTableInfo.getScheme())) {
+                if (dbSquid.getDb_type() == DataBaseType.TERADATA.value()) {
+                    dbSourceTable.setTable_name(basicTableInfo.getTableName());
+                } else {
+                    dbSourceTable.setTable_name(basicTableInfo.getScheme() + "." + basicTableInfo.getTableName());
+                }
+            } else {
+                dbSourceTable.setTable_name(basicTableInfo.getTableName());
+            }
+            dbSourceTable.setSource_squid_id(dbSquid.getId());
+            sourceTables.add(dbSourceTable);
+        }
+        return sourceTables;
+    }
+
+
+    /**
+     * 封装返回的数据
+     */
+    public void setSourceTable(DBSourceTable dbSourceTable, List<SourceTable> sourceTables) {
+        try {
+            SourceTable sourceTable = new SourceTable();
+            sourceTable.setId(dbSourceTable.getId());
+            sourceTable.setTableName(dbSourceTable.getTable_name());
+            sourceTable.setIs_extracted(dbSourceTable.isIs_extracted());
+            sourceTables.add(sourceTable);
+        } catch (Exception e) {
+            logger.error("setSourceTable err!", e);
+        }
+
+    }
+}

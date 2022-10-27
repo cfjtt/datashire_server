@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.DataCatchSquidDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.DataCatchSquid" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="NAME" property="name" jdbcType="INTEGER" />
+    <result column="DESCRIPTION" property="description" jdbcType="INTEGER" />
+  </resultMap>
+
+  <insert id="insertDataViewSquid" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.DataCatchSquid" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_squid (name,description,SQUID_FLOW_ID,SQUID_TYPE_ID,LOCATION_X,LOCATION_Y,SQUID_HEIGHT,SQUID_WIDTH)
+    values
+    (#{name,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
+    #{squidflow_id,jdbcType=VARCHAR},#{squid_type,jdbcType=VARCHAR},#{location_x,jdbcType=VARCHAR},#{location_y,jdbcType=VARCHAR},#{squid_height,jdbcType=VARCHAR},#{squid_width,jdbcType=VARCHAR}
+    )
+  </insert>
+  <update id="updateDataViewSquid" parameterType="com.eurlanda.datashire.server.model.DataCatchSquid" >
+    update ds_squid
+    <set >
+      <if test="name != null" >
+        name = #{name,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null" >
+        description = #{description,jdbcType=VARCHAR},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+</mapper>

@@ -1,0 +1,16 @@
+package com.eurlanda.datashire.server.dao;
+
+
+import com.eurlanda.datashire.server.model.SquidFlowStatus;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by hanrui on 2018/6/19.
+ */
+@Repository
+public interface SquidFlowStatusDao {
+    List<SquidFlowStatus> getSquidFlowStatus(Map<String, String> map);
+}

@@ -1,0 +1,82 @@
+package com.eurlanda.datashire.server.model;
+
+import com.eurlanda.datashire.server.model.Base.BaseObject;
+
+import java.util.List;
+
+
+public class Project extends BaseObject {
+
+	//操作者
+	private int creator;
+
+	//备注
+	private String description;
+
+	//修改日期
+	private String modification_date;
+	
+    //repository ID
+	private int repository_id;
+	public int getRepository_id() {
+		return repository_id;
+	}
+
+	public void setRepository_id(int repositoryId) {
+		repository_id = repositoryId;
+	}
+
+	//SquidFlow列表
+	private List<SquidFlow> squidFlowList;
+
+	//变量列表
+	private List<DSVariable> variables;
+	public Project(){
+
+	}
+
+	public void finalize() throws Throwable {
+		super.finalize();
+	}
+
+	public int getCreator() {
+		return creator;
+	}
+
+	public void setCreator(int creator) {
+		this.creator = creator;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	public String getModification_date() {
+		return modification_date;
+	}
+
+	public void setModification_date(String modificationDate) {
+		modification_date = modificationDate;
+	}
+
+	public List<SquidFlow> getSquidFlowList() {
+		return squidFlowList;
+	}
+
+	public void setSquidFlowList(List<SquidFlow> squidFlowList) {
+		this.squidFlowList = squidFlowList;
+	}
+
+	public List<DSVariable> getVariables() {
+		return variables;
+	}
+
+	public void setVariables(List<DSVariable> variables) {
+		this.variables = variables;
+	}
+
+}

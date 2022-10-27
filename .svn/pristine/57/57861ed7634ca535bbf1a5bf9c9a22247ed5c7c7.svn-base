@@ -1,0 +1,136 @@
+package com.eurlanda.datashire.sprint7.service.squidflow;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.ISquidDao;
+import com.eurlanda.datashire.dao.impl.SquidDaoImpl;
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.server.model.User;
+import com.eurlanda.datashire.server.service.UserService;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.utility.*;
+import org.apache.log4j.Logger;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class UserNewProcess {
+	static Logger logger = Logger.getLogger(UserNewProcess.class);// 记录日志
+	private String token;
+
+	public UserNewProcess() {
+
+	}
+
+	public UserNewProcess(String token) {
+		this.token = token;
+	}
+
+
+	private void copyBean(Object source,Object target,Class clazz){
+		if(clazz.getSuperclass()!=null){
+			copyBean(source,target,clazz.getSuperclass());
+		}
+		for (Field field:clazz.getDeclaredFields()){
+			field.setAccessible(true);
+			try {
+				Object o = field.get(source);
+				Boolean isBool = Modifier.isFinal(field.getModifiers());
+				Boolean isStatic = Modifier.isStatic(field.getModifiers());
+				if(o !=null&&!"".equals(o)&&!isBool&&!isStatic) {
+					field.set(target, o);
+				}
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	/**
+	 * 更新用户
+	 * @param info
+	 * @param out
+	 * @return
+	 */
+	public Map<String, Object>  updateUserNew(String info, ReturnValue out) {
+
+        Map<String, Object> outputMap = new HashMap<String, Object>();
+        User newUser = JsonUtil.object2HashMap(info, User.class);
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        String oldPassword=map.get("CurrentPassword").toString();
+
+        UserService userService = Constants.context.getBean(UserService.class);
+        User oldUser = userService.findByUsernameAndPassword(newUser.getUser_name(), oldPassword);
+        if(oldUser != null) {
+            newUser.setId(oldUser.getId());
+            int count = userService.update(newUser);
+            if(count > 0) {
+                outputMap.put("UpdatedUser",newUser);
+                out.setMessageCode(MessageCode.SUCCESS);
+            } else {
+                out.setMessageCode(MessageCode.ERR_UPDATEUSER);
+            }
+        } else {
+            out.setMessageCode(MessageCode.ERR_UPDATEUSER);
+        }
+
+        return outputMap;
+	}
+
+	
+
+	
+	/**
+	 * 获取当前squid的总数量
+	 * @param out
+	 * @return
+	 */
+	public Map<String, Object> getSquidAllForCount(ReturnValue out){
+		Map<String, Object> outputMap = new HashMap<String, Object>();
+		IRelationalDataManager adapter = null;
+		try {
+			adapter = DataAdapterFactory.getDefaultDataManager();
+			adapter.openSession();
+			ISquidDao squidDao = new SquidDaoImpl(adapter);
+			List<Squid> list = squidDao.getObjectAll(Squid.class);
+			outputMap.put("SquidCount", list!=null?list.size():0);
+			return outputMap;
+		} catch (Exception e) {
+			if (adapter!=null){
+				try {
+					adapter.rollback();
+				} catch (SQLException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			}
+			// TODO: handle exception
+			logger.error("setLicense is error", e);
+			out.setMessageCode(MessageCode.SQL_ERROR);
+		} finally{
+			if (adapter!=null) adapter.closeSession();
+		}
+		return outputMap;
+	}
+	
+	public static void main(String[] args) {
+		//UserNewProcess process = new UserNewProcess();
+		/*Map<String, Object> map = process.getLicenseKey(new ReturnValue());
+		System.out.println(map);*/
+		
+		long t = DateTimeUtils.timeDiff(CommonConsts.LimitedTime,
+				DateTimeUtils.currentDate(), "yyyy-MM-dd");
+		System.out.println((t)/(1000*60*60*24));
+		int days = Integer.parseInt((t)/(1000*60*60*24)+"");
+		System.out.println(days);
+		/*String info = "{\"LicenseKey\":\"VU3tslwM0C6FVqqsI2XZBRGRzTmZLr80fgeCwSfCVesCJOt7crsguSOe6k6sZmADTowUaWJ5H8XnTPqwHSDdjA==\"}";
+		Map<String, Object> map = process.setLicense(info, new ReturnValue());
+		System.out.println(map);*/
+		/*System.out.println(OsUtils.getMacs().get(0).getMac());*/
+	}
+}
+

@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.SamplingSquidDao" >
+<resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.SamplingSquid">
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="name" property="name" jdbcType="VARCHAR" />
+    <result column="LOCATION_X" property="location_x" jdbcType="INTEGER" />
+    <result column="LOCATION_Y" property="location_y" jdbcType="INTEGER" />
+    <result column="SQUID_HEIGHT" property="squid_height" jdbcType="INTEGER" />
+    <result column="SQUID_WIDTH" property="squid_width" jdbcType="INTEGER" />
+    <result column="SQUID_TYPE_ID" property="squid_type" jdbcType="INTEGER" />
+    <result column="SQUID_FLOW_ID" property="squidflow_id" jdbcType="INTEGER" />
+    <result column="is_show_all" property="is_show_all" jdbcType="VARCHAR" />
+    <result column="source_is_show_all" property="source_is_show_all" jdbcType="VARCHAR" />
+    <result column="reference_group_x" property="source_transformation_group_x" jdbcType="INTEGER" />
+    <result column="reference_group_y" property="source_transformation_group_y" jdbcType="INTEGER" />
+    <result column="column_group_x" property="transformation_group_x" jdbcType="INTEGER" />
+    <result column="column_group_y" property="transformation_group_y" jdbcType="INTEGER" />
+    <result column="table_name" property="table_name" jdbcType="VARCHAR" />
+    <result column="filter" property="filter" jdbcType="VARCHAR" />
+    <result column="encoding" property="encoding" jdbcType="INTEGER" />
+    <result column="max_travel_depth" property="max_travel_depth" jdbcType="INTEGER" />
+    <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+    <result column="DESIGN_STATUS" property="design_status" jdbcType="INTEGER" />
+    <result column="is_incremental" property="is_incremental" jdbcType="VARCHAR" />
+    <result column="incremental_expression" property="incremental_expression" jdbcType="VARCHAR" />
+    <result column="is_indexed" property="is_indexed" jdbcType="VARCHAR" />
+    <result column="is_persisted" property="is_persisted" jdbcType="VARCHAR" />
+    <result column="destination_squid_id" property="destination_squid_id" jdbcType="INTEGER" />
+    <result column="top_n" property="top_n" jdbcType="INTEGER" />
+    <result column="truncate_existing_data_flag" property="truncate_existing_data_flag" jdbcType="INTEGER" />
+    <result column="process_mode" property="process_mode" jdbcType="INTEGER" />
+    <result column="log_format" property="log_format" jdbcType="INTEGER" />
+    <result column="post_process" property="post_process" jdbcType="INTEGER" />
+    <result column="cdc" property="cdc" jdbcType="INTEGER" />
+    <result column="exception_handling_flag" property="exception_handling_flag" jdbcType="INTEGER" />
+    <result column="source_table_id" property="source_table_id" jdbcType="INTEGER" />
+    <result column="union_all_flag" property="union_all_flag" jdbcType="INTEGER" />
+    <result column="xsd_dtd_file" property="xsd_dtd_file" jdbcType="VARCHAR" />
+    <result column="xsd_dtd_path" property="xsd_dtd_path" jdbcType="VARCHAR" />
+    <result column="is_distinct" property="is_distinct" jdbcType="INTEGER" />
+    <result column="ref_squid_id" property="ref_squid_id" jdbcType="INTEGER" />
+    <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+    <result column="split_num" property="split_num" jdbcType="VARCHAR" />
+    <result column="group_column" property="GroupColumnIds" jdbcType="LONGNVARCHAR" />
+    <result column="sort_column" property="SortingColumnIds" jdbcType="LONGNVARCHAR" />
+    <result column="tagging_column" property="TaggingColumnIds" jdbcType="LONGNVARCHAR" />
+    <result column="incremental_mode" property="incremental_mode" jdbcType="INTEGER" />
+    <result column="check_column_id" property="check_column_id" jdbcType="INTEGER" />
+    <result column="last_value" property="last_value" jdbcType="LONGNVARCHAR" />
+    <result column="samplingPercent" property="samplingPercent" jdbcType="DOUBLE" />
+    <result column="sourceSquidId" property="sourceSquidId" jdbcType="INTEGER" />
+    <result column="sourceSquidName" property="sourceSquidName" jdbcType="VARCHAR" />
+</resultMap>
+
+    <sql id="Base_Column_List" >
+        id,name,location_x,location_y,squid_height,squid_width,squid_type_id,squid_flow_id,is_show_all,source_is_show_all,reference_group_x,reference_group_y
+        ,column_group_x,column_group_y,table_name,filter,encoding,max_travel_depth,description,design_status,is_incremental,incremental_expression,is_indexed,is_persisted
+        ,destination_squid_id,top_n,truncate_existing_data_flag,process_mode,log_format,post_process,cdc,exception_handling_flag,source_table_id,union_all_flag
+        ,xsd_dtd_file,xsd_dtd_path,is_distinct,ref_squid_id,split_col,split_num,group_column,sort_column,tagging_column,incremental_mode,check_column_id,last_value
+        ,samplingPercent,sourceSquidId,sourceSquidName
+    </sql>
+
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+        select
+        <include refid="Base_Column_List" />
+        from ds_squid
+        where ID = #{id,jdbcType=INTEGER}
+    </select>
+
+    <insert id="insertSamplingSquid" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.SamplingSquid" >
+        <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        insert into ds_squid (name,location_x,location_y,squid_height,squid_width,squid_type_id,squid_flow_id,is_show_all,source_is_show_all,reference_group_x,reference_group_y
+        ,column_group_x,column_group_y,table_name,filter,encoding,max_travel_depth,description,design_status,is_incremental,incremental_expression,is_indexed,is_persisted
+        ,destination_squid_id,top_n,truncate_existing_data_flag,process_mode,log_format,post_process,cdc,exception_handling_flag,source_table_id,union_all_flag
+        ,xsd_dtd_file,xsd_dtd_path,is_distinct,ref_squid_id,split_col,split_num,group_column,sort_column,tagging_column,incremental_mode,check_column_id,last_value
+        ,samplingPercent,sourceSquidId,sourceSquidName)
+        values
+        (#{name,jdbcType=VARCHAR}, #{location_x,jdbcType=INTEGER},#{location_y,jdbcType=INTEGER},#{squid_height,jdbcType=INTEGER},#{squid_width,jdbcType=INTEGER},#{squid_type,jdbcType=INTEGER},#{squidflow_id,jdbcType=INTEGER}
+        ,#{is_show_all,jdbcType=VARCHAR},#{source_is_show_all,jdbcType=VARCHAR},#{source_transformation_group_x,jdbcType=INTEGER},#{source_transformation_group_y,jdbcType=INTEGER},
+        #{transformation_group_x,jdbcType=INTEGER},#{transformation_group_y,jdbcType=INTEGER},#{table_name,jdbcType=VARCHAR},#{filter,jdbcType=VARCHAR},#{encoding,jdbcType=INTEGER},#{max_travel_depth,jdbcType=INTEGER},
+        #{description,jdbcType=VARCHAR},#{design_status,jdbcType=INTEGER},#{is_incremental,jdbcType=VARCHAR},#{incremental_expression,jdbcType=VARCHAR},
+        #{is_indexed,jdbcType=VARCHAR},#{is_persisted,jdbcType=VARCHAR},
+        #{destination_squid_id,jdbcType=INTEGER},#{top_n,jdbcType=INTEGER}, #{truncate_existing_data_flag,jdbcType=INTEGER},#{process_mode,jdbcType=INTEGER},
+        #{log_format,jdbcType=INTEGER},#{post_process,jdbcType=INTEGER}, #{cdc,jdbcType=INTEGER},#{exception_handling_flag,jdbcType=INTEGER},#{source_table_id,jdbcType=INTEGER},#{union_all_flag,jdbcType=INTEGER},
+        #{xsd_dtd_file,jdbcType=VARCHAR}, #{xsd_dtd_path,jdbcType=VARCHAR},#{is_distinct,jdbcType=INTEGER},#{ref_squid_id,jdbcType=INTEGER},
+        #{split_col,jdbcType=VARCHAR}, #{split_num,jdbcType=INTEGER},#{GroupColumnIds,jdbcType=LONGNVARCHAR},#{SortingColumnIds,jdbcType=LONGNVARCHAR},#{TaggingColumnIds,jdbcType=LONGNVARCHAR},
+        #{incremental_mode,jdbcType=INTEGER},#{check_column_id,jdbcType=INTEGER},#{last_value,jdbcType=LONGNVARCHAR},
+        #{samplingPercent,jdbcType=DOUBLE},#{sourceSquidId,jdbcType=INTEGER},#{sourceSquidName,jdbcType=VARCHAR}
+        )
+    </insert>
+
+    <update id="updateSamplingSquid" parameterType="com.eurlanda.datashire.server.model.SamplingSquid" >
+        update ds_squid
+        <set >
+            <if test="name != null" >
+                name = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="location_x != null" >
+                location_x = #{location_x,jdbcType=INTEGER},
+            </if>
+            <if test="location_y != null" >
+                location_y = #{location_y,jdbcType=INTEGER},
+            </if>
+            <if test="squid_height != null" >
+                squid_height = #{squid_height,jdbcType=INTEGER},
+            </if>
+            <if test="squid_width != null" >
+                squid_width = #{squid_width,jdbcType=INTEGER},
+            </if>
+            <if test="squid_type != null" >
+                squid_type_id = #{squid_type,jdbcType=INTEGER},
+           </if>
+            <if test="squidflow_id != null" >
+                squid_flow_id = #{squidflow_id,jdbcType=INTEGER},
+            </if>
+            <if test="is_show_all != null" >
+                is_show_all = #{is_show_all,jdbcType=VARCHAR},
+            </if>
+            <if test="source_is_show_all != null" >
+                source_is_show_all = #{source_is_show_all,jdbcType=VARCHAR},
+            </if>
+            <if test="source_transformation_group_x != null" >
+                reference_group_x = #{source_transformation_group_x,jdbcType=INTEGER},
+            </if>
+            <if test="source_transformation_group_y != null" >
+                reference_group_y = #{source_transformation_group_y,jdbcType=INTEGER},
+            </if>
+            <if test="transformation_group_x != null" >
+                column_group_x = #{transformation_group_x,jdbcType=INTEGER},
+            </if>
+            <if test="transformation_group_y != null" >
+                column_group_y = #{transformation_group_y,jdbcType=INTEGER},
+             </if>
+            <if test="table_name != null" >
+                table_name = #{table_name,jdbcType=VARCHAR},
+            </if>
+            <if test="encoding != null" >
+                encoding = #{encoding,jdbcType=INTEGER},
+            </if>
+            <if test="max_travel_depth != null" >
+                max_travel_depth = #{max_travel_depth,jdbcType=INTEGER},
+            </if>
+            <if test="filter != null" >
+                filter = #{filter,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null" >
+                description = #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="design_status != null" >
+                design_status = #{design_status,jdbcType=INTEGER},
+            </if>
+            <if test="is_incremental != null" >
+                is_incremental = #{is_incremental,jdbcType=VARCHAR},
+            </if>
+            <if test="incremental_expression != null" >
+                incremental_expression = #{incremental_expression,jdbcType=VARCHAR},
+            </if>
+            <if test="is_indexed != null" >
+                is_indexed = #{is_indexed,jdbcType=VARCHAR},
+            </if>
+            <if test="is_persisted != null" >
+                is_persisted = #{is_persisted,jdbcType=VARCHAR},
+            </if>
+            <if test="destination_squid_id != null" >
+                destination_squid_id = #{destination_squid_id,jdbcType=INTEGER},
+            </if>
+            <if test="top_n != null" >
+                top_n = #{top_n,jdbcType=INTEGER},
+            </if>
+            <if test="truncate_existing_data_flag != null" >
+                truncate_existing_data_flag = #{truncate_existing_data_flag,jdbcType=INTEGER},
+            </if>
+            <if test="process_mode != null" >
+                process_mode = #{process_mode,jdbcType=INTEGER},
+            </if>
+            <if test="log_format != null" >
+                log_format = #{log_format,jdbcType=INTEGER},
+            </if>
+            <if test="post_process != null" >
+                post_process = #{post_process,jdbcType=INTEGER},
+            </if>
+            <if test="cdc != null" >
+                cdc = #{cdc,jdbcType=INTEGER},
+            </if>
+            <if test="exception_handling_flag != null" >
+                exception_handling_flag = #{exception_handling_flag,jdbcType=INTEGER},
+             </if>
+            <if test="source_table_id != null" >
+                source_table_id = #{source_table_id,jdbcType=INTEGER},
+            </if>
+            <if test="union_all_flag != null" >
+                union_all_flag = #{union_all_flag,jdbcType=INTEGER},
+            </if>
+            <if test="xsd_dtd_file != null" >
+                xsd_dtd_file = #{xsd_dtd_file,jdbcType=VARCHAR},
+            </if>
+            <if test="xsd_dtd_path!=null">
+                xsd_dtd_path=#{xsd_dtd_path,jdbcType=VARCHAR},
+            </if>
+            <if test="is_distinct != null" >
+                is_distinct = #{is_distinct,jdbcType=INTEGER},
+            </if>
+            <if test="ref_squid_id != null" >
+                ref_squid_id = #{ref_squid_id,jdbcType=INTEGER},
+            </if>
+
+            <if test="split_col != null" >
+                split_col = #{split_col,jdbcType=VARCHAR},
+            </if>
+            <if test="split_num != null" >
+                split_num = #{split_num,jdbcType=INTEGER},
+            </if>
+            <if test="GroupColumnIds != null" >
+                group_column = #{GroupColumnIds,jdbcType=LONGNVARCHAR},
+            </if>
+            <if test="SortingColumnIds != null" >
+                sort_column = #{SortingColumnIds,jdbcType=LONGNVARCHAR},
+            </if>
+            <if test="TaggingColumnIds != null" >
+                tagging_column = #{TaggingColumnIds,jdbcType=LONGNVARCHAR},
+            </if>
+            <if test="incremental_mode != null" >
+                incremental_mode = #{incremental_mode,jdbcType=INTEGER},
+            </if>
+            <if test="check_column_id != null" >
+                check_column_id = #{check_column_id,jdbcType=INTEGER},
+            </if>
+            <if test="last_value != null" >
+                last_value = #{last_value,jdbcType=LONGNVARCHAR},
+            </if>
+            <if test="samplingPercent != null" >
+                samplingPercent = #{samplingPercent,jdbcType=DOUBLE},
+            </if>
+            <if test="sourceSquidId != null" >
+                sourceSquidId = #{sourceSquidId,jdbcType=INTEGER},
+            </if>
+            <if test="sourceSquidName != null" >
+                sourceSquidName = #{sourceSquidName,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where ID = #{id,jdbcType=INTEGER}
+    </update>
+</mapper>

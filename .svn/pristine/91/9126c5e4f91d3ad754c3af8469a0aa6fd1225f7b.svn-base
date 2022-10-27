@@ -1,0 +1,46 @@
+package com.eurlanda.datashire.server.api;
+
+import com.eurlanda.datashire.server.annotation.SocketApi;
+import com.eurlanda.datashire.server.annotation.SocketApiMethod;
+import com.eurlanda.datashire.sprint7.packet.InfoNewMessagePacket;
+import com.eurlanda.datashire.utility.CommonConsts;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.RPCUtils;
+import com.eurlanda.datashire.utility.ReturnValue;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Created by eurlanda - new 2 on 2017/8/2.
+ */
+@Service
+@SocketApi("2019")
+public class SystemApi {
+    /**
+     * 获取系统版本号
+     *
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0001")
+    public String getServiceVersionInfo(String info) {
+        String serviceVersion = CommonConsts.VERSION;
+        ReturnValue returnValue = new ReturnValue();
+
+        RPCUtils rpc = new RPCUtils();
+        String engineVersion = "Nan";
+        try{
+            engineVersion = rpc.getEngineVersionInfo();
+        }catch (Exception ex){
+            returnValue.setMessageCode(MessageCode.ERR_RPCDISCONNECTED);
+        }
+
+        Map<String, Object> outputMap = new HashMap<>();
+        outputMap.put("ServiceVersion", serviceVersion + "." + engineVersion);
+
+        InfoNewMessagePacket infoPacket = new InfoNewMessagePacket(outputMap, returnValue.getMessageCode().value());
+        return infoPacket.toJsonString();
+    }
+}

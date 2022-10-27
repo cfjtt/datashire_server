@@ -1,0 +1,424 @@
+package com.eurlanda.datashire.enumeration.datatype;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public enum DbBaseDatatype {
+	//systemDataType
+	BIGINT(1),
+	INT(2),
+	TINYINT(3),
+	BIT(4),
+	DECIMAL(5),
+	DOUBLE(6),
+	TIME(7),
+	NCHAR(8),
+	NVARCHAR(9),
+	CSN(10),
+	BINARY(11),
+	VARBINARY(12),
+	DATETIME(13),
+	SMALLINT(14),
+	
+	//SqlServer
+	IMAGE(94),
+	TEXT(16),
+	UNIQUEIDENTIFIER(17),
+	DATE(18),
+	DATETIME2(19),
+	DATETIMEOFFSET(20),
+	SMALLDATETIME(95),
+	REAL(22),
+	MONEY(23),
+	SQL_VARIANT(24),
+	NTEXT(25),
+	NUMERIC(26),
+	SMALLMONEY(27),
+	VARCHAR(28),
+	CHAR(29),
+	TIMESTAMP(30),
+	XML(31),
+	
+	//oralce
+	ROWVERSION(32),
+	GEOMETRY(33),
+	GEOGRAPHY(34),
+	HIERARCHYID(35),
+	NUMBER(36),
+	BINARY_DOUBLE(37),
+	BINARY_FLOAT(38),
+	NCLOB(39),
+	ROWID(40),
+	UROWID(41),
+	NVARCHAR2(42),
+	XMLTYPE(43),
+	LONG(44),
+	URITYPE(45),
+	DBURITYPE(46),
+	XDBURITYPE(47),
+	CLOB(48),
+	HTTPURITYPE(49),
+	INTERVAL(50),
+	SDO_GEOMETRY(51),
+	SDO_TOPO_GEOMETRY(52),
+	SDO_GEORASTER(53),
+	RAW(54),
+	BLOB(55),
+	BFILE(56),
+	MEDIUMINT(57),
+	FLOAT(58),
+	LONGRAW(100),
+	//mysql
+	YEAR(59),
+	TINYTEXT(60),
+	MEDIUMTEXT(61),
+	LONGTEXT(62),
+	ENUM(63),
+	SET(64),
+	TINYBLOB(65),
+	MEDIUMBLOB(66),
+	LONGBLOB(67),
+	INTEGER(68),
+
+	//hbase
+	UNSIGNED_INT(69),
+	UNSIGNED_FLOAT(70),
+	UNSIGNED_TIME(71),
+	UNSIGNED_DATE(72),
+	UNSIGNED_LONG(73),
+	UNSIGNED_DOUBLE(74),
+	UNSIGNED_TIMESTAMP(75),
+	UNSIGNED_TINYINT(76),
+	BOOLEAN(77),
+	UNSIGNED_SMALLINT(78),
+	VARCHAR2(79),
+	//db2
+	REFERENCE(80),
+	DECFLOAT(81),
+	CHARACTER(82),
+	DBCLOB(83),
+	VARGRAPHIC(84),
+	GRAPHIC(85),
+	ARRAY(86),
+	CURSOR(87),
+	ROW(88),
+	
+	//hana
+	SMALLDECIMAL(89),
+	SECONDDATE(90),
+	SHORTTEXT(91),
+	ALPHANUM(92),
+	BINTEXT(93),
+	
+	MAP(1022),
+
+	//hive
+	STRING(101),
+	STRUCT(102),
+	UNIONTYPE(103),
+
+	//cassandra
+	ASCII(104),
+	COUNTER(105),
+	INET(106),
+	LIST(107),
+	UUID(108),
+	TIMEUUID(109),
+	VARINT(110),
+
+	//Teradata
+	BYTE(111),
+	BYTEINT(112),
+	VARBYTE(113),
+
+	UNKNOWN(0);
+	
+	private int value;
+	
+	private DbBaseDatatype(int v) {
+		value = v;
+	}
+	
+	public int value() {
+		return value;
+	}
+	
+    public static DbBaseDatatype parse(int t) {
+        for (DbBaseDatatype result : values()) {
+            if (result.value() == t) {
+                return result;
+            }
+        }
+        return UNKNOWN;
+    }
+    
+    public static DbBaseDatatype parse(String name) {
+    	DbBaseDatatype sys = null;
+    	try {
+			sys = Enum.valueOf(DbBaseDatatype.class, name.toUpperCase());
+		} catch (Exception e) {
+			return UNKNOWN;
+		}
+    	if (sys==null&&name.indexOf("(")>0){
+    		name = name.toUpperCase().substring(0, name.indexOf("("));
+    		sys = Enum.valueOf(DbBaseDatatype.class, name.toUpperCase());
+    	}
+    	return sys == null ? UNKNOWN : sys;
+    }
+
+	/**
+	 * 判断是否是时间类型
+	 * @param type
+	 * @return
+	 */
+    public static String  isTimeTypeToFormat(DbBaseDatatype type){
+    	String format= null ;
+		switch (type){
+			case YEAR:
+				format="yyyy";
+				break;
+			case UNSIGNED_TIME:
+			case TIME:
+				format="HH:mm:ss";
+				break;
+			case UNSIGNED_DATE:
+			case DATE:
+				format="yyyy-MM-dd";
+				break;
+			case SMALLDATETIME:
+				format="yyyy-MM-dd HH:mm";
+				break;
+			case DATETIME:
+			case DATETIME2:
+			case DATETIMEOFFSET:
+			case TIMESTAMP:
+			case UNSIGNED_TIMESTAMP:
+				format="yyyy-MM-dd HH:mm:ss";
+				break;
+			default:
+				format=null;
+		}
+		return format;
+	}
+    public static void main(String[] args) {
+    	String ss = "" +
+    			//Sys
+    			"BIGINT," +
+    			"INT," +
+    			"TINYINT," +
+    			"BIT," + //逻辑型，可表示true/false Y/N 0/1 M/F on/off
+    			"DECIMAL," +
+    			"FLOAT," +
+    			"TIME," +
+    			"NCHAR," + 
+    			"NVARCHAR," +
+    			"CSN," +
+    			"BINARY," + // 定长二进制
+    			"VARBINARY," + // 变长二进制
+    			"DATETIME," +
+    			"SMALLINT," +
+    			//SqlServer
+    			"IMAGE," +
+    			"TEXT," +
+    			"UNIQUEIDENTIFIER," +
+    			"DATE," +
+    			"TIME," +
+    			"DATETIME2," +
+    			"DATETIMEOFFSET," +
+    			"TINYINT," +
+    			"SMALLINT," +
+    			"INT," +
+    			"SMALLDATETIME," +
+    			"REAL," +
+    			"MONEY," +
+    			"DATETIME," +
+    			"FLOAT," +
+    			"SQL_VARIANT," +
+    			"NTEXT," +
+    			"BIT," +
+    			"DECIMAL," +
+    			"NUMERIC," +
+    			"SMALLMONEY," +
+    			"BIGINT," +
+    			"VARBINARY," +
+    			"VARCHAR," +
+    			"BINARY," +
+    			"CHAR," +
+    			"TIMESTAMP," +
+    			"NVARCHAR," +
+    			"NCHAR," +
+    			"XML," +
+    			 //其他
+    			"BIGINT," +
+    			"TIMESTAMP," +
+    			"ROWVERSION," +
+    			"INT," +
+    			"SMALLINT," +
+    			"TINYINT," +
+				"BIT," +
+				"DECIMAL," +
+				"NUMERIC," +
+				"MONEY," +
+				"SMALLMONEY," +
+				"FLOAT," +
+				"REAL," +
+				"DATETIME," +
+				"SMALLDATETIME," +
+				"DATE," +
+				"DATETIMEOFFSET," +
+				"DATETIME2," +
+				"TIME," +
+				"TIME," +
+				"NCHAR," +
+				"CHAR," +
+				"UNIQUEIDENTIFIER," +
+				"NVARCHAR," +
+				"VARCHAR," +
+				"NVARCHAR," +
+				"XML," +
+				"NVARCHAR," +
+				"VARCHAR," +
+				"BINARY," +
+				"VARBINARY," +
+				"VARBINARY," +
+				"IMAGE," +
+				"TEXT," +
+				"NTEXT," +
+				"GEOMETRY," +
+				"GEOGRAPHY," +
+				"HIERARCHYID," +
+				"NUMBER," +
+				"BINARY_DOUBLE," +
+				"BINARY_FLOAT," +
+				"BINARY_DOUBLE," +
+				"FLOAT," +
+				"NUMBER," +
+				"TIMESTAMP," +
+				"DATE," +
+				"NCHAR," +
+				"NCLOB," +
+				"CHAR," +
+				"ROWID," +
+				"UROWID," +
+				"NVARCHAR2," +
+				"NCLOB," +
+				"XMLType," +
+				"LONG," +
+				"URIType," +
+				"DBURIType," +
+				"XDBURIType," +
+				"CLOB," +
+				"HTTPURIType," +
+				"INTERVAL," +
+				"SDO_GEOMETRY," +
+				"SDO_TOPO_GEOMETRY," +
+				"SDO_GEORASTER," +
+				"CLOB," +
+				"RAW," +
+				"BLOB," +
+				"RAW," +
+				"LONG," +
+				"BLOB," +
+				"BFILE," +
+				//mysql
+				"BIGINT," +
+				"INT," +
+				"MEDIUMINT," +
+				"SMALLINT," +
+				"TINYINT," +
+				"BIT," +
+				"BIT," +
+				"DECIMAL," +
+				"DOUBLE," +
+				"FLOAT," +
+				"DOUBLE," +
+				"FLOAT," +
+				"DATETIME," +
+				"TIMESTAMP," +
+				"DATE," +
+				"DATETIME," +
+				"TIMESTAMP," +
+				"YEAR," +
+				"TIME," +
+				"TIME," +
+				"VARCHAR," +
+				"CHAR," +
+				"VARCHAR," +
+				"TINYTEXT," +
+				"TEXT," +
+				"MEDIUMTEXT," +
+				"LONGTEXT," +
+				"ENUM," +
+				"SET," +
+				"VARBINARY," +
+				"BINARY," +
+				"VARBINARY," +
+				"TINYBLOB," +
+				"BLOB," +
+				"MEDIUMBLOB," +
+				"LONGBLOB," +
+				"GEOMETRY," +
+				//hbase
+		    	"INTEGER," +
+		    	"FLOAT," +
+		    	"UNSIGNED_INT," +
+		    	"UNSIGNED_FLOAT," +
+		    	"UNSIGNED_TIME," +
+		    	"BIGINT," +
+		    	"DOUBLE," +
+		    	"UNSIGNED_DATE," +
+		    	"UNSIGNED_LONG," +
+		    	"UNSIGNED_DOUBLE," +
+		    	"UNSIGNED_TIMESTAMP," +
+		    	"TINYINT," +
+		    	"DECIMAL," +
+		    	"VARCHAR," +
+		    	"UNSIGNED_TINYINT," +
+		    	"BOOLEAN," +
+		    	"CHAR," +
+		    	"SMALLINT," +
+		    	"TIME," +
+		    	"BINARY," +
+		    	"UNSIGNED_SMALLINT," +
+		    	"DATE," +
+		    	"VARBINARY," +
+		    	"VARCHAR2," +
+		    	//db2
+				"REFERENCE," +
+				"DECFLOAT," +
+				"DOUBLE," +
+				"REAL," +
+				"DECIMAL," +
+				"BIGINT," +
+				"INTEGER," +
+				"SMALLINT," +
+				"CLOB," +
+				"VARCHAR," +
+				"CHARACTER," +
+				"DBCLOB," +
+				"VARGRAPHIC," +
+				"GRAPHIC," +
+				"DATE," +
+				"TIME," +
+				"TIMESTAMP," +
+				"BOOLEAN," +
+				"BLOB," +
+				"BINARY," +
+				"VARBINARY," +
+				"XML," +
+				"ARRAY," +
+				"CURSOR," +
+				"ROW";
+    	
+		String[] strs = ss.split(",");
+		Map<String, String> map = new HashMap<String, String>();
+		int cnt = 1;
+		for (String string : strs) {
+			if (!map.containsKey(string)){
+				System.out.println(string+"("+cnt+"),");
+				cnt++;
+				map.put(string, string);
+			}
+		}
+	}
+}

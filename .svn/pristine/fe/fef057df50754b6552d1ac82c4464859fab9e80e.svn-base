@@ -1,0 +1,44 @@
+package com.eurlanda.datashire.dao.impl;
+
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.IUserDao;
+import com.eurlanda.datashire.server.model.User;
+
+import java.util.List;
+
+public class UserDaoImpl extends BaseDaoImpl implements IUserDao {
+	public UserDaoImpl(){
+	}
+	
+	public UserDaoImpl(IRelationalDataManager adapter){
+		this.adapter = adapter;
+	}
+    /**
+     * 获取所有的用户列表
+     */
+	@Override
+	public List<User> getAllUser() {
+		String sql="select * from DS_SYS_USER";
+		List<User> users=adapter.query2List(true, sql, null, User.class);
+		return users;
+	}
+
+
+	public User getUserByName(String loginId) throws Exception{
+		String sql="select * from DS_SYS_USER where USER_NAME='"+loginId+"'";
+		List<User> users=adapter.query2List(true, sql, null, User.class);
+		if(users==null||users.size()==0){
+			return null;
+		}
+		return users.get(0);
+	}
+
+	@Override
+	public User getUserById(int id) throws Exception {
+		String sql="select * from DS_SYS_USER where id="+id;
+		User user=adapter.query2Object(true,sql,null,User.class);
+		return user;
+	}
+
+
+}

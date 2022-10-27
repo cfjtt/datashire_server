@@ -1,0 +1,96 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.server.dao.RepositoryDao;
+import com.eurlanda.datashire.server.model.Repository;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+
+/**
+ * 限制创建squid的数量，注意方法的命名规则一定是insert+"任何字符"+Squid || create+"任意字符"+Squid
+ */
+@Aspect
+@Service
+public class ValidateSquidNumService {
+    private static final Logger logger = LoggerFactory.getLogger(ValidateSquidNumService.class);
+    @Autowired
+    private RepositoryDao repositoryDao;
+
+    /**
+     * 新接口验证
+     * @param point
+     * @return
+     * @throws Throwable
+     */
+    @Around("execution(* com.eurlanda.datashire.server.service..*.insert*Squid(..)) " +
+            "|| execution(* com.eurlanda.datashire.server.dao.*.insert*Squid(..))")
+    public Object newValidateSquidNum(ProceedingJoinPoint point) throws Throwable {
+        Object result = null;
+        Object[] args = point.getArgs();
+        if(args[0] instanceof Squid) {
+            Squid squid = (Squid) args[0];
+            Repository rep = repositoryDao.getRepositoryBySquidFlowId(squid.getSquidflow_id());
+            //判断是否是数猎场
+            validateNum(rep);
+            result = point.proceed(args);
+        }
+        return result;
+    }
+
+    @Around("execution(* com.eurlanda.datashire.sprint7.service.squidflow..*.insert*Squid(String)) " +
+            "|| execution(* com.eurlanda.datashire.sprint7.service.squidflow..*.create*Squid(String)) " +
+            "|| execution(* com.eurlanda.datashire.sprint7.service.squidflow..*.create*Squids(String))" +
+            "|| execution(* com.eurlanda.datashire.userDefinedService..*.create*Squid(String))" +
+            "|| execution(* com.eurlanda.datashire.destHiveService..*.create*Squid(String)) " +
+            "|| execution(* com.eurlanda.datashire.destCassandraService..*.create*Squid(String)) " +
+            "|| execution(* com.eurlanda.datashire.statisticsService..*.create*Squid(String))")
+    public Object oldValidateSquidNum(ProceedingJoinPoint point) throws Throwable {
+        Object result = null;
+        Object[] args = point.getArgs();
+        Map<String, Object> data= JsonUtil.toHashMap(args[0]);
+        Squid squid = null;
+        if(data!=null){
+            for(Map.Entry<String,Object> map : data.entrySet()){
+                if(map.getKey().matches(".*Squid(s|S)?") || map.getKey().matches(".*squid(s|S)?")){
+                    squid = JsonUtil.toGsonBean(map.getValue()+"",Squid.class);
+                    break;
+                }
+            }
+        }
+        Repository rep = repositoryDao.getRepositoryBySquidFlowId(squid.getSquidflow_id());
+        //判断是否是数猎场
+        validateNum(rep);
+        result = point.proceed(args);
+        return result;
+    }
+
+
+    public void validateNum(Repository rep){
+        if(rep.getPackageId() != null && rep.getPackageId()>0){
+            //获取套餐信息
+            JdbcTemplate cloudTemplate = (JdbcTemplate) Constants.context.getBean("cloudTemplate");
+            Map<String,Object> map = cloudTemplate.queryForMap("select squid_num_limit from packages where id="+rep.getPackageId());
+            if(map != null){
+                Integer squidNumLimit = (Integer) map.get("squid_num_limit");
+                if(squidNumLimit>-1){
+                    //判断当前已经存在的squid的数量
+                    int count = repositoryDao.getSquidCount(rep.getId());
+                    if(count+1>squidNumLimit){
+                        throw new RuntimeException(MessageCode.ERR_SQUID_OVER_LIMIT.value()+"");
+                    }
+                }
+            }
+        }
+    }
+}

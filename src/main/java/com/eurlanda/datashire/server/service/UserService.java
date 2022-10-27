@@ -1,0 +1,162 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.server.dao.RepositoryDao;
+import com.eurlanda.datashire.server.dao.ServerParameterDao;
+import com.eurlanda.datashire.server.dao.UserDao;
+import com.eurlanda.datashire.server.exception.RollbackException;
+import com.eurlanda.datashire.server.model.Repository;
+import com.eurlanda.datashire.server.model.User;
+import com.eurlanda.datashire.server.utils.SysUtil;
+import com.eurlanda.datashire.utility.CommonConsts;
+import com.eurlanda.datashire.utility.DateTimeUtils;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by zhudebin on 2017/6/8.
+ */
+@Service
+public class UserService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
+
+    @Autowired
+    private ServerParameterDao serverParameterDao;
+    @Autowired
+    private UserDao userDao;
+    @Autowired
+    private RepositoryDao repositoryDao;
+
+    /**
+     * 登陆
+     *
+     * @param out
+     * @return
+     * @throws SQLException
+     */
+    public Map<String, Object> validateLoginInfo(ReturnValue out) {
+        Map<String, Object> outputMap = new HashMap<String, Object>();
+        List<Repository> repositories = null;
+        try {
+            // 判断license
+            // 查询出所有的repository
+            String key = serverParameterDao.getLicenseKey();
+            //String key = "";
+            if (StringUtils.isNotNull(key)) {
+                int squidCnt = SysUtil.decodeLicenseKey(key);
+                CommonConsts.MaxSquidCount = squidCnt;
+            } else {
+                // 判断许可是否过期
+                long time = DateTimeUtils.timeDiff(CommonConsts.LimitedTime,
+                        DateTimeUtils.currentDate(), "yyyy-MM-dd");
+                if (time <= 0) {
+                    out.setMessageCode(MessageCode.ERR_LICENSE);
+                    outputMap.put("SquidCount", CommonConsts.MaxSquidCount);
+                    return outputMap;
+                } else {
+                    int days = Integer.parseInt(time / (1000 * 60 * 60 * 24) + "");
+
+                    outputMap.put("TryDays", days);
+                    out.setMessageCode(MessageCode.WARN_LICENSE);
+                }
+            }
+            outputMap.put("SquidCount", CommonConsts.MaxSquidCount);
+
+            repositories = repositoryDao.getAllRepository();
+            Iterator<Repository> it = repositories.iterator();
+            while(it.hasNext()){
+                Repository rs = it.next();
+                if(!rs.getName().equals("test") && !rs.getName().equals("dev") && !rs.getName().equals("prod")){
+                    it.remove();
+                }
+            }
+            if (null == repositories) {
+                out.setMessageCode(MessageCode.ERR_REPOSITORYLIST);
+            } else if (null != repositories && repositories.size() == 0) {
+                out.setMessageCode(MessageCode.ERR_REPOSITORYEMPTY);
+            } else {
+                outputMap.put("RepositoryList", repositories);
+            }
+
+        } catch (Exception e) {
+            out.setMessageCode(MessageCode.ERR_USER_NOT_EXIST);
+            LOGGER.error("用户登录异常", e);
+        }
+        return outputMap;
+    }
+
+    @Transactional(rollbackFor = {Exception.class})
+    public int save(User user) {
+        return userDao.save(user);
+    }
+
+
+    @Transactional(rollbackFor = {Exception.class})
+    public int saveList(List<User> users) {
+
+        int count = 0;
+        for(User u : users) {
+            int cnt = userDao.save(u);
+            count += cnt;
+        }
+        if(count < users.size()) {
+            throw new RollbackException();
+        }
+        return count;
+    }
+
+    @Transactional(rollbackFor = {Exception.class})
+    public int deleteById(int id) {
+        return userDao.deleteById(id);
+    }
+
+    @Transactional(rollbackFor = {Exception.class})
+    public int update(User user) {
+        return userDao.update(user);
+    }
+
+    @Transactional(rollbackFor = {Exception.class})
+    public int updateList(List<User> users) {
+        int count = 0;
+        for(User u : users) {
+            int cnt = userDao.update(u);
+            count += cnt;
+        }
+        if(count < users.size()) {
+            throw new RollbackException();
+        }
+        return count;
+    }
+
+    public User findByUsernameAndPassword(String username, String password) {
+        return userDao.findByUsernameAndPassword(username, password);
+    }
+
+    public List<User> getAllUser() {
+        return userDao.getAllUser();
+    }
+
+    public User getUserByName(String loginId) {
+        User u = new User();
+        u.setUser_name(loginId);
+        return userDao.findUser(u);
+    }
+
+    public User getUserById(int id) {
+        User u = new User();
+        u.setId(id);
+        return userDao.findUser(u);
+    }
+}

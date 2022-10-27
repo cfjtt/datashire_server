@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.ReferenceColumnDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.ReferenceColumn" >
+    <result column="COLUMN_ID" property="column_id" jdbcType="INTEGER" />
+    <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+    <result column="REFERENCE_SQUID_ID" property="reference_squid_id" jdbcType="INTEGER" />
+    <result column="NAME" property="name" jdbcType="VARCHAR" />
+    <result column="DATA_TYPE" property="data_type" jdbcType="INTEGER" />
+    <result column="COLLATION" property="collation" jdbcType="INTEGER" />
+    <result column="NULLABLE" property="nullable" jdbcType="CHAR" />
+    <result column="LENGTH" property="length" jdbcType="INTEGER" />
+    <result column="PRECISION" property="precision" jdbcType="INTEGER" />
+    <result column="SCALE" property="scale" jdbcType="INTEGER" />
+    <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+    <result column="ISUNIQUE" property="isUnique" jdbcType="CHAR" />
+    <result column="ISPK" property="isPK" jdbcType="CHAR" />
+    <result column="CDC" property="cdc" jdbcType="INTEGER" />
+    <result column="IS_BUSINESS_KEY" property="is_Business_Key" jdbcType="INTEGER" />
+    <result column="HOST_SQUID_ID" property="host_squid_id" jdbcType="INTEGER" />
+    <result column="IS_REFERENCED" property="is_referenced" jdbcType="CHAR" />
+    <result column="GROUP_ID" property="group_id" jdbcType="INTEGER" />
+    <!--<result column="AGGREGATION_TYPE" property="aggregation_type" jdbcType="INTEGER" />
+    <result column="IS_GROUPBY" property="is_groupby" jdbcType="CHAR" />-->
+
+  </resultMap>
+  <insert id="insert" parameterType="java.util.List" >
+    insert into ds_reference_column (COLUMN_ID, RELATIVE_ORDER, REFERENCE_SQUID_ID,
+    NAME, DATA_TYPE, COLLATION,
+    NULLABLE, LENGTH,`PRECISION`,
+    SCALE, DESCRIPTION, ISUNIQUE,
+    ISPK, CDC, IS_BUSINESS_KEY,
+    HOST_SQUID_ID, IS_REFERENCED, GROUP_ID
+    )
+    values
+    <foreach collection="list" item="item" index="index" separator="," >
+        (#{item.column_id,jdbcType=INTEGER}, #{item.relative_order,jdbcType=INTEGER},
+        #{item.reference_squid_id,jdbcType=INTEGER},
+    #{item.name,jdbcType=VARCHAR}, #{item.data_type,jdbcType=INTEGER}, #{item.collation,jdbcType=INTEGER},
+    #{item.nullable,jdbcType=CHAR}, #{item.length,jdbcType=INTEGER}, #{item.precision,jdbcType=INTEGER},
+    #{item.scale,jdbcType=INTEGER}, #{item.description,jdbcType=VARCHAR}, #{item.isUnique,jdbcType=CHAR},
+    #{item.isPK,jdbcType=CHAR}, #{item.cdc,jdbcType=INTEGER}, #{item.is_Business_Key,jdbcType=INTEGER},
+    #{item.host_squid_id,jdbcType=INTEGER}, #{item.is_referenced,jdbcType=CHAR}, #{item.group_id,jdbcType=INTEGER}
+    )
+    </foreach>
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.ReferenceColumn" >
+    insert into ds_reference_column
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="column_id != null" >
+        COLUMN_ID,
+      </if>
+      <if test="is_Business_Key != null" >
+        RELATIVE_ORDER,
+      </if>
+      <if test="reference_squid_id != null" >
+        REFERENCE_SQUID_ID,
+      </if>
+      <if test="name != null" >
+        NAME,
+      </if>
+      <if test="data_type != null" >
+        DATA_TYPE,
+      </if>
+      <if test="collation != null" >
+        COLLATION,
+      </if>
+      <if test="nullable != null" >
+        NULLABLE,
+      </if>
+      <if test="length != null" >
+        LENGTH,
+      </if>
+      <if test="precision != null" >
+        PRECISION,
+      </if>
+      <if test="scale != null" >
+        SCALE,
+      </if>
+      <if test="description != null" >
+        DESCRIPTION,
+      </if>
+      <if test="isUnique != null" >
+        ISUNIQUE,
+      </if>
+      <if test="isPK != null" >
+        ISPK,
+      </if>
+      <if test="cdc != null" >
+        CDC,
+      </if>
+      <if test="is_Business_Key != null" >
+        IS_BUSINESS_KEY,
+      </if>
+      <if test="host_squid_id != null" >
+        HOST_SQUID_ID,
+      </if>
+      <if test="is_referenced != null" >
+        IS_REFERENCED,
+      </if>
+      <if test="group_id != null" >
+        GROUP_ID,
+      </if>
+
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="column_id != null" >
+        #{column_id,jdbcType=INTEGER},
+      </if>
+      <if test="is_Business_Key != null" >
+        #{is_Business_Key,jdbcType=INTEGER},
+      </if>
+      <if test="reference_squid_id != null" >
+        #{reference_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="name != null" >
+        #{name,jdbcType=VARCHAR},
+      </if>
+      <if test="data_type != null" >
+        #{data_type,jdbcType=INTEGER},
+      </if>
+      <if test="collation != null" >
+        #{collation,jdbcType=INTEGER},
+      </if>
+      <if test="nullable != null" >
+        #{nullable,jdbcType=CHAR},
+      </if>
+      <if test="length != null" >
+        #{length,jdbcType=INTEGER},
+      </if>
+      <if test="precision != null" >
+        #{precision,jdbcType=INTEGER},
+      </if>
+      <if test="scale != null" >
+        #{scale,jdbcType=INTEGER},
+      </if>
+      <if test="description != null" >
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="isUnique != null" >
+        #{isUnique,jdbcType=CHAR},
+      </if>
+      <if test="isPK != null" >
+        #{isPK,jdbcType=CHAR},
+      </if>
+      <if test="cdc != null" >
+        #{cdc,jdbcType=INTEGER},
+      </if>
+      <if test="is_Business_Key != null" >
+        #{is_Business_Key,jdbcType=INTEGER},
+      </if>
+      <if test="host_squid_id != null" >
+        #{host_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="is_referenced != null" >
+        #{is_referenced,jdbcType=CHAR},
+      </if>
+      <if test="group_id != null" >
+        #{group_id,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <delete id="deleteReferenceColumn" parameterType="java.util.List">
+  DELETE FROM ds_reference_column where column_id in
+  <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+    #{item}
+  </foreach>
+  </delete>
+
+  <delete id="deleteReColumnByFromSquAndToSqu" parameterType="java.util.Map">
+    DELETE FROM ds_reference_column
+    where host_squid_id=#{hostId}
+    and reference_squid_id=#{refereId}
+  </delete>
+
+  <select id="selectByReSquidAndHostSquid" parameterType="java.util.Map" resultMap="BaseResultMap">
+        select * from ds_reference_column r
+        where r.HOST_SQUID_ID =#{hostId}
+         and r.REFERENCE_SQUID_ID =#{refereId}
+         <!-- <foreach collection="refereList" item="refereId" open="(" separator="," close=")">
+          #{refereId}
+        </foreach>-->
+        <!-- <foreach collection="hostList" item="hostId" open="(" separator="," close=")">
+          #{hostId}
+         </foreach>-->
+
+
+  </select>
+  <delete id="deleteBySquidIdReferenceColumn" parameterType="java.util.List">
+    DELETE FROM ds_reference_column where REFERENCE_SQUID_ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+
+  <select id="getRefColumnNameForTrans" parameterType="java.util.Map" resultType="java.util.Map">
+    select ds.name+'_'+drc.name as name from ds_reference_column drc
+    left join ds_squid ds on drc.host_squid_id=ds.id
+    where drc.column_id=#{{transColumnId} and drc.reference_squid_id=#{transSquidId}
+  </select>
+
+  <select id="selectReColumnBySquLinkid" parameterType="java.util.List" resultMap="BaseResultMap">
+        select * from ds_reference_column r
+        inner join ds_squid_link k
+        on r.HOST_SQUID_ID=k.FROM_SQUID_ID
+        and r.REFERENCE_SQUID_ID=k.TO_SQUID_ID
+        where k.id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+  <delete id="deleteReColumnBySquidLinkIds" parameterType="java.util.List">
+        DELETE ds_reference_column
+        from ds_reference_column ,ds_squid_link
+        where ds_reference_column.HOST_SQUID_ID=ds_squid_link.FROM_SQUID_ID
+             and ds_reference_column.REFERENCE_SQUID_ID=ds_squid_link.TO_SQUID_ID
+             and ds_squid_link.id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+  <select id="selectByReferenceSquidId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+      SELECT * FROM ds_reference_column WHERE reference_squid_id=#{referenceSquidId}
+  </select>
+    <select id="selectReferenceColumnById" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT distinct group_id FROM DS_REFERENCE_COLUMN WHERE host_squid_id= #{hostSquidId} AND
+        reference_squid_id=#{referenceSquidId}
+  </select>
+  <select id="selectSquidByColumnId" parameterType="java.lang.Integer" resultType="java.util.List">
+    SELECT dc.reference_squid_id FROM DS_REFERENCE_COLUMN dc WHERE dc.COLUMN_ID=#{id}
+  </select>
+  <select id="selectReferenceColumnBySquid" parameterType="java.util.Map" resultType="java.lang.String">
+    SELECT dc.NAME FROM DS_REFERENCE_COLUMN dc WHERE dc.COLUMN_ID in
+    <foreach collection="columnIds" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+    AND dc.REFERENCE_SQUID_ID=#{squid}
+  </select>
+</mapper>

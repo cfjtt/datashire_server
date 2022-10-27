@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.ReferenceColumnGroupDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.ReferenceColumnGroup" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="REFERENCE_SQUID_ID" property="reference_squid_id" jdbcType="INTEGER" />
+    <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, REFERENCE_SQUID_ID, RELATIVE_ORDER
+  </sql>
+  <select id="findReferenceColumnGroup" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select * from ds_reference_column_group
+    where REFERENCE_SQUID_ID = #{id,jdbcType=INTEGER}
+  </select>
+  <insert id="insertReferenceColumnGroup" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.ReferenceColumnGroup" >
+    insert into ds_reference_column_group
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="reference_squid_id != null" >
+        REFERENCE_SQUID_ID,
+      </if>
+      <if test="relative_order != null" >
+        RELATIVE_ORDER,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="reference_squid_id != null" >
+        #{reference_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="relative_order != null" >
+        #{relative_order,jdbcType=VARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select
+    <include refid="Base_Column_List" />
+    from ds_reference_column_group
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_reference_column_group
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.ReferenceColumnGroup" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_reference_column_group (REFERENCE_SQUID_ID, RELATIVE_ORDER
+    )
+    values (#{reference_squid_id,jdbcType=INTEGER}, #{relative_order,jdbcType=INTEGER}
+    )
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.ReferenceColumnGroup" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_reference_column_group
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="reference_squid_id != null" >
+        REFERENCE_SQUID_ID,
+      </if>
+      <if test="relative_order != null" >
+        RELATIVE_ORDER,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="reference_squid_id != null" >
+        #{reference_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="relative_order != null" >
+        #{relative_order,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.ReferenceColumnGroup" >
+    update ds_reference_column_group
+    <set >
+      <if test="reference_squid_id != null" >
+        REFERENCE_SQUID_ID = #{reference_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="relative_order != null" >
+        RELATIVE_ORDER = #{relative_order,jdbcType=INTEGER},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.ReferenceColumnGroup" >
+    update ds_reference_column_group
+    set REFERENCE_SQUID_ID = #{reference_squid_id,jdbcType=INTEGER},
+      RELATIVE_ORDER = #{relative_order,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+
+    <select id="selectByReSquIdAndHostSquId" parameterType="java.util.Map" resultType="java.lang.String">
+        select distinct g.id as groupId from ds_reference_column_group g
+    inner join ds_reference_column r
+    on g.ID=r.GROUP_ID
+    where r.REFERENCE_SQUID_ID=#{refereId}
+         and r.HOST_SQUID_ID=#{hostId}
+      limit 0,1
+  </select>
+
+  <update id="updateRelativeById" parameterType="java.lang.Integer">
+    update ds_reference_column_group set relative_order=1
+    where id=#{id}
+  </update>
+
+  <select id="selectGroupByReferenceIds" parameterType="java.util.List" resultType="java.lang.Integer">
+    select distinct g.id from ds_reference_column_group g
+    inner join ds_reference_column r
+    on g.id=r.GROUP_ID
+    where r.COLUMN_ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+
+  <delete id="deleteGroupByIds" parameterType="java.util.List">
+    delete from ds_reference_column_group where id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+  <delete id="deleteGroupBySquidId" parameterType="java.util.List">
+    delete from ds_reference_column_group where REFERENCE_SQUID_ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+  <select id="selectGroupBySquidId" parameterType="java.util.Map" resultMap="BaseResultMap">
+select * from ds_reference_column_group where id in
+     (select group_id from ds_reference_column where reference_squid_id=#{toSquidId} and host_squid_id=#{fromSquid})
+  </select>
+  <select id="selectGroupCountBySquidId" resultType="java.lang.Integer" parameterType="java.lang.Integer" >
+    select count(*) from ds_reference_column_group
+    where REFERENCE_SQUID_ID = #{id,jdbcType=INTEGER}
+  </select>
+    <select id="getRefColumnGroupListBySquidId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select distinct refGroup.* from ds_reference_column_group refGroup inner join ds_reference_column refColumn on
+    refColumn.REFERENCE_SQUID_ID = refGroup.REFERENCE_SQUID_ID and refColumn.GROUP_ID=refGroup.ID where refGroup.REFERENCE_SQUID_ID=#{refSquidId}
+  </select>
+
+</mapper>

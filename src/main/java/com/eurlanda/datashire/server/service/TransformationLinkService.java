@@ -1,0 +1,419 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.server.dao.TransformationDao;
+import com.eurlanda.datashire.server.dao.TransformationInputsDao;
+import com.eurlanda.datashire.server.dao.TransformationLinkDao;
+import com.eurlanda.datashire.server.exception.ErrorMessageException;
+import com.eurlanda.datashire.server.model.Transformation;
+import com.eurlanda.datashire.server.model.TransformationInputs;
+import com.eurlanda.datashire.server.model.TransformationLink;
+import com.eurlanda.datashire.utility.MessageCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by Eurlanda - Java、 on 2017/6/21.
+ */
+@Service
+@Transactional
+public class TransformationLinkService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TransformationLinkService.class);
+    @Autowired
+    private TransformationLinkDao transformationLinkDao;
+    @Autowired
+    private TransformationInputsDao transformationInputsDao;
+    @Autowired
+    private TransformationDao transformationDao;
+
+    /**
+     * 删除Transformation link，修改受到影响的Trans的input中的source trans id 或者删除受到影响的trans
+     *
+     * @param transformationLinkIds trans link 的 id
+     * @param transformationIds
+     * @return
+     * @throws Exception 如果是业务逻辑的错误，需要在Exception里面附带错误码
+     * flag 用来判断是单独删除transformation面板调用的还是在删除squidLink调用的。
+     * 单独删除transformation时前台会把所有需要删除的transformationLink都传过来。后台就不再需要查询Link下游的trans是否还有关联的LInk
+     * 而删除squidLink时。需要查询transformation面板上trans下游是否还有关联的Link
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public List<Transformation> deleteTransformationLinkIds(List<Integer> transformationLinkIds, List<Integer>
+            transformationIds,Integer flagTransLink) throws Exception {
+        int deleteLink;
+        int updateInput = 0;
+        int deleteInput = 0;
+        int updateTrans=0;
+        List<Integer> deleteInputIds=null;
+        List<Transformation> transList=new ArrayList<>();
+        List<Transformation> transformatinList=new ArrayList<Transformation>();
+        try {
+            //查询上游的transIds
+            LOGGER.debug(String.format("selectFromTransIdsByLinkIds============================", transformationLinkIds));
+            List<Integer> fromTranIds = transformationDao.selectFromTransIdsByLinkIds(transformationLinkIds);
+
+            //查询下游的transIds
+            LOGGER.debug(String.format("selectToTransIdsByLinkIds============================", transformationLinkIds));
+            List<Integer> toTransIds = transformationDao.selectToTransIdsByLinkIds(transformationLinkIds);
+            //flag==1 需要查询下游trans是否有关联的transformationLink
+            if(flagTransLink==1){
+                //根据下游trans 查询是否还有相关的transformationLink. 主要在删除squidLInk下游squid的transformation面板上有transformation时候会用到。
+                //有的需要用到递归删除 ，有的则不需要
+                List<Transformation> transformations=transformationDao.selectTransByIds(toTransIds);
+                List<Integer> trans=new ArrayList<>();
+                if(transformations!=null && transformations.size()>0){
+                   for(Transformation transformation:transformations){
+                       if(transformation.getTranstype()==TransformationTypeEnum.CHOICE.value()
+                               || transformation.getTranstype()==TransformationTypeEnum.NVL.value()){
+                           trans.add(transformation.getId());
+                       }
+                   }
+                }
+                if(trans!=null && trans.size()>0){
+                    List<Integer> transLinkIds=transformationLinkDao.findLinkByFromTrans(trans);
+                    if(transLinkIds!=null && transLinkIds.size()>0){
+                        //递归删除link
+                        deleteTransformationLinkIds(transLinkIds,null,1);
+                    }
+                }
+            }
+            //过滤不用做同步的trans
+            if (transformationIds != null && transformationIds.size() > 0) {
+                List<Integer> containTranId = new ArrayList<>();
+                for (Integer toTranId : transformationIds) {
+                    if (toTransIds.contains(toTranId)) {
+                        containTranId.add(toTranId);
+                    }
+                }
+                toTransIds.removeAll(containTranId);
+            }
+
+            //根据过滤后的trans 查询受影响的transInputs
+            if (toTransIds != null && toTransIds.size() > 0) {
+                Map<String, Object> transMap1 = new HashMap<String, Object>();
+                transMap1.put("linkIds", transformationLinkIds);
+                transMap1.put("fromTranIds", fromTranIds);
+                transMap1.put("toTransIds", toTransIds);
+                //根据LinkIds 和 上游的TransIds 以及下游TransIds 查询受影响的transformationInput
+                LOGGER.debug(String.format("selectTransInputByLinkIds============================", transformationLinkIds));
+                List<Integer> transInputIds = transformationInputsDao.selectInputByLinkIdsAndTransIds(transMap1);
+                if (transInputIds != null && transInputIds.size() > 0) {
+                    //根据过滤后的inputIds 查询需要删除的transformationInputIds
+                    LOGGER.debug(String.format("selectTransInputByTransTypeAndInputIds_delete============================", transInputIds));
+                    deleteInputIds = transformationInputsDao.selectTransInputByTransTypeAndInputIds_delete(transInputIds);
+                    if (deleteInputIds != null && deleteInputIds.size() > 0) {
+                        //删除deleteInputIds
+                        LOGGER.debug(String.format("deleteByInputIds============================", deleteInputIds));
+                        deleteInput = transformationInputsDao.deleteByInputIds(deleteInputIds);
+                    }
+                    //去掉需要删除的，那剩下的就是需要修改的Inputs
+                    transInputIds.removeAll(deleteInputIds);
+
+                    //修改transformationInputIds 中source_transform_id属性
+                    if (transInputIds != null && transInputIds.size() > 0) {
+                        //修改updateInputIds
+                        LOGGER.debug(String.format("updateTransformationInput============================", transInputIds));
+                        updateInput = transformationInputsDao.updateTransInputSourceTransId(transInputIds);
+                    }
+                }
+
+                //查询受影响的Transformation
+                LOGGER.debug(String.format("selectTransformationByLinkIds============================", transformationLinkIds));
+                transList = transformationDao.selectTransByIds(toTransIds);
+
+                //判断受影响的Tranformation对象中是否还包含transformationInputs
+                List<Integer> updateTransIds = new ArrayList<Integer>();
+
+                //判断受影响的Tranformation对象中.是否有需要修改inputDataType
+                List<Integer> updateTransDataType = new ArrayList<Integer>();
+                if (transList != null && transList.size() > 0) {
+                    for (Transformation tran : transList) {
+                        //只有trans 类型为choice时，才修改 output_data_type 属性
+                        if(tran.getTranstype()== TransformationTypeEnum.CHOICE.value()){
+                            if (tran.getInputs() == null || tran.getInputs().size() == 0 || tran.getInputs().get(0).getId() == null) {
+                                updateTransIds.add(tran.getId());
+                            }
+                        }
+                       /* if(tran.getTranstype()== TransformationTypeEnum.NULLPERCENTAGE.value()){
+                            updateTransIds.add(tran.getId());
+                        }*/
+                        //只有trans 类型为NVL时，并且两个inputs的source_transformation_id=0 才修改 output_data_type 属性
+                        if(tran.getTranstype()== TransformationTypeEnum.NVL.value()){
+                            boolean flag=true;
+                            if (tran.getInputs() != null && tran.getInputs().size() > 0) {
+                                for(int i=0;i<tran.getInputs().size();i++){
+                                    if(tran.getInputs().get(i).getSource_transform_id()!=null && tran.getInputs().get(i).getSource_transform_id()!=0){
+                                        flag=false;
+                                        break;
+                                    }
+                                }
+                                if(flag){
+
+                                    updateTransDataType.add(tran.getId());
+                                    updateTransIds.add(tran.getId());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                //如果trans类型为NVL 且transLink都没有，则修改inputs中的inputDataType的值
+                if(updateTransDataType!=null && updateTransDataType.size()>0){
+                    Map<String, Object> map = new HashMap<String, Object>();
+                    map.put("type", 21);
+                    map.put("idsList", updateTransDataType);
+                    LOGGER.debug(String.format("updateTransOutDataType============================", map));
+                    updateTrans = transformationInputsDao.updateInpusDataType(map);
+                }
+
+                //批量修改Tranformation中的output_data_type ,打开flow的时候会根据output——data_type值，判断出Input中inputDataType属性值。
+                if (updateTransIds != null && updateTransIds.size() > 0) {
+                    Map<String, Object> map = new HashMap<String, Object>();
+                    map.put("type", 21);
+                    map.put("idsList", updateTransIds);
+                    LOGGER.debug(String.format("updateTransOutDataType============================", map));
+                    updateTrans = transformationDao.updateTransOutDataType(map);
+                }
+                //修改属性值之后  再重新查询受影响的Transformation 返回给客户端
+                LOGGER.debug(String.format("selectTransformationByLinkIds============================", transformationLinkIds));
+                transList = transformationDao.selectTransByIds(toTransIds);
+        }
+            /* Map<String,Object> transMap=new HashMap<String,Object>();
+            transMap.put("linkIds",transformationLinkIds);
+            transMap.put("tranIds",fromTranIds);
+            //根据LinkIds 和 上游的TransIds 查询受影响的transformationInput
+            LOGGER.debug(String.format("selectTransInputByLinkIds============================", transformationLinkIds));
+            List<TransformationInputs> transformationInputs = transformationInputsDao.selectTransInputByLinkIds(transMap);
+            List<Integer> inputIds = new ArrayList<Integer>();
+            if (transformationInputs != null && transformationInputs.size() > 0) {
+                for (TransformationInputs transInput : transformationInputs) {
+                    inputIds.add(transInput.getId());
+                    //与transformationIds 作比较  过滤掉不需要修改或删除的transformationInputs
+                    if (transformationIds != null && transformationIds.size() > 0) {
+                        for (Integer transId : transformationIds) {
+                            if (transInput.getTransformationId().equals(transId) || transInput.getTransformationId() == transId ) {
+                                inputIds.remove(transInput.getId());
+                                break;
+                            }
+                        }
+                    }
+                }
+                if(inputIds!=null && inputIds.size()>0) {
+                    //根据过滤后的inputIds 查询需要删除的transformationInputIds
+                    LOGGER.debug(String.format("selectTransInputByTransTypeAndInputIds_delete============================", inputIds));
+                    deleteInputIds = transformationInputsDao.selectTransInputByTransTypeAndInputIds_delete(inputIds);
+                    if (deleteInputIds != null && deleteInputIds.size() > 0) {
+                        //删除deleteInputIds
+                        LOGGER.debug(String.format("deleteByInputIds============================", deleteInputIds));
+                        deleteInput = transformationInputsDao.deleteByInputIds(deleteInputIds);
+                    }
+                    //去掉需要删除的，那剩下的就是需要修改的Inputs
+                    inputIds.removeAll(deleteInputIds);
+
+                    //修改transformationInputIds 中source_transform_id属性
+                    if(inputIds!=null && inputIds.size()>0){
+                        //修改updateInputIds
+                        LOGGER.debug(String.format("updateTransformationInput============================", inputIds));
+                        updateInput = transformationInputsDao.updateTransInputSourceTransId(inputIds);
+                    }
+
+                   //根据过滤后的inputIds 需要修改的transformationInputIds
+                     LOGGER.debug(String.format("selectTransInputByTransTypeAndInputIds_update============================", inputIds));
+                    List<Integer> updateInputIds = transformationInputsDao.selectTransInputByTransTypeAndInputIds_update(inputIds);
+                    if (updateInputIds != null && updateInputIds.size() > 0) {
+                        //修改updateInputIds
+                        LOGGER.debug(String.format("updateTransformationInput============================", updateInputIds));
+                        updateInput = transformationInputsDao.updateTransInputSourceTransId(updateInputIds);
+                    }
+                }
+            }
+
+            //查询受影响的Transformation
+            LOGGER.debug(String.format("selectTransformationByLinkIds============================", transformationLinkIds));
+            transList = transformationDao.selectTransAndInputsByLinkIds(transformationLinkIds);
+            //判断受影响的Tranformation对象中是否还包含transformationInputs
+            List<Integer> updateTransIds=new ArrayList<Integer>();
+            if(transList!=null && transList.size()>0){
+                for(Transformation tran:transList){
+                    if(tran.getInputs()==null || tran.getInputs().size()==0 || tran.getInputs().get(0).getId()==null){
+                        updateTransIds.add(tran.getId());
+                    }
+                }
+            }
+
+          //批量修改Tranformation中的output_data_type ,打开flow的时候会根据output——data_type值，判断出Input中inputDataType属性值。
+           if(updateTransIds!=null && updateTransIds.size()>0){
+                Map<String,Object> map=new HashMap<String,Object>();
+                map.put("type",21);
+                map.put("idsList",updateTransIds);
+               LOGGER.debug(String.format("updateTransOutDataType============================", map));
+                updateTrans=transformationDao.updateTransOutDataType(map);
+               //修改属性值之后  再重新查询受影响的Transformation 返回给客户端
+               LOGGER.debug(String.format("selectTransformationByLinkIds============================", transformationLinkIds));
+               transList = transformationDao.selectTransAndInputsByLinkIds(transformationLinkIds);
+            }
+
+            //过滤掉不需要的transformation
+            if (transformationIds != null && transformationIds.size() > 0 && transList!=null && transList.size()>0) {
+                for (Transformation trans : transList) {
+                    transformatinList.add(trans);
+                    for (Integer transId : transformationIds) {
+                        if (trans.getId().equals(transId) ||trans.getId() == transId) {
+                            transformatinList.remove(trans);
+                            break;
+                        }
+                    }
+                }
+            }*/
+
+
+
+            //删除transformationLink
+            LOGGER.debug(String.format("deleteTransformationLinkIds============================", transformationLinkIds));
+            deleteLink = transformationLinkDao.deleteTransformationLinkIds(transformationLinkIds);
+
+            if (updateInput < 0 || deleteLink < 0 || deleteInput < 0 || updateTrans<0) {
+                throw new ErrorMessageException(MessageCode.ERR_DELETE.value());
+            }
+        } catch (Exception e) {
+            LOGGER.error("[deleteTransformationLinkIds===================================exception]", e);
+            e.printStackTrace();
+            throw new ErrorMessageException(MessageCode.ERR_DELETE.value(),e);
+        }
+        //主要用于判断是否是连Trans一起删除  少做同步
+       /* if(transformationIds != null && transformationIds.size() > 0){
+            return transformatinList;
+        }else{
+            return transList;
+        }*/
+        return transList;
+    }
+
+    /**
+     * 删除Transformation link，修改收到影响的Trans的input中的source trans id 或者删除受到影响的trans
+     *
+     * @param transformationLinkIds trans link 的 id
+     * @return
+     * @throws Exception 如果是业务逻辑的错误，需要在Exception里面附带错误码
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public List<Transformation> deleteTransformationLinkIds(List<Integer> transformationLinkIds) throws Exception {
+        return deleteTransformationLinkIds(transformationLinkIds, null,0);
+
+    }
+    /**
+     *批量新增Transformation，同时增加下游的transInpus
+     * @param只适用于几个特殊的trans类型 CHOICE CONCATENATE NUMASSEMBLE CSVASSEMBLE
+     * @throws Exception
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public Map<String,Object> insertTransformationLink(List<TransformationLink> transformationLinks)throws Exception{
+                Map<String,Object> returnMap=new HashMap<String,Object>();
+        try {
+            if(null!=transformationLinks&&transformationLinks.size()>0){
+                transformationLinkDao.insert(transformationLinks);
+                //这是需要增加的transInputs集合
+                List<TransformationInputs> insertTransInputsList=new ArrayList<TransformationInputs>();
+                //这是需要修改的transformation集合
+                List<Transformation> updateTransList=new ArrayList<Transformation>();
+                //获取下游Transformation
+                Transformation toTrans=transformationDao.selectByPrimaryKey(transformationLinks.get(0).getTo_transformation_id());
+
+                //transInputs描述
+                String description ="";
+                //如果是choice 就赋值为上游的dataType. 如果是其他就拿数据库中的dataType
+                int inputDataType=0;
+                List<Map<String, Object>> inputsMap = SquidLinkService.getInputscache().get(toTrans.getTranstype() + "");
+                if (inputsMap != null && inputsMap.size() > 0) {
+                    for (Map<String, Object> map : inputsMap) {
+                        description = map.get("description").toString();
+                        inputDataType = Integer.parseInt(map.get("inputDataType").toString());
+                    }
+                }
+                //根据下游toTrans 查询transInputs
+                List<TransformationInputs> toTransInputList=transformationInputsDao.selectByTransId(toTrans.getId());
+                int choice=1;
+                for(int i=0;i<transformationLinks.size();i++){
+                    //获取上游Transformation
+                    Transformation fromTrans=transformationDao.selectByPrimaryKey(transformationLinks.get(i).getFrom_transformation_id());
+                    //如果是choice 就赋值为上游的dataType
+                    if(toTrans.getTranstype()==TransformationTypeEnum.CHOICE.value() || toTrans.getTranstype()==TransformationTypeEnum.NULLPERCENTAGE.value()){
+                        inputDataType=fromTrans.getOutput_data_type();
+                    }
+                    //创建transInputs
+                    TransformationInputs transformationInputs=new TransformationInputs();
+                    transformationInputs.setSource_transform_id(fromTrans.getId());
+                    transformationInputs.setTransformationId(toTrans.getId());
+                    transformationInputs.setSourceTransformationName(toTrans.getName());
+                    transformationInputs.setDescription(description);
+                    transformationInputs.setSource_tran_output_index(transformationLinks.get(i).getSource_input_index());
+                    //如果是第一次连接，并且是choice。需要修改toTrans的dataType
+                    if(toTransInputList.size()==0 && toTrans.getTranstype()==TransformationTypeEnum.CHOICE.value() && choice==1){
+                        transformationInputs.setInput_Data_Type(fromTrans.getOutput_data_type());
+                        transformationInputs.setRelative_order(i);
+                        toTrans.setOutput_data_type(fromTrans.getOutput_data_type());
+                        updateTransList.add(toTrans);
+                        choice=2;
+                    }else{
+                        transformationInputs.setInput_Data_Type(inputDataType);
+                        transformationInputs.setRelative_order(toTransInputList.size()+i);
+                    }
+                    insertTransInputsList.add(transformationInputs);
+                }
+                //修改trans
+                if(updateTransList!=null && updateTransList.size()>0){
+                    transformationDao.updateBySelectiveList(updateTransList);
+                }
+                //需要新增的transInputs
+                if(insertTransInputsList!=null && insertTransInputsList.size()>0){
+                    transformationInputsDao.insert(insertTransInputsList);
+                }
+                returnMap.put("ListLink",transformationLinks);
+                returnMap.put("updTransInputs",insertTransInputsList);
+
+            }
+        }catch (Exception e){
+            LOGGER.error("[deleteTransformationLinkIds===================================exception]", e);
+            e.printStackTrace();
+            throw new ErrorMessageException(MessageCode.INSERT_ERROR.value(),e);
+        }
+        return returnMap;
+    }
+
+    /**
+     * 单独添加transformationLink
+     * @param transformationLink
+     * @return
+     * @throws Exception
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public int addTransformationLink(TransformationLink transformationLink) throws Exception{
+        int count=0;
+        try {
+            if(transformationLink!=null){
+                count=transformationLinkDao.insertSelective(transformationLink);
+            }else{
+                throw new ErrorMessageException(MessageCode.DESERIALIZATION_FAILED.value());
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            throw e;
+        }
+        return count;
+    }
+
+    /**
+     *
+     */
+
+
+
+}

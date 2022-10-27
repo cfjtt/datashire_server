@@ -1,0 +1,16 @@
+package com.eurlanda.datashire.server.dao;
+
+
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+/**
+ * Created by zhudebin on 2017/6/8.
+ */
+@Repository
+public interface RepositoryDao {
+
+    List<com.eurlanda.datashire.server.model.Repository> getAllRepository();
+    com.eurlanda.datashire.server.model.Repository getRepositoryBySquidFlowId(Integer squidFlowId);
+}

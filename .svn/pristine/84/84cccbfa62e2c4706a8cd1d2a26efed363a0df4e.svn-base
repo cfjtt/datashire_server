@@ -1,0 +1,182 @@
+package com.eurlanda.datashire.complieValidate;
+
+
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.IColumnDao;
+import com.eurlanda.datashire.dao.ISquidDao;
+import com.eurlanda.datashire.dao.dest.IEsColumnDao;
+import com.eurlanda.datashire.dao.dest.IHdfsColumnDao;
+import com.eurlanda.datashire.dao.dest.ImpalaColumnDao;
+import com.eurlanda.datashire.dao.dest.impl.EsColumnDaoImpl;
+import com.eurlanda.datashire.dao.dest.impl.HdfsColumnDaoImpl;
+import com.eurlanda.datashire.dao.dest.impl.ImpalaColumnDaoImpl;
+import com.eurlanda.datashire.dao.impl.ColumnDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidDaoImpl;
+import com.eurlanda.datashire.entity.BuildInfo;
+import com.eurlanda.datashire.entity.Column;
+import com.eurlanda.datashire.entity.DataSquid;
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.entity.dest.DestHDFSColumn;
+import com.eurlanda.datashire.entity.dest.DestImpalaColumn;
+import com.eurlanda.datashire.entity.dest.EsColumn;
+import com.eurlanda.datashire.enumeration.SchedulerLogStatus;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.utility.MessageCode;
+import org.apache.log4j.Logger;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by Eurlanda-dev on 2016/8/9.
+ */
+public class ValidateColumnProcess {
+    private static Logger logger = Logger.getLogger(ValidateColumnProcess.class);
+
+    //取得该squid下面所有的column
+    public static List<Column> getColumnListBySquidId(Squid squid,IRelationalDataManager adapter){
+        IColumnDao columnDao = new ColumnDaoImpl(adapter);
+        ISquidDao squidDao = new SquidDaoImpl(adapter);
+        List<Column> columnList = new ArrayList<Column>();
+        if(squid.getSquid_type()==SquidTypeEnum.STAGE.value()){
+           //这里先获取上游的squid，然后获取相关的column
+            columnList = columnDao.getColumnByTransAndSquidId(squid.getId());
+        } else if(squid.getSquid_type()==SquidTypeEnum.EXCEPTION.value()){
+            //先获取上游的squid，如果上游的squid是stage，调用column方法
+            try {
+                List<Squid> squidList = squidDao.getUpSquidIdsById(squid.getId());
+                for(Squid upSquid : squidList){
+                    if(upSquid.getSquid_type()==SquidTypeEnum.STAGE.value()){
+                        columnList = columnDao.getColumnByTransAndSquidId(upSquid.getId());
+                    } else {
+                        columnList = columnDao.getColumnListBySquidId(upSquid.getId());
+                    }
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } else {
+            columnList = columnDao.getColumnListBySquidId(squid.getId());
+        }
+
+        return columnList;
+    }
+    //验证column是否有link
+    public static List<BuildInfo> validateColumnLink(List<Column> columnList,List<BuildInfo> buildInfoList, Map<String, Object> map, Squid squid, IRelationalDataManager adapter) {
+        logger.info("编译检查: Extract/Stage 存在没有link的Column");
+        IColumnDao iColumnDao = new ColumnDaoImpl(adapter);
+        Map<String,String> params = new HashMap<String,String>();
+        params.put("id",squid.getId()+"");
+        //判断squid是否是Extract
+        if (SquidTypeEnum.isExtractBySquidType(squid.getSquid_type())
+                || SquidTypeEnum.STAGE.value() == squid.getSquid_type()
+                || SquidTypeEnum.STREAM_STAGE.value()==squid.getSquid_type()) {
+            DataSquid dataSquid  = (DataSquid) adapter.query2Object(params,SquidTypeEnum.classOfValue(squid.getSquid_type()));
+            //如果columnList为0表示没有获取元数据
+            if(columnList==null || columnList.size()==0){
+                if(SquidTypeEnum.STAGE.value()!=squid.getSquid_type()
+                        &&SquidTypeEnum.STREAM_STAGE.value()!=squid.getSquid_type()) {
+                    BuildInfo buildInfo = new BuildInfo(squid,map);
+                    buildInfo.setMessageCode(MessageCode.ERR_NOTGETDATA.value());
+                    buildInfo.setInfoType(SchedulerLogStatus.WARNING.getValue());
+                    buildInfoList.add(buildInfo);
+                    return buildInfoList;
+                }
+            }
+            if(SquidTypeEnum.STAGE.value()==squid.getSquid_type()
+                    || SquidTypeEnum.STREAM_STAGE.value()==squid.getSquid_type()){
+                List<Column> columns=iColumnDao.getColumnListBySquidId(squid.getId());
+                if(columns==null || columns.size()==0){
+                    BuildInfo buildInfo =new BuildInfo(squid,map);
+                    buildInfo.setMessageCode(MessageCode.ERR_NOT_COLUMN.value());
+                    buildInfo.setInfoType(SchedulerLogStatus.WARNING.getValue());
+                    buildInfoList.add(buildInfo);
+                    return buildInfoList;
+                }
+            }
+
+            List<Column> lists = iColumnDao.getUnlinkedColumnBySquidId(squid.getId());
+            if (lists != null && lists.size() > 0) {
+                BuildInfo buildInfo =new BuildInfo(squid,map);
+                List<String> subTargetName = new ArrayList<String>();
+                for(Column column : lists){
+                    if(dataSquid!=null) {
+                        if (dataSquid.getCdc() != 0) {
+                            if (column.getAggregation_type() == 0) {
+                                continue;
+                            }
+                        }
+
+                    }
+                    //是否是id字段
+                    if(column.isIsUnique()){
+                        continue;
+                    }
+                    if("extraction_date".equals(column.getName())){
+                        if (column.isIsUnique()) {
+                            continue;
+                        }
+                    }
+                    subTargetName.add(column.getName());
+                }
+                if(subTargetName!=null&&subTargetName.size()>0) {
+                    if (SquidTypeEnum.STAGE.value() != squid.getSquid_type()) {
+                        buildInfo.setMessageCode(MessageCode.ERR_EXTRACT_COLUMN_LINK_NULL.value());
+                    } else {
+                        buildInfo.setMessageCode(MessageCode.ERR_STAGE_COLUMN_LINK_NULL.value());
+                    }
+                    buildInfo.setSubTargetName(subTargetName);
+                    buildInfo.setInfoType(SchedulerLogStatus.WARNING.getValue());
+                    buildInfoList.add(buildInfo);
+                }
+            }
+        }
+
+        //当为落地squid的时候，列不能为空
+        if(squid.getSquid_type()==SquidTypeEnum.DESTES.value()
+                || squid.getSquid_type()==SquidTypeEnum.DEST_IMPALA.value()
+                || squid.getSquid_type()==SquidTypeEnum.DEST_HDFS.value()
+                || squid.getSquid_type() == SquidTypeEnum.DESTCLOUDFILE.value()){
+            boolean flag=true;
+            if(squid.getSquid_type()==SquidTypeEnum.DESTES.value()){
+                IEsColumnDao esColumnDao = new EsColumnDaoImpl(adapter);
+                List<EsColumn> esColumnList=esColumnDao.getEsColumnsBySquidId(squid.getId());
+                if(esColumnList==null || esColumnList.size()==0){
+                    flag=false;
+                }
+            } else if(squid.getSquid_type()==SquidTypeEnum.DEST_HDFS.value() || squid.getSquid_type() == SquidTypeEnum.DESTCLOUDFILE.value()){
+                IHdfsColumnDao hdfsColumnDao = new HdfsColumnDaoImpl(adapter);
+                List<DestHDFSColumn> destHDFSColumnList = hdfsColumnDao.getHdfsColumnBySquidId(true,squid.getId());
+                if(destHDFSColumnList==null || destHDFSColumnList.size()==0){
+                    flag = false;
+                }
+            } else if(squid.getSquid_type()==SquidTypeEnum.DEST_IMPALA.value()){
+                ImpalaColumnDao impalaColumnDao = new ImpalaColumnDaoImpl(adapter);
+                List<DestImpalaColumn> destImpalaColumnList=impalaColumnDao.getImpalaColumnBySquidId(true,squid.getId());
+                if(destImpalaColumnList==null || destImpalaColumnList.size()==0){
+                    flag = false;
+                }
+            }
+            if(!flag){
+                BuildInfo buildInfo =new BuildInfo(squid,map);
+                buildInfo.setMessageCode(MessageCode.ERR_DESTINATION_COLUMN_ISNULL.value());
+                buildInfo.setInfoType(SchedulerLogStatus.ERROR.getValue());
+                buildInfoList.add(buildInfo);
+            }
+        }
+
+        //groupTagSquid的column不能为空
+        if(squid.getSquid_type()==SquidTypeEnum.GROUPTAGGING.value()){
+            if(columnList==null || columnList.size()==0){
+                BuildInfo buildInfo =new BuildInfo(squid,map);
+                buildInfo.setMessageCode(MessageCode.ERR_TAGSQUID_ISNOTCOLUMN.value());
+                buildInfo.setInfoType(SchedulerLogStatus.ERROR.getValue());
+                buildInfoList.add(buildInfo);
+            }
+        }
+        return buildInfoList;
+    }
+}

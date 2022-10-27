@@ -1,0 +1,84 @@
+package com.eurlanda.datashire.server.api;
+
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.server.annotation.SocketApi;
+import com.eurlanda.datashire.server.annotation.SocketApiMethod;
+import com.eurlanda.datashire.server.exception.ErrorMessageException;
+import com.eurlanda.datashire.server.model.DataCatchSquid;
+import com.eurlanda.datashire.server.service.DataCatchSquidService;
+import com.eurlanda.datashire.sprint7.packet.InfoNewMessagePacket;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Created by eurlanda - new 2 on 2017/8/2.
+ */
+@Service
+@SocketApi("2014")
+public class CoefficientSquidApi {
+
+    private static final Logger logger = LoggerFactory.getLogger(CoefficientSquidApi.class);
+    @Autowired
+    DataCatchSquidService dataCatchSquidService;
+
+    /**
+     * 创建CoefficientSquid
+     *
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0001")
+    public String createCoefficientSquid(String info) {
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        try {
+            resultMap = dataCatchSquidService.createDataCatchSquid(info);
+        } catch (ErrorMessageException e) {
+            out.setMessageCode(MessageCode.parse(e.getErrorCode()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.INSERT_ERROR);
+            if(e.getMessage().equals(MessageCode.ERR_SQUID_OVER_LIMIT.value()+"")){
+                out.setMessageCode(MessageCode.ERR_SQUID_OVER_LIMIT);
+            }
+            logger.error("创建CoefficientSquid异常", e);
+        }
+        // 返回新增的FolderID
+        InfoNewMessagePacket<Map<String, Object>> infoMessage = new InfoNewMessagePacket<Map<String, Object>>();
+        infoMessage.setInfo(resultMap);
+        infoMessage.setDesc("创建CoefficientSquid");
+        infoMessage.setCode(out.getMessageCode().value());
+        return JsonUtil.object2Json(infoMessage);
+    }
+
+    /**
+     * 修改CoefficientSquid
+     *
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0002")
+    public String updateCoefficientSquid(String info) {
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        DataCatchSquid coefficientSquid = JsonUtil.toGsonBean(JsonUtil.toHashMap(info).get("Squid") + "", DataCatchSquid.class);
+        try {
+            dataCatchSquidService.updateCatchSquidSquid(coefficientSquid);
+        } catch (ErrorMessageException e) {
+            out.setMessageCode(MessageCode.parse(e.getErrorCode()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.UPDATE_ERROR);
+            logger.error("更新CoefficientSquid异常", e);
+        }
+        return JsonUtil.toJsonString(resultMap, DSObjectType.COEFFICIENT, out.getMessageCode());
+    }
+}

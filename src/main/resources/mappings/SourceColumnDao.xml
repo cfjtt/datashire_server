@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.SourceColumnDao" >
+
+
+    <resultMap id="BaseResultMap" type="com.eurlanda.datashire.entity.SourceColumn" >
+        <id column="ID" property="id" jdbcType="INTEGER" />
+        <result column="source_table_id" property="source_table_id" jdbcType="INTEGER" />
+        <result column="data_type" property="data_type" jdbcType="INTEGER" />
+        <result column="nullable" property="nullable" jdbcType="CHAR" />
+        <result column="length" property="length" jdbcType="INTEGER" />
+        <result column="precision" property="precision" jdbcType="INTEGER" />
+        <result column="scale" property="scale" jdbcType="INTEGER" />
+        <result column="relative_order" property="relative_order" jdbcType="INTEGER" />
+        <result column="isunique" property="isunique" jdbcType="CHAR" />
+        <result column="ispk" property="ispk" jdbcType="CHAR" />
+        <result column="name" property="name" jdbcType="VARCHAR" />
+    </resultMap>
+
+    <select id="getColumnById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+      SELECT * FROM DS_SOURCE_COLUMN  WHERE source_table_id=#{Id}
+    </select>
+    <delete id="deleteSourceColumn" parameterType="java.util.Map" >
+        delete from DS_SOURCE_COLUMN where name=#{name} AND source_table_id=#{source_table_id}
+    </delete>
+    <insert id="insertSourceColumn" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List" >
+        insert into DS_SOURCE_COLUMN (SOURCE_TABLE_ID, DATA_TYPE,NULLABLE,LENGTH,`PRECISION`,SCALE,RELATIVE_ORDER,ISUNIQUE,ISPK,NAME)
+        VALUES
+        <foreach collection="list" item="sourcecolumn" index="index" separator="," >
+            (#{sourcecolumn.source_table_id,jdbcType=INTEGER}, #{sourcecolumn.data_type,jdbcType=INTEGER},
+            #{sourcecolumn.nullable,jdbcType=CHAR},#{sourcecolumn.length,jdbcType=INTEGER},#{sourcecolumn.precision,jdbcType=INTEGER},
+            #{sourcecolumn.scale,jdbcType=INTEGER},#{sourcecolumn.relative_order,jdbcType=INTEGER},
+            #{sourcecolumn.isunique,jdbcType=CHAR},#{sourcecolumn.ispk,jdbcType=CHAR},#{sourcecolumn.name,jdbcType=VARCHAR}
+            )
+        </foreach>
+    </insert>
+    <select id="getColumnByTableId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT * FROM DS_SOURCE_COLUMN  WHERE source_table_id=#{Id}
+    </select>
+    <delete id="deleteSourceColumnByIds" parameterType="java.util.List">
+        delete from DS_SOURCE_COLUMN where ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+        #{item}
+      </foreach>
+    </delete>
+    <delete id="deleteSourceColumnByTableId" parameterType="java.lang.Integer">
+        delete from DS_SOURCE_COLUMN where SOURCE_TABLE_ID=#{id}
+    </delete>
+</mapper>

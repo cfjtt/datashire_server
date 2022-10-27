@@ -1,0 +1,96 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.server.dao.*;
+import com.eurlanda.datashire.server.model.*;
+import com.eurlanda.datashire.utility.SysConf;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class RepositoryService {
+    @Autowired
+    private RepositoryDao repositoryDao;
+    @Autowired
+    private ProjectDao projectDao;
+    @Autowired
+    private SquidFlowDao squidFlowDao;
+    @Autowired
+    private VariableDao variableDao;
+    @Autowired
+    private SquidFlowStatusDao squidFlowStatusDao;
+
+    public com.eurlanda.datashire.server.model.Repository getRepositoryWithSquidFlows(int repositoryId,List<Integer> projectIds){
+        com.eurlanda.datashire.server.model.Repository repository = repositoryDao.getRepositoryById(repositoryId);
+        List<Project> projectList = new ArrayList<>();
+        //查询出projectId信息，并查询到squidflow
+        for (Integer projectId : projectIds) {
+            Project project = projectDao.getProjectById(projectId);
+            List<SquidFlow> squidFlowList =squidFlowDao.getSquidFlowsByProjectId(projectId);
+            List<DSVariable> variables = variableDao.getVariablesByProjectId(projectId);
+            Map<String, String> paramsMap = new HashMap<String, String>();
+            paramsMap.put("repository_id", Integer.toString(projectId, 10));
+            paramsMap.put("project_id", Integer.toString(project.getRepository_id(), 10));
+            List<SquidFlowStatus> squidFlowStatus = squidFlowStatusDao.getSquidFlowStatus(paramsMap);
+            if(squidFlowStatus!=null) {
+                //根据squidflow的id匹配得到状态
+                for (int i = 0; i < squidFlowList.size(); i++) {
+                    for (int j = 0; j < squidFlowStatus.size(); j++) {
+                        if (squidFlowList.get(i).getId() == squidFlowStatus.get(j).getSquid_flow_id()) {
+                            squidFlowList.get(i).setSquid_flow_status(squidFlowStatus.get(j).getSquid_flow_status());
+                            break;
+                        }
+                    }
+                }
+            }
+            if (squidFlowList != null) {
+                project.setSquidFlowList(squidFlowList);
+            }
+            if (variables != null) {
+                project.setVariables(variables);
+            }
+            projectList.add(project);
+        }
+        repository.setProjectList(projectList);
+        return  repository;
+    }
+
+    /**
+     * 根据squidflowId获取repositoryId
+     * @param squidFlowId
+     * @return
+     */
+    public Integer getRepositoryIdBySquidFlowId(int squidFlowId){
+        Repository repository = repositoryDao.getRepositoryBySquidFlowId(squidFlowId);
+        int repositoryId = 0;
+        if(repository!=null){
+            repositoryId = repository.getId();
+        }
+        return repositoryId;
+    }
+
+    /**
+     * 根据repositoryId获取到数据库连接信息(确定某个repository使用的是哪一台机器)
+     * @param repositoryId
+     * @return
+     */
+    public String getDbUrlByRepositoryId(int repositoryId){
+        String dbUrl = "";
+        int p_num = repositoryId % Integer.parseInt(SysConf.getValue("cloud_db_num"));
+        dbUrl = SysConf.getValue("cloud_db_ip_port"+p_num);
+        return dbUrl;
+    }
+    /**
+     * 根据squidFlowId获取到cloudDb的数据库连接信息
+     * @param squidFlowId
+     * @return
+     */
+    public String getDBUrlBySquidFlowId(int squidFlowId){
+        int repositoryId = getRepositoryIdBySquidFlowId(squidFlowId);
+        return getDbUrlByRepositoryId(repositoryId);
+    }
+}

@@ -1,0 +1,48 @@
+package com.eurlanda.datashire.server.dao;
+
+import com.eurlanda.datashire.server.model.Transformation;
+import com.eurlanda.datashire.server.model.TransformationInputs;
+import com.eurlanda.datashire.server.model.TransformationLink;
+import org.apache.ibatis.annotations.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Map;
+
+@Repository
+public interface TransformationLinkDao {
+    int deleteByPrimaryKey(List<Integer> list);
+
+    int insert(List<TransformationLink> records);
+
+    int insertSelective(TransformationLink record);
+
+    TransformationLink selectByPrimaryKey(Integer id);
+
+    int updateByPrimaryKeySelective(TransformationLink record);
+
+    int updateByPrimaryKey(TransformationLink record);
+
+    int deleteTransformationLinkIds(List<Integer> transLinkIds);
+
+    List<Transformation> selectTransformationByLinkIds(List<Integer> transLinkIds);
+
+    List<TransformationInputs> selectTransInputByLinkIds(List<Integer> transLinkIds);
+
+    List<TransformationLink> findTransformationLink(List<Integer> list);
+
+    List<Integer> selectLinkByTranIds(List<Integer> tranIds);
+
+    //根据squidId删TransformationLink
+    int deleteTransformationLinkBySquidId(List<Integer> squidIds);
+
+    //根据from_transformation_id和to_transformation_id查transformationlike
+    TransformationLink selectByTransformationId(Map<String, String> map);
+
+    List<Integer> findLinkByFromTrans(List<Integer> transIds);
+    /**
+     *  !--根据valueColumnID，pivotSquidId查询该column对应的trans发出线的数量--
+     */
+    Integer selectCountByColumnId(@Param("valueColumnId") Integer valueColumnId,@Param("squidId") Integer squidId);
+
+}

@@ -1,0 +1,292 @@
+package com.eurlanda.datashire.adapter;
+
+import com.alibaba.druid.pool.DruidDataSource;
+import com.eurlanda.datashire.entity.DbSquid;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.socket.protocol.MonitorConsole;
+import com.eurlanda.datashire.utility.CommonConsts;
+import com.eurlanda.datashire.utility.DebugUtil;
+import com.eurlanda.datashire.utility.SysConf;
+import org.apache.log4j.Logger;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/** 数据源管理配置 */
+public class DataSourceManager {
+	private static final Logger logger = Logger.getLogger(DataSourceManager.class);
+	protected DbSquid dataStore;
+	protected boolean defaultAutoCommit;
+	private String driverClassName;
+	private String jdbcURL;
+
+    private static String SYS_DATASOURCE_INFO = SysConf.getValue("jdbc.url")
+            + SysConf.getValue("jdbc.username")
+            + SysConf.getValue("jdbc.password");
+
+    private static Map<String, DruidDataSource> dbcpSourceMap = new HashMap<>();
+	
+	private int poolExhaustedCount = 0;
+	
+	public DataSourceManager(DbSquid _dataStore) {
+		/*String driverClassName = "";
+		String jdbcURL = "";*/
+		if((this.dataStore = _dataStore) != null){
+			String tempStr = "";
+			if (_dataStore.getPort()>0&&!_dataStore.getHost().contains(":")){
+				tempStr = _dataStore.getHost()+":"+_dataStore.getPort();
+			}else{
+				if (_dataStore.getDb_type()==DataBaseType.ORACLE.value()){
+					if (_dataStore.getHost().split(";").length>1){
+						StringBuffer strbf = new StringBuffer();
+						strbf.append("@(DESCRIPTION =");
+						for (String ss : _dataStore.getHost().split(";")) {
+							String host = ss.split(":")[0];
+							String port = ss.split(":")[1];
+							strbf.append("(ADDRESS = (PROTOCOL = TCP)(HOST ="+host+")(PORT = "+port+"))");
+						}
+						strbf.append("(LOAD_BALANCE=yes)(CONNECT_DATA = (SERVER = DEDICATED)(SERVICE_NAME = "+_dataStore.getDb_name()+")))");
+						tempStr = strbf.toString();
+					}
+				}else{
+					tempStr = _dataStore.getHost();
+				}
+			}
+			switch (DataBaseType.parse(_dataStore.getDb_type())) {
+			case HSQLDB:
+				driverClassName = "org.hsqldb.jdbcDriver";
+				//jdbcURL = "jdbc:hsqldb:hsql:"+ info.getHost() + info.getDbName();
+				jdbcURL = tempStr;
+				break;
+			case SQLSERVER:
+				driverClassName = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+				//jdbcURL = "jdbc:sqlserver://" + info.getHost() + ":" + info.getPort() + ";DatabaseName=" + info.getDbName();
+				jdbcURL = "jdbc:sqlserver://" + tempStr + ";DatabaseName=" + _dataStore.getDb_name();
+				break;
+			case ORACLE:
+				driverClassName = "oracle.jdbc.driver.OracleDriver";
+				if (tempStr==""){
+					jdbcURL = "jdbc:oracle:thin:@" + _dataStore.getHost() + ":" + _dataStore.getPort() + ":" + _dataStore.getDb_name();
+				}else{
+					jdbcURL = "jdbc:oracle:thin:@" + tempStr;
+				}
+				break;
+			case INFORMIX:
+				driverClassName = "com.informix.jdbc.IfxDriver";
+				//jdbcURL = "jdbc:informix-sqli://"+info.getHost()+":"+info.getPort()+"/"+info.getDbName()+":informixserver=demoserver";
+				jdbcURL = "jdbc:informix-sqli://"+tempStr+"/"+_dataStore.getDb_name()+":informixserver=demoserver";
+				break;
+			case HBASE_PHOENIX:
+				driverClassName = "org.apache.phoenix.jdbc.PhoenixDriver";
+				//jdbcURL = "jdbc:phoenix:"+info.getHost()+":"+info.getPort()+"";
+				jdbcURL = "jdbc:phoenix:"+tempStr+"";
+				break;
+			case DB2:
+				driverClassName = "com.ibm.db2.jcc.DB2Driver";
+				//jdbcURL = "jdbc:db2://" + info.getHost() + ":" + info.getPort() + "/" + info.getDbName();
+				jdbcURL = "jdbc:db2://" + tempStr + "/" + _dataStore.getDb_name();
+				break;
+			case MYSQL: // ?characterEncoding=utf8
+				driverClassName = "com.mysql.jdbc.Driver";
+				//jdbcURL = "jdbc:mysql://" + info.getHost() + ":" + info.getPort() + "/" + info.getDbName();
+				jdbcURL = tempStr;
+				break;
+			case SYBASE:
+				driverClassName = "com.sybase.jdbc3.jdbc.SybDriver";
+				//jdbcURL = "jdbc:sybase:Tds:" + info.getHost() + ":" + info.getPort() + "/" + info.getDbName();
+				jdbcURL = "jdbc:sybase:Tds:" + tempStr + "/" + _dataStore.getDb_name();
+				break;
+			case POSTGRESQL:
+				driverClassName = "org.postgresql.Driver";
+				//jdbcURL = "jdbc:postgresql://" + info.getHost() + ":" + info.getPort() + "/" + info.getDbName();
+				jdbcURL = "jdbc:postgresql://" + tempStr + "/" + _dataStore.getDb_name();
+			    break;
+			case MSACCESS:
+				driverClassName="sun.jdbc.odbc.JdbcOdbcDriver";
+				jdbcURL="jdbc:odbc:DRIVER=Microsoft Access Driver (*.mdb, *.accdb);DBQ="+_dataStore.getHost()+"";//D:/Access/test.accdb
+			    break;
+			case HANA:
+				driverClassName="com.sap.db.jdbc.Driver";
+				jdbcURL="jdbc:sap://" + tempStr + "?reconnect=true";
+				break;
+			default:
+				logger.error("unknow data type: " + _dataStore.getDb_type());
+				break;
+			}
+		}
+		/*if((this.dataStore = _dataStore) != null){
+			// configure jdbc.driverClassName and jdbc.url
+			switch (DataBaseType.parse(_dataStore.getDb_type())) {
+				case HSQLDB:
+					driverClassName = "org.hsqldb.jdbcDriver";
+//					jdbcURL = "jdbc:hsqldb:hsql://192.168.137.2:9092/" + dataStore.getDb_name();
+					if(CommonConsts.HSQL_HOST_ADDRESS.contains("jdbc:hsqldb:hsql")){
+					   jdbcURL = CommonConsts.HSQL_HOST_ADDRESS + dataStore.getDb_name();
+					}
+					else {
+					    jdbcURL = dataStore.getHost() + "/" + dataStore.getDb_name();
+					}
+					break;
+				case SQLSERVER:
+					driverClassName = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+					jdbcURL = "jdbc:sqlserver://"+dataStore.getHost()+":"+dataStore.getPort()+";DatabaseName="+dataStore.getDb_name();
+					break;
+				case ORACLE:
+					driverClassName = "oracle.jdbc.driver.OracleDriver";
+					jdbcURL = "jdbc:oracle:thin:@"+dataStore.getHost()+":"+dataStore.getPort() +":"+dataStore.getDb_name();
+					break;
+				case INFORMIX:
+					driverClassName = "com.informix.jdbc.IfxDriver";
+					jdbcURL = "jdbc:informix-sqli://"+dataStore.getHost()+":"+dataStore.getPort()+"/"+dataStore.getDb_name()+":demoserver=server";
+					break;
+				case HBASE_PHOENIX:
+					driverClassName = "org.apache.phoenix.jdbc.PhoenixDriver";
+					jdbcURL = "jdbc:phoenix:"+dataStore.getHost()+":"+dataStore.getPort()+"";
+					break;
+				case DB2:
+					driverClassName = "com.ibm.db2.jcc.DB2Driver";
+					jdbcURL = "jdbc:db2://"+dataStore.getHost()+":"+dataStore.getPort() +"/"+dataStore.getDb_name();
+					break;
+				case MYSQL: //?characterEncoding=utf8
+					driverClassName = "com.mysql.jdbc.Driver";
+					jdbcURL = "jdbc:mysql://"+dataStore.getHost()+":"+dataStore.getPort() +"/"+dataStore.getDb_name();
+					break;
+				default:
+					logger.warn("unknow data type: "+dataStore.getDb_type());
+					break;
+			}
+			logger.debug("usr="+dataStore.getUser_name()+", pwd="+dataStore.getPassword()+", driver="+driverClassName+", url="+jdbcURL);
+		}else{
+			logger.warn("null data source!");
+		}*/
+	}
+	/**
+	 * 取得一个连接，如果本连接不存在，那么用连接信息新建一个数据库连接池，再取得连接
+	 * @date 2014-1-10 
+	 * @author jiwei.zhang 
+	 * @return
+	 */
+	protected Connection openAdapter() {
+		return getDBCPConnection();
+	}
+	/**
+	 * 取得一个连接，如果本连接不存在，那么用连接信息新建一个数据库连接池，再取得连接
+	 * @return
+	 */
+	public synchronized Connection getDBCPConnection() {
+		Connection connection = null;
+		String key = jdbcURL+dataStore.getUser_name()+dataStore.getPassword();
+
+        DruidDataSource basicDataSource = null;
+        // 判断是否是系统的数据库
+        if(SYS_DATASOURCE_INFO.equals(key)) {
+            // 系统数据源
+            basicDataSource = (DruidDataSource) Constants.context.getBean("dataSource");
+            logger.debug("使用系统数据源.....");
+        } else {
+            basicDataSource = dbcpSourceMap.get(key);
+            logger.debug("使用自建数据源....." + key);
+        }
+		try {
+			if(basicDataSource==null){
+				basicDataSource = new DruidDataSource();
+				basicDataSource.setDriverClassName(driverClassName);
+				basicDataSource.setUsername(dataStore.getUser_name());
+				basicDataSource.setPassword(dataStore.getPassword());
+				basicDataSource.setUrl(jdbcURL);
+
+                basicDataSource.setInitialSize(3);  //初始化连接个数
+				basicDataSource.setMinIdle(3);   // 最小空闲连接
+				basicDataSource.setMaxActive(20); // 最大连接数
+				basicDataSource.setMaxWait(60000);
+				basicDataSource.setTimeBetweenEvictionRunsMillis(60000); //多长时间检查一次可以关闭空闲的连接
+				basicDataSource.setMinEvictableIdleTimeMillis(300000); //设置连接池最小生存时间
+
+                basicDataSource.setValidationQuery("select 1");
+                basicDataSource.setTestOnBorrow(false);
+                basicDataSource.setTestOnReturn(false);
+                basicDataSource.setTestWhileIdle(true);
+
+				basicDataSource.setDefaultAutoCommit(defaultAutoCommit);
+				//basicDataSource.setDefaultReadOnly(false);
+				//basicDataSource.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+				logger.info(MessageFormat.format("[Init BasicDataSource] url:{0}, usrName:{1}, key={2}", 
+						basicDataSource.getUrl(),basicDataSource.getUsername(), key));
+				connection = basicDataSource.getConnection();
+				//connection.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+				dbcpSourceMap.put(key, basicDataSource);
+				//logger.info(MessageFormat.format("{1} new connection: {0}", connection.hashCode(), connection));
+			}else{
+				// 测试使用......
+                connection = basicDataSource.getConnection();
+                logger.debug("===datasource.dump:====" + basicDataSource.dump());
+                //connection.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+				logger.debug(MessageFormat.format("{0} pool connection: {1}", connection.hashCode(), key));
+			}
+			
+			//connection.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+			//connection.setReadOnly(true);
+			
+			if(DebugUtil.isDebugenabled()){
+				MonitorConsole.activePoolCnt = dbcpSourceMap.get(key).getActiveCount();
+				MonitorConsole.maxActivePoolCnt = 
+						Math.max(MonitorConsole.maxActivePoolCnt, MonitorConsole.activePoolCnt);
+				MonitorConsole.idlePoolCnt = 0;
+				MonitorConsole.sumActivePoolCnt++;
+				 
+				logger.debug("[连接池] 活动="+MonitorConsole.activePoolCnt+
+								"， 空闲="+MonitorConsole.idlePoolCnt+
+								"， Max(活动)="+MonitorConsole.maxActivePoolCnt+
+								"， Sum(活动)="+MonitorConsole.sumActivePoolCnt);
+				
+				String tn = Thread.currentThread().getName();
+				List<Connection> l = MonitorConsole.connectionMap.get(tn);
+				if(l!=null){
+					l.add(connection);
+				}else{
+					l = new ArrayList<Connection>(5);
+					l.add(connection);
+					MonitorConsole.connectionMap.put(tn, l);
+				}
+			}
+			poolExhaustedCount = 0;
+		} catch (SQLException e) {
+			logger.error("获取数据库连接失败..."+key, e);
+			if(e!=null&&e.getMessage()!=null&&e.getMessage().indexOf("pool exhausted")!=-1&&++poolExhaustedCount>=3){
+				if(basicDataSource!=null){
+					try {
+						basicDataSource.close();
+						logger.warn("close poo okl!");
+					} catch (Exception e1) {
+						logger.error("close pool error!", e1);
+					}
+				}
+			}
+		}
+		CommonConsts.incConnectionNumber();
+		return connection;
+	}
+
+	public boolean isDefaultAutoCommit() {
+		return defaultAutoCommit;
+	}
+
+	public void setDefaultAutoCommit(boolean defaultAutoCommit) {
+		this.defaultAutoCommit = defaultAutoCommit;
+	}
+
+	public DbSquid getDataStore() {
+		return dataStore;
+	}
+
+	public void setDataStore(DbSquid dataStore) {
+		this.dataStore = dataStore;
+	}
+
+}

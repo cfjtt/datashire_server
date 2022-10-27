@@ -1,0 +1,183 @@
+package com.eurlanda.datashire.entity;
+
+import com.eurlanda.datashire.annotation.ColumnMpping;
+import com.eurlanda.datashire.annotation.MultitableMapping;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+
+import java.io.Serializable;
+import java.sql.Types;
+
+/**
+ * User实体类
+ * 
+ * <p>
+ * Title : 
+ * </p>
+ * <p>
+ * Description: 
+ * </p>
+ * <p>
+ * Author :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * update :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * Department :  JAVA后端研发部
+ * </p>
+ * Copyright : ©2012-2013 悦岚（上海）数据服务有限公司
+ * </p>
+ */
+@MultitableMapping(pk="", name = "DS_SYS_USER", desc = "用户信息表")
+public class User extends DSBaseModel  implements Serializable{
+	private static final long serialVersionUID = -8443519314107050709L;  
+
+	{
+		this.setType(DSObjectType.USER.value());
+	}
+	
+	@ColumnMpping(name="user_name", desc="用户名", nullable=false, precision=50, type=Types.VARCHAR, valueReg="")
+	private String user_name;
+	
+	@ColumnMpping(name="full_name", desc="用户全名", nullable=true, precision=20, type=Types.VARCHAR, valueReg="")
+	private String full_name;
+	
+	@ColumnMpping(name="password", desc="密码", nullable=false, precision=50, type=Types.VARCHAR, valueReg="")
+	private String password;
+	
+	@ColumnMpping(name="email_address", desc="邮箱地址", nullable=true, precision=100, type=Types.VARCHAR, valueReg="")
+	private String email_address;
+	
+	@ColumnMpping(name="last_logon_date", desc="最后登录时间", nullable=true, precision=0, type=Types.TIMESTAMP, valueReg="")
+	private String last_logon_date;
+	
+	@ColumnMpping(name="role_id", desc="角色ID", nullable=true, precision=0, type=Types.INTEGER, valueReg=">=1")
+	private int role_id;
+	
+	@ColumnMpping(name="status_id", desc="状态ID", nullable=true, precision=0, type=Types.INTEGER, valueReg=">=1")
+	private int status_id;
+
+	// boolean->char(1) [true:'Y', false:'N']
+	@ColumnMpping(name="is_active", desc="是否激活", nullable=true, precision=1, type=Types.VARCHAR, valueReg="")
+	private boolean is_active;
+	
+	// Types.NULL 新增/更新时忽略，查询结果集映射时自动对应列的别名
+	@ColumnMpping(name="role_name", desc="角色名称，只给前台显示使用", nullable=true, precision=0, type=Types.NULL, valueReg="")
+	private String role_name;
+
+	private String spaceId;  //数猎场ID，限制同一个数猎场只能登陆一个用户
+	/**
+	 * repository对象
+	 */
+	private Repository repository;
+
+	private Team team;
+
+	public String getFull_name() {
+		return full_name;
+	}
+
+	public void setFull_name(String full_name) {
+		this.full_name = full_name;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public Repository getRepository() {
+		return repository;
+	}
+
+	public void setRepository(Repository repository) {
+		this.repository = repository;
+	}
+ 
+	public String getUser_name() {
+		return user_name;
+	}
+
+	public void setUser_name(String user_name) {
+		this.user_name = user_name;
+	}
+
+	public String getEmail_address() {
+		return email_address;
+	}
+
+	public void setEmail_address(String emailAddress) {
+		email_address = emailAddress;
+	}
+
+	public String getLast_logon_date() {
+		return last_logon_date;
+	}
+
+	public void setLast_logon_date(String lastLogonDate) {
+		last_logon_date = lastLogonDate;
+	}
+
+	public int getRole_id() {
+		return role_id;
+	}
+
+	public void setRole_id(int roleId) {
+		role_id = roleId;
+	}
+
+	public int getStatus_id() {
+		return status_id;
+	}
+
+	public void setStatus_id(int status_id) {
+		this.status_id = status_id;
+	}
+
+	public Team getTeam() {
+		return team;
+	}
+
+	public void setTeam(Team team) {
+		this.team = team;
+	}
+
+	public String getRole_name() {
+		return role_name;
+	}
+
+	public void setRole_name(String role_name) {
+		this.role_name = role_name;
+	}
+
+	public boolean isIs_active() {
+		return is_active;
+	}
+
+	public void setIs_active(boolean is_active) {
+		this.is_active = is_active;
+	}
+
+	public String getSpaceId() {
+		return spaceId;
+	}
+
+	public void setSpaceId(String spaceId) {
+		this.spaceId = spaceId;
+	}
+
+	@Override
+	public String toString() {
+		return "User [id=" + id + ", key=" + key + ", user_name=" + user_name
+				+ ", full_name=" + full_name + ", password=" + password
+				+ ", email_address=" + email_address + ", last_logon_date="
+				+ last_logon_date + ", role_id=" + role_id + ", status_id="
+				+ status_id + ", is_active=" + is_active + ", repository="
+				+ repository + ", team=" + team + ", role_name=" + role_name
+				+ "]";
+	}
+
+}

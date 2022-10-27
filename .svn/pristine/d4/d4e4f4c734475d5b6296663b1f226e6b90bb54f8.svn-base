@@ -1,0 +1,828 @@
+package com.eurlanda.datashire.adapter;
+
+import cn.com.jsoft.jframe.utils.CharsetDetector;
+import cn.com.jsoft.jframe.utils.FileUtils;
+import com.eurlanda.datashire.entity.DocExtractSquid;
+import com.eurlanda.datashire.entity.FileFolderSquid;
+import com.eurlanda.datashire.entity.FileInfo;
+import com.eurlanda.datashire.exception.SystemErrorException;
+import com.eurlanda.datashire.socket.ServerEndPoint;
+import com.eurlanda.datashire.utility.CreateFileUtil;
+import com.eurlanda.datashire.utility.EncodingUtils;
+import com.eurlanda.datashire.utility.FileFolderUtils;
+import com.eurlanda.datashire.utility.FilterUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.SysConf;
+import com.eurlanda.datashire.utility.XLS2CSV;
+import com.eurlanda.datashire.utility.XLSX2CSV;
+import jcifs.smb.NtlmPasswordAuthentication;
+import jcifs.smb.SmbFile;
+import jcifs.smb.SmbFileInputStream;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.BOMInputStream;
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.openxml4j.opc.PackageAccess;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class RemoteFileAdapter {
+	private static Logger logger = Logger.getLogger(RemoteFileAdapter.class);// 记录日志
+	private String remoteHostIp;  //远程主机IP
+    private String username;       //登陆账户   
+    private String password;      //登陆密码   
+    private String shareDocName;  //共享文件夹名称 
+    private String filter;//过滤条件
+    private String finalPath;//用户输入的路径
+    private int finalDepth;//遍历层数
+
+    public RemoteFileAdapter() {
+    }
+
+    public RemoteFileAdapter(String remoteHostIp, String username, String password) {
+        this.remoteHostIp = remoteHostIp;
+        this.username = username;
+        this.password = password;
+    }
+
+    public String getRemoteHostIp() {
+		return remoteHostIp;
+	}
+
+	public void setRemoteHostIp(String remoteHostIp) {
+		this.remoteHostIp = remoteHostIp;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public String getShareDocName() {
+		return shareDocName;
+	}
+
+	public void setShareDocName(String shareDocName) {
+		this.shareDocName = shareDocName;
+	}
+
+	public String getFilter() {
+		return filter;
+	}
+
+	public void setFilter(String filter) {
+		this.filter = filter;
+	}
+	
+    private static final String SPECIAL_CHAR_A = "[^\",//n 　]";   
+    private static final String SPECIAL_CHAR_B = "[^\",//n]";  
+
+	/**
+     * 对远程共享文件进行读取所指定的行(除开office文档)
+     * @param fileName  文件名  说明：参数为共享目录下的相对路径
+     *  若远程文件的路径为：shareDoc\test.txt,则参数为test.txt(其中shareDoc为共享目录名称);
+     *  若远程文件的路径为：shareDoc\doc\text.txt,则参数为doc\text.txt;
+     *
+     * @return  文件指定行
+     */
+    public List<String> readFile(DocExtractSquid docExtractSquid,FileFolderSquid fileFolderSquid, String fileName)throws Exception {
+        SmbFile smbFile = null;
+        BufferedReader reader = null;
+        List<String> list = null;
+        String username = fileFolderSquid.getUser_name();
+        String password = fileFolderSquid.getPassword();
+        String remoteHostIp = fileFolderSquid.getHost();
+        String shareDocName = fileFolderSquid.getFile_path();
+        String row_delimited = docExtractSquid.getRow_delimiter();
+
+        // header的字段number
+        int header_row_no = docExtractSquid.getHeader_row_no();
+        // 第一条数据记录
+        int first_data_row_no = docExtractSquid.getFirst_data_row_no();
+
+        try {
+            smbFile = getSmbFile(remoteHostIp, username, password, shareDocName, fileName);
+            // 创建reader
+            //文件编码探测器，解决编码原因引起的乱码问题
+            CharsetDetector detector = new CharsetDetector();
+            BufferedInputStream bufferedStream = new BufferedInputStream(new BOMInputStream(new SmbFileInputStream(smbFile)));
+            reader = new BufferedReader(new InputStreamReader(bufferedStream,detector.detect(bufferedStream,bufferedStream.available()>1024*1024 ? 1024*1024 : bufferedStream.available())));
+            list = new ArrayList<String>();
+            // 循环对文件进行读取
+            String line;
+            int lineCount = 0;
+            int headerRowNo = docExtractSquid.getHeader_row_no();// 列信息所在行
+            int firstDataRowNo = docExtractSquid.getFirst_data_row_no()-1;// 值属性所在行
+            int endDataRowNo = firstDataRowNo + 50;
+
+            String temp = "";
+            while ((line = reader.readLine()) != null) {
+                /*if (StringUtils.isEmpty(line)) {
+                    continue;
+                } else {*/
+                    temp += line + System.getProperty("line.separator");
+                    lineCount++;
+                    if (lineCount >= endDataRowNo) {
+                        break;
+                    }
+                //}
+            }
+
+            String[] templist = temp.split(row_delimited);
+            if (header_row_no < 1) {
+                for (int i = firstDataRowNo; i < templist.length; i++) {
+                    String newtemp = (String) templist[i];
+                    if (!StringUtils.isEmpty(newtemp)) {
+                        list.add(newtemp);
+                    }
+                }
+            } else {
+                //这里要对header_row_no减1因为程序内使用索引，外部是数数的
+                logger.info("起始行:"+header_row_no+"总行数:"+lineCount);
+                for (int i = header_row_no-1; i < (templist.length<lineCount?templist.length:lineCount); i++) {
+                    String newtemp = templist[i];
+                    if (!StringUtils.isEmpty(newtemp)) {
+                        list.add(newtemp);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(e);
+            throw new SystemErrorException(MessageCode.ERR_FILE, "读取文件异常");
+        }
+        return list;
+    }
+    /**
+     * 对远程共享文件进行读取所指定的行(office文档)
+     * @param fileName  文件名  说明：参数为共享目录下的相对路径
+     *  若远程文件的路径为：shareDoc\test.txt,则参数为test.txt(其中shareDoc为共享目录名称);
+     *  若远程文件的路径为：shareDoc\doc\text.txt,则参数为doc\text.txt;
+     *
+     * @return  文件指定行
+     */
+    public List<String> readOfficeFile(DocExtractSquid docExtractSquid,FileFolderSquid fileFolderSquid, String fileName)throws Exception{
+        List<String> list = new ArrayList<String>();
+        //String fileName=docExtractSquid.getTable_name();//文件名称
+        try {
+            this.downLoadFileByFileFolderConnectionSquid(fileFolderSquid, fileName);
+            fileName= fileName.substring(fileName.lastIndexOf("/")+1,fileName.length());
+            //读取内容
+            FileFolderUtils fileFolderUtils = new FileFolderUtils();
+            if(".xls".contains(FileUtils.getFileEx(fileName))) {
+                /*InputStream in = new FileInputStream(ServerEndPoint.ftpDownload_Path + "/" + fileName);
+                BOMInputStream bomInputStream = new BOMInputStream(in);
+                HSSFWorkbook workbook = new HSSFWorkbook(bomInputStream);
+                ExcelExtractor extractor = new ExcelExtractor(workbook);
+                extractor.setFormulasNotResults(true);
+                extractor.setIncludeSheetNames(false);
+                list = fileFolderUtils.getXlsValues(list, docExtractSquid, extractor);*/
+                String path = ServerEndPoint.ftpDownload_Path + "/" + fileName;
+                String csvPath =path.substring(0,path.indexOf(".xls"))+".csv";
+                XLS2CSV xls2csv = new XLS2CSV(path,csvPath);
+                xls2csv.process();
+                FileInputStream stream = new FileInputStream(csvPath);
+                BufferedReader readerBuffer = new BufferedReader(new InputStreamReader(stream,"utf-8"));
+                int count = 0;
+                int lineCount = 0;
+                int headerRowNo = docExtractSquid.getHeader_row_no()-1;// 列信息所在行
+                int firstDataRowNo = docExtractSquid.getFirst_data_row_no()-1;// 值属性所在行
+                int endDataRowNo = firstDataRowNo + 50;
+                String line="";
+                while ((line = readerBuffer.readLine()) != null) {
+                    if (lineCount >= endDataRowNo)
+                        break;
+                    if (lineCount == headerRowNo) {
+                        list.add(line);
+                    } else if (lineCount != headerRowNo && lineCount <= endDataRowNo) {
+                        if(lineCount>=firstDataRowNo) {
+                            list.add(line);
+                        }
+                    }
+                    lineCount++;
+                }
+                //删除csv文件
+                CreateFileUtil.deleteFile(csvPath);
+                //return list;
+            } else if(".xlsx".contains(FileUtils.getFileEx(fileName))) {
+               /* XSSFExcelExtractor xssfExcelExtractor = new XSSFExcelExtractor(
+                        ServerEndPoint.ftpDownload_Path + "/" + fileName);
+                xssfExcelExtractor.setFormulasNotResults(true);
+                xssfExcelExtractor.setIncludeSheetNames(false);
+                list = fileFolderUtils.getXlsxValues(list,  docExtractSquid, xssfExcelExtractor);*/
+                String path = ServerEndPoint.ftpDownload_Path + "/" + fileName;
+                String csvPath = path.substring(0,path.indexOf(".xlsx"))+".csv";
+                OPCPackage p = OPCPackage.open(path, PackageAccess.READ);
+                File file = new File(csvPath);
+                if(!file.exists()){
+                    file.createNewFile();
+                }
+                FileOutputStream outStream = new FileOutputStream(file);
+                PrintStream out = new PrintStream(outStream,false,"utf-8");
+                XLSX2CSV xlsx2csv = new XLSX2CSV(p, out, 10);
+                xlsx2csv.process();
+                p.close();
+                out.flush();
+                out.close();
+                //读取csv文件8
+                FileInputStream input = new FileInputStream(file);
+                BufferedReader readerBuffer = new BufferedReader(new InputStreamReader(input));
+                int count = 0;
+                int lineCount = 0;
+                int headerRowNo = docExtractSquid.getHeader_row_no()-1;// 列信息所在行
+                int firstDataRowNo = docExtractSquid.getFirst_data_row_no()-1;// 值属性所在行
+                int endDataRowNo = firstDataRowNo + 50;
+                String line="";
+                while ((line = readerBuffer.readLine()) != null) {
+                    if (lineCount >= endDataRowNo)
+                        break;
+                    if (lineCount == headerRowNo) {
+                        list.add(line);
+                    } else if (lineCount != headerRowNo && lineCount <= endDataRowNo) {
+                        if(lineCount>=firstDataRowNo) {
+                            list.add(line);
+                        }
+                    }
+                    lineCount++;
+                }
+                //删除csv文件
+                CreateFileUtil.deleteFile(csvPath);
+                //return list;
+            } else {
+                String content=fileFolderUtils.getFileContent(ServerEndPoint.ftpDownload_Path, fileName,docExtractSquid.getDoc_format());
+                list=fileFolderUtils.getDocContent(content, docExtractSquid, EncodingUtils.getEncoding(fileFolderSquid.getEncoding()));
+            }
+            if(!CreateFileUtil.deleteFile(ServerEndPoint.ftpDownload_Path + "/" + fileName)) {
+                logger.error("下载到本地的远程文件没有删除成功,请手动清理");
+            }
+		} catch (Exception e) {
+            e.printStackTrace();
+            logger.info(e);
+            throw e;
+        }
+        return list;
+    }
+    public String replaceFileName(String fileName)
+    {
+    	String[] names=fileName.split("/");
+    	return fileName=names[names.length-1];
+    }
+
+    /**
+     * 对远程共享文件进行读取前50行(除office文档)
+     * @param remoteFileName  文件名  说明：参数为共享目录下的相对路径
+     *  若远程文件的路径为：shareDoc\test.txt,则参数为test.txt(其中shareDoc为共享目录名称);
+     *  若远程文件的路径为：shareDoc\doc\text.txt,则参数为doc\text.txt;
+     *
+     * @return
+     */
+    public String getPartContent(FileFolderSquid fileFolderSquid,String remoteFileName)throws Exception{
+        SmbFile smbFile = null;
+        BufferedReader reader = null;
+        StringBuilder builder = new StringBuilder(200);
+        String username=fileFolderSquid.getUser_name();
+        String password=fileFolderSquid.getPassword();
+        String remoteHostIp=fileFolderSquid.getHost();
+        String shareDocName=fileFolderSquid.getFile_path();
+		try {
+			smbFile = getSmbFile(remoteHostIp, username, password, shareDocName, remoteFileName);
+            SmbFileInputStream in = new SmbFileInputStream(smbFile);
+            BufferedInputStream bufferedStream = new BufferedInputStream(in);
+            CharsetDetector detector = new CharsetDetector();
+            // 循环对文件进行读取
+            reader = new BufferedReader(new InputStreamReader(bufferedStream, detector.detect(bufferedStream, bufferedStream.available()>1024*1024 ? 1024*1024 : bufferedStream.available())));
+            //reader = new BufferedReader(new InputStreamReader(in,EncodingUtils.getEncoding(fileFolderSquid.getEncoding())));
+			String line;
+			int lineCount = 0;
+			while ((line = reader.readLine()) != null) {
+				builder.append(line);
+				builder.append("\r\n");
+				lineCount++;
+				if (lineCount > 49) {// 只读取前50行的内容(只针对文本)
+					break;
+				}
+			}
+		} catch (Exception e) {
+            e.printStackTrace();
+            throw new SystemErrorException(MessageCode.ERR_FILE,"读取远程文件异常");
+        }
+        reader.close();
+        return builder.toString();
+    }
+    /**
+     * 对远程共享文件进行读取前50行(office文档)
+     * @param fileName  文件名  说明：参数为共享目录下的相对路径
+     *  若远程文件的路径为：shareDoc\test.txt,则参数为test.txt(其中shareDoc为共享目录名称);
+     *  若远程文件的路径为：shareDoc\doc\text.txt,则参数为doc\text.txt;
+     *
+     * @return
+     */
+    public String getPartOfficeContent(FileFolderSquid fileFolderSquid,String fileName,int doc_format)throws Exception{
+        String partContent = null;
+        String newFileName = null;
+        try {
+            this.downLoadFileByFileFolderConnectionSquid(fileFolderSquid, fileName);
+            //读取内容 //EncodingUtils.getEncoding(
+            FileFolderUtils fileFolderUtils = new FileFolderUtils();
+            String content=fileFolderUtils.getFileContent(ServerEndPoint.ftpDownload_Path, fileName,doc_format);
+            partContent=fileFolderUtils.getPartContent(content, EncodingUtils.getEncoding(fileFolderSquid.getEncoding()));
+            //获取本地的文件名
+            if (fileName.contains("/")){
+                newFileName = fileName.substring(fileName.lastIndexOf("/"));
+            } else {
+                newFileName = fileName;
+            }
+            if(!CreateFileUtil.deleteFile(ServerEndPoint.ftpDownload_Path + newFileName)) {
+                logger.error("下载到本地的远程文件没有删除成功,请手动清理");
+            }
+		} catch (Exception e) {
+            logger.error(e);
+            logger.error(e.getMessage());
+            logger.error("读取远程office文件异常");
+            throw e;
+        }
+        return partContent;
+
+    }
+    /**
+     * 获取远程共享文件所有文件列表
+     * @return  所有文件
+     * @throws Exception 
+     */
+    public  List<FileInfo> getFiles(SmbFile smbFile, FileFolderSquid fileFolderSquid) throws Exception{
+        List<FileInfo> fileLists = new ArrayList<FileInfo>();
+        String username=fileFolderSquid.getUser_name();
+        String password=fileFolderSquid.getPassword();
+        String remoteHostIp=fileFolderSquid.getHost();
+        String shareDocName=this.formatPath(fileFolderSquid.getFile_path());
+        String filters=fileFolderSquid.getFilter(); 
+        /*if(StringUtils.isBlank(username)&&StringUtils.isBlank(password))
+        {
+        	finalPath = "smb://"+remoteHostIp+"/"+shareDocName+"/";
+        }else
+        {
+        	finalPath = "smb://"+username+":"+password+"@"+remoteHostIp+"/"+shareDocName+"/";
+        }*/
+        finalPath = "smb://"+remoteHostIp+"/"+shareDocName+"/";
+        showDir(smbFile, fileFolderSquid, fileLists, username, password, remoteHostIp,
+				shareDocName,filters,
+                fileFolderSquid.getIncluding_subfolders_flag()==1 ? fileFolderSquid.getMax_travel_depth() : 1,
+                -1);
+        return fileLists;
+    }
+
+	public void showDir(SmbFile smbFile, FileFolderSquid fileFolderSquid,
+			List<FileInfo> fileLists, String username, String password,
+			String remoteHostIp, String shareDocName,String filters,int depth,int currentDepth)
+            throws IOException {
+		currentDepth++;
+
+		if (depth!=0&&depth==currentDepth) {
+			return;
+		}
+        if(smbFile == null) {
+            smbFile = getSmbFile(remoteHostIp, username, password, shareDocName, "");
+        }
+        //logger.debug("该文件夹的名称为：" + (smbFile!=null ? smbFile.getName() : ""));
+        long len = smbFile.length();
+        try {
+            if (smbFile.exists()) {
+                SmbFile[] fs = smbFile.listFiles();
+                //logger.debug("该文件夹包含的文件数量为：" + fs.length);
+                for (int i = 0; fs != null && i < fs.length; i++) {
+                    SmbFile file = fs[i];
+                    file.exists();
+                    FileInfo fileInfo = new FileInfo();
+                    if (file.isDirectory()) {
+                        //logger.debug("该文件为文件夹，名称为：" + file.getName());
+                        showDir(file, fileFolderSquid, fileLists, username, password, remoteHostIp,
+                                shareDocName + "/" + file.getName().substring(0, file.getName().length() - 1), filters, depth, currentDepth);
+                    } else if (file.isFile()) {
+                        //去除之前文件前面的Ip
+                        String filesPath = fileFolderSquid.getFile_path();
+                        String path=  file.getCanonicalPath();
+                        int length=  path.length();
+                        String pathstr="smb://"+remoteHostIp+filesPath+1;
+                        int pslength= pathstr.length();
+                        String newName=path.substring(pslength,length);
+                        fileInfo.setFileName(newName);
+                        if (StringUtils.isNotBlank(filters)) {
+                            FilterUtil filter = new FilterUtil(filters);
+                            if (filter.check(file.getName())) {
+                                //fileInfo.setFileName(replacePath(finalPath, file.getCanonicalPath()));// 名称
+                                fileInfo.setIs_directory(false);
+                                fileLists.add(fileInfo);
+                            }
+                        } else {
+                            //fileInfo.setFileName(replacePath(finalPath, file.getCanonicalPath()));// 名称
+                            fileInfo.setIs_directory(false);
+                            fileLists.add(fileInfo);
+                        }
+                    }
+                }
+            } else {
+                logger.debug(len + ", exists?" + smbFile.exists());
+            }
+        }catch (Exception e){
+            if (e.getMessage().equals("0x8000002D")) {
+                // jar包有问题 跳过该目录的遍历
+				return;
+            } else {
+                throw e;
+            }
+        }
+	}
+	/**
+	 * 替换路径
+	 * @param path_one 用户输入的路径
+	 * @param path_two 文件所在的标准路径
+	 * @return
+	 */
+    public static String replacePath(String path_one,String path_two)
+    {
+    	return path_two.replaceAll("\\\\", "/").replaceAll(path_one.replaceAll("\\\\", "/"), "");
+    }
+    public void downSharedFile(String localDir, String localFileName,String remoteFile) throws Exception{
+        InputStream in = null;
+        OutputStream out = null;
+        String username = getUsername();
+        String password = getPassword();
+        String remoteHostIp = getRemoteHostIp();
+        SmbFile smbFile = null;
+        try {
+			smbFile = getSmbFile(remoteHostIp, username, password, shareDocName, remoteFile);
+            File localFile = new File(localDir + File.separatorChar + localFileName);
+            in = new BufferedInputStream(new SmbFileInputStream(smbFile));
+            out = new BufferedOutputStream(new FileOutputStream(localFile));
+            IOUtils.copy(in, out);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new SystemErrorException(MessageCode.ERR_FILE,"连接共享文件出错");
+        } finally {
+            try {
+                if (out != null) {
+                    out.close();
+                }
+                if (in != null) {
+                    in.close();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    /**
+     * 下载文件并且读取,读取完成后删除该文件
+     * @param fileFolderSquid
+     * @param fileName
+     */
+    public void downLoadFileByFileFolderConnectionSquid(FileFolderSquid fileFolderSquid, String fileName) throws Exception{
+        InputStream in = null;
+        OutputStream out = null;
+        String username=fileFolderSquid.getUser_name();
+        String password=fileFolderSquid.getPassword();
+        String remoteHostIp=fileFolderSquid.getHost();
+
+        String shareDocName=fileFolderSquid.getFile_path();
+
+        try {
+            CreateFileUtil.createDir(ServerEndPoint.ftpDownload_Path); /* 检查目录是否存在，如不存在就创建 */
+            SmbFile remoteFile = getSmbFile(remoteHostIp, username, password, shareDocName, fileName);
+            fileName= fileName.substring(fileName.lastIndexOf("/")+1,fileName.length());
+            File localFile = new File(ServerEndPoint.ftpDownload_Path+"/"+fileName);  //File.separator
+            if(localFile.getParent()!=null && !new File(localFile.getParent()).exists()){
+                new File(localFile.getParent()).mkdirs();
+        }
+            in = new BufferedInputStream(new SmbFileInputStream(remoteFile));
+            out = new BufferedOutputStream(new FileOutputStream(localFile));
+            byte[] buffer = new byte[1024];
+            int count = 0;
+            while((count = in.read(buffer))>0){
+                     out.write(buffer, 0, count);
+                     out.flush();
+                     buffer = new byte[1024];
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(e);
+            throw new SystemErrorException(MessageCode.ERR_FILE,"共享文件下载出错");
+        } finally {
+            try {
+               out.close();
+               in.close();
+            } catch (Exception e) {
+               e.printStackTrace();
+            }
+        }
+     }
+    
+    /**
+     * 下载文件并且读取,读取完成后删除该文件
+     * @param fileFolderSquid
+     * @param fileName
+     */
+    public static String downloadRmoteFile(FileFolderSquid fileFolderSquid,String fileName) throws Exception {
+        String path = null;
+        InputStream in = null;
+        OutputStream out = null;
+        String username=fileFolderSquid.getUser_name();
+        String password=fileFolderSquid.getPassword();
+        String remoteHostIp=fileFolderSquid.getHost();
+        String shareDocName=fileFolderSquid.getFile_path();
+        try {
+        	SmbFile remoteFile = getSmbFile(remoteHostIp, username, password, shareDocName, fileName);
+            path = ServerEndPoint.ftpDownload_Path +"/"+fileName;
+            File localFile = new File(path);  //File.separator
+            if(localFile.getParent()!=null && !new File(localFile.getParent()).exists()){
+                new File(localFile.getParent()).mkdirs();
+            }
+            in = new BufferedInputStream(new SmbFileInputStream(remoteFile));
+            out = new BufferedOutputStream(new FileOutputStream(localFile));
+            byte[] buffer = new byte[1024];
+            int count = 0;
+            while((count = in.read(buffer))>0){
+                     out.write(buffer, 0, count);
+                     out.flush();
+                     buffer = new byte[1024];
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new SystemErrorException(MessageCode.ERR_FILE,"共享文件读取出错");
+        } finally {
+            try {
+               if (out!=null) out.close();
+               if (in!=null) in.close();
+            } catch (Exception e) {
+               e.printStackTrace();
+            }
+        }
+        return path;
+    }
+
+	/**
+	 * 把反斜杠替换为正斜杠
+	 * @param path
+	 * @return
+	 */
+    private String formatPath(String path)
+    {
+    	String formatPath=path.replaceAll("\\\\", "/");
+    	logger.debug("格式化后的路径为"+formatPath);
+    	return formatPath;
+    }
+    /** 
+     * 解析csv文件 到一个list中 每个单元个为一个String类型记录，每一行为一个list。 再将所有的行放到一个总list中 
+     */  
+    public static List<List<String>> readCSVFile(String file) throws IOException {  
+    	InputStreamReader fr = new InputStreamReader(new FileInputStream(file));
+    	BufferedReader br = new BufferedReader(fr);  
+        String rec = null;// 一行  
+        String str;// 一个单元格  
+        List<List<String>> listFile = new ArrayList<List<String>>();  
+        try {  
+            // 读取一行  
+            while ((rec = br.readLine()) != null) {  
+                int index=0;  
+//                Pattern pCells = Pattern.compile("(\"[^\"]*(\"{2})*[^\"]*\")*[^,]*,");  
+                Pattern pCells = Pattern.compile("(\"[^\"]*(\"{2})*[^\"]*[,]*\")*([^,]*,|[,]*\")");  
+                Matcher mCells = pCells.matcher(rec);  
+                List<String> cells = new ArrayList<String>();// 每行记录一个list  
+                // 读取每个单元格  
+                while (mCells.find()) {  
+                    str = mCells.group();  
+                    str = str.replaceAll(  
+                            "(?sm)\"?([^\"]*(\"{2})*[^\"]*)\"?.*,", "$1");  
+                    str = str.replaceAll("(?sm)(\"(\"))", "$2");  
+                    cells.add(str);  
+                    index = mCells.end();  
+                }  
+                cells.add(rec.substring(index));  
+                listFile.add(cells);  
+            }  
+        } catch (Exception e) {  
+            e.printStackTrace();  
+        } finally {  
+            if (fr != null) {  
+                fr.close();  
+            }  
+            if (br != null) {  
+                br.close();  
+            }  
+        }  
+        return listFile;  
+    }
+    
+    /** 
+     * csv文件读取<BR/> 
+     * 读取绝对路径为argPath的csv文件数据，并以List返回。 
+     * 
+     * @param argPath csv文件绝对路径 
+     * @return csv文件数据（List<String[]>） 
+     * @throws FileNotFoundException 
+     * @throws IOException 
+     */  
+    public static List readCsvFile(String argPath) throws FileNotFoundException, IOException {  
+        File cvsFile = new File(argPath);  
+        List list = new ArrayList();  
+        FileReader fileReader = null;  
+        BufferedReader bufferedReader = null;  
+        try {  
+            fileReader = new FileReader(cvsFile);  
+            bufferedReader = new BufferedReader(fileReader);  
+            String regExp = getRegExp();  
+  
+            // test  
+            System.out.println(regExp);  
+            String strLine = "";  
+            String str = "";  
+            while ((strLine = bufferedReader.readLine()) != null) {  
+                Pattern pattern = Pattern.compile(regExp);  
+                Matcher matcher = pattern.matcher(strLine);  
+                List listTemp = new ArrayList();  
+                while(matcher.find()) {  
+                    str = matcher.group();  
+                    str = str.trim();  
+                    if (str.endsWith(",")){  
+                        str = str.substring(0, str.length()-1);  
+                        str = str.trim();  
+                    }  
+                    if (str.startsWith("\"") && str.endsWith("\"")) {  
+                        str = str.substring(1, str.length()-1);  
+                        if (isExisted("\"\"", str)) {  
+                            str = str.replaceAll("\"\"", "\"");  
+                        }  
+                    }  
+                    if (!"".equals(str)) {  
+                        //test  
+                        System.out.print(str+" ");  
+                        listTemp.add(str);  
+                    }  
+                }  
+                //test  
+                System.out.println();  
+                list.add((String[]) listTemp.toArray(new String[listTemp.size()]));  
+            }  
+        } catch (FileNotFoundException e) {  
+            throw e;  
+        } catch (IOException e) {  
+            throw e;  
+        } finally {  
+            try {  
+                if (bufferedReader != null) {  
+                    bufferedReader.close();  
+                }  
+                if (fileReader != null) {  
+                    fileReader.close();  
+                }  
+            } catch (IOException e) {  
+                throw e;  
+            }  
+        }  
+        return list;  
+    }  
+    
+    
+ /**  
+  * @param argChar  
+  * @param argStr  
+  * @return  
+  */  
+ private static boolean isExisted(String argChar, String argStr) {   
+        
+     boolean blnReturnValue = false;   
+     if ((argStr.indexOf(argChar) >= 0)   
+             && (argStr.indexOf(argChar) <= argStr.length())) {   
+         blnReturnValue = true;   
+     }   
+     return blnReturnValue;   
+ } 
+    
+    /** 
+     * 正则表达式。 
+     * @return 匹配csv文件里最小单位的正则表达式。 
+     */  
+    private static String getRegExp() {  
+          
+        String strRegExp  =  "\"(("+ SPECIAL_CHAR_A + "*[,//n 　])*("+ SPECIAL_CHAR_A + "*\"{2})*)*"+ SPECIAL_CHAR_A + "*\"[ 　]*,[ 　]*"  
+            +"|"+ SPECIAL_CHAR_B + "*[ 　]*,[ 　]*"  
+            + "|\"(("+ SPECIAL_CHAR_A + "*[,//n 　])*("+ SPECIAL_CHAR_A + "*\"{2})*)*"+ SPECIAL_CHAR_A + "*\"[ 　]*"  
+            + "|"+ SPECIAL_CHAR_B + "*[ 　]*";
+        return strRegExp;
+    }
+    
+    public static SmbFile getSmbFile(String remoteHostIp,
+    		String username, String password,
+    		String shareDocName, String fileName) throws IOException {
+    	String conStr = null;
+        StringBuffer sb = new StringBuffer();
+        sb.append("smb://").append(remoteHostIp);
+        if(!StringUtils.isEmpty(shareDocName)) {
+            sb.append("/").append(shareDocName);
+        }
+        if(!StringUtils.isEmpty(fileName)) {
+            if(fileName.startsWith("smb://")) {
+                sb = new StringBuffer(fileName);
+            } else {
+                if(!sb.toString().endsWith("/") && !fileName.startsWith("/")) {
+                    sb.append("/");
+                }
+                sb.append(fileName);
+            }
+        } else {
+            sb.append("/");
+        }
+        conStr = sb.toString();
+        conStr=conStr.substring(conStr.indexOf("smb://"+remoteHostIp+"/"));
+        SmbFile smbFile = null;
+    	NtlmPasswordAuthentication auth = null;
+    	if(StringUtils.isBlank(username)||StringUtils.isBlank(password)){
+			smbFile = new SmbFile(conStr);
+        }else{
+        	auth = new NtlmPasswordAuthentication(remoteHostIp, username, password);
+        	smbFile = new SmbFile(conStr, auth);
+        }
+        SysConf sysConf=new SysConf();
+        jcifs.Config.setProperty("jcifs.smb.client.disablePlainTextPasswords",sysConf.getValue("jcifs.smb.client.disablePlainTextPasswords"));
+        jcifs.Config.setProperty("jcifs.smb.client.responseTimeout",sysConf.getValue("jcifs.smb.client.responseTimeout"));   //客户端等待服务器响应时间
+        jcifs.Config.setProperty("jcifs.smb.client.soTimeout",sysConf.getValue("jcifs.smb.client.soTimeout"));     //读取数据超时时间
+        jcifs.Config.setProperty("jcifs.smb.client.dfs.disabled",sysConf.getValue("jcifs.smb.client.dfs.disabled"));
+        smbFile.connect();
+    	return smbFile;
+    }
+    
+    public static void main(String[] args) throws Exception {
+		/*String file = "D:\\work\\Trans\\业务测试数据\\csv_imdb.csv";
+		try {
+//			readCSVFile(file);
+			readCsvFile(file);
+		} catch (IOException e) {
+			
+			// TODO Auto-generated catch block e.printStackTrace();
+			
+		}*/
+    	/*RemoteFileAdapter remoteFileAdapter=new RemoteFileAdapter();
+    	FileFolderSquid fileFolderSquid=new FileFolderSquid();
+    	fileFolderSquid.setUser_name("Administrator");
+    	fileFolderSquid.setPassword("eurlanda1");
+    	fileFolderSquid.setHost("192.168.137.1");
+    	fileFolderSquid.setFile_path("Trans/TestData");
+    	fileFolderSquid.setFilter("");
+    	fileFolderSquid.setMax_travel_depth(2);
+    	List<FileInfo> fileInfos=remoteFileAdapter.getFiles(fileFolderSquid);
+    	for(FileInfo fileInfo:fileInfos)
+    	{
+    		System.out.println(fileInfo.getFileName());
+    	}*/
+    	 /*if(!new File(ServerEndPoint.ftpDownload_Path+"/aaa").exists()){
+    		 System.out.println("创建了");
+             new File(ServerEndPoint.ftpDownload_Path).mkdirs();
+         }else
+         {
+        	 System.out.println("没创建");
+         }*/
+    	List<FileInfo> fileLists = new ArrayList<FileInfo>();
+    	//String conStr = "smb://CHENGROUG:1@192.168.137.108/";
+    	String conStr = "smb://cr:1@192.168.137.108/业务测试数据/";
+    	SmbFile smbFile = new SmbFile(conStr);
+    	SmbFile[] fs=smbFile.listFiles();
+    	for (int i = 0; fs != null && i < fs.length; i++) {
+    		SmbFile file = fs[i];
+			FileInfo fileInfo=new FileInfo();
+			if(file.isDirectory())
+			{
+               //showDir(fileFolderSquid, fileLists, username, password, remoteHostIp, shareDocName+"/"+file.getName().substring(0,file.getName().length()-1), filters, depth,currentDepth);
+			} else if (file.isFile()) {
+				/*if (StringUtils.isNotBlank(filters)) {
+					FilterUtil filter = new FilterUtil(filters);
+					if (filter.check(file.getName())) {
+						fileInfo.setFileName(replacePath(finalPath, file.getCanonicalPath()));// 名称
+						fileInfo.setIs_directory(false);
+						fileLists.add(fileInfo);
+					}
+				} else {
+					fileInfo.setFileName(replacePath(finalPath, file.getCanonicalPath()));// 名称
+					fileInfo.setIs_directory(false);
+					fileLists.add(fileInfo);
+				}*/
+			}
+		}
+	}
+}

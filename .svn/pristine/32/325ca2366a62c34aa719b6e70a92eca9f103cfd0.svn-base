@@ -1,0 +1,84 @@
+UPDATE DS_SYS_SERVER_PARAMETER SET value='2.3.0' where name = 'VERSION';
+-- 2017-8-30
+alter table ds_sys_repository add packageId INT ;
+-- 2017-9-13(修改repository区分大小写)
+ALTER TABLE ds_sys_repository MODIFY COLUMN name VARCHAR (255) BINARY CHARACTER
+SET utf8 COLLATE utf8_bin DEFAULT NULL;
+-- 2017-9-14(云端用户登录退出)
+DROP TABLE IF EXISTS `ds_cloud_operate_record`;
+CREATE TABLE `ds_cloud_operate_record` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `operate_time` datetime DEFAULT NULL,
+  `content` varchar(255) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `space_id` int(11) DEFAULT NULL,
+  `operate_type` int(11) DEFAULT NULL COMMENT '操作类型  0:登录  1:退出',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+-- 2017-09-19 --
+INSERT INTO ds_squid_type values (71,73,'TRAININGDBSQUID');
+INSERT INTO ds_squid_type values (72,74,'TRAINNINGFILESQUID');
+-- squid增加课程id --
+ALTER TABLE ds_squid ADD course_id INT;
+
+-- 修改transformationType为InverseNormalizer.ds_tran_definition表中Input_order属性为0--
+update ds_tran_input_definition d set d.INPUT_ORDER=0 where d.`CODE`='INVERSENORMALIZER';
+
+-- 2017-10-16 squid增加model_type
+ALTER TABLE ds_squid ADD model_type INT;
+
+-- 2017-10-20
+alter table ds_sys_server_parameter MODIFY value VARCHAR(2000);
+update ds_sys_server_parameter set value = '{"MYSQL":"BLOB,LONGBLOB,MEDIUMBLOB,TINYBLOB,XML,VARCHAR","ORACLE":"BLOB,BINARY_DOUBLE,NCLOB,CLOB,BFILE,DBURITYPE,LONG,RAW,ROWID,SDO_GEOMETRY,SDO_GEORASTER,SDO_TOPO_GEOMETRY,URITYPE,UROWID,XDBURITYPE,XMLTYPE","SQLSERVER":"BINARY,VARCHAR,NVARCHAR,VARBINARY,TIMESTAMP,UNIQUEIDENTIFIER,IMAGE,XML,HIERARCHYID,TEXT,NTEXT,DATETIMEOFFSET,SQL_VARIANT,BIT,CHAR","DB2":"CLOB"}' where id = 7
+
+-- 2017-10-25 新加squid 的属性
+ALTER TABLE ds_squid ADD minDivisibleClusterSize DOUBLE ;
+
+-- 2017-10-26 新加一个squid 类型
+INSERT  into ds_squid_type values(73,75,'BISECTINGKMEANSSQUID');
+
+-- 2017-10-30 增加新的调度表
+DROP TABLE IF EXISTS `ds_sys_schedule_job`;
+CREATE TABLE `ds_sys_schedule_job` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `squid_flow_id` int(11) DEFAULT NULL,
+  `schedule_type` tinyint(4) DEFAULT NULL,
+  `cron_expression` varchar(300) DEFAULT NULL,
+  `enable_email` tinyint(4) DEFAULT NULL COMMENT '是否发送邮件1-truth 0-false',
+  `email_address` varchar(500) DEFAULT NULL,
+  `job_status` tinyint(4) DEFAULT NULL COMMENT 'job状态：0-stop,1-run,2-pause',
+  `create_time` datetime DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  `name` varchar(50) DEFAULT NULL COMMENT '调度名称',
+  `comment` varchar(80) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8;
+
+-- KMeansSquid 增加新属性
+ALTER TABLE ds_squid ADD init_Steps INT ;
+
+-- 新增NVL transformation
+INSERT into ds_transformation_type VALUES(102,'NVL',21,'nvl（v1,v2)如果v1为null,则输出v2,否则输出v1');
+
+-- 为NVL transformation 添加两个inputs 信息
+INSERT into ds_tran_input_definition VALUES('NVL',0,21,'');
+INSERT into ds_tran_input_definition VALUES('NVL',1,21,'');
+-- 增加mysql的不允许的分片控制列
+update ds_sys_server_parameter set value = '{"MYSQL":"BLOB,LONGBLOB,MEDIUMBLOB,TINYBLOB,XML,VARCHAR,VARBINARY","ORACLE":"BLOB,BINARY_DOUBLE,NCLOB,CLOB,BFILE,DBURITYPE,LONG,RAW,ROWID,SDO_GEOMETRY,SDO_GEORASTER,SDO_TOPO_GEOMETRY,URITYPE,UROWID,XDBURITYPE,XMLTYPE","SQLSERVER":"BINARY,VARCHAR,NVARCHAR,VARBINARY,TIMESTAMP,UNIQUEIDENTIFIER,IMAGE,XML,HIERARCHYID,TEXT,NTEXT,DATETIMEOFFSET,SQL_VARIANT,BIT,CHAR","DB2":"CLOB"}' where id = 7
+
+--新增SAMPLINGSQUID 2017-11-23
+INSERT INTO ds_squid_type VALUES (74,76,'SAMPLINGSQUID');
+
+--SAMPLINGSQUID  新增属性 2017-11-23
+ALTER TABLE ds_squid ADD sampling_percent double(64,15);
+ALTER TABLE ds_squid ADD source_squidId int(11);
+ALTER TABLE ds_squid ADD source_squidName VARCHAR(50);
+
+--PIVOTSQUID 2017-11-24
+INSERT INTO ds_squid_type VALUES (75,77,'PIVOTSQUID');
+--PIVOTSQUID 新增属性 2017-11-24
+ALTER TABLE ds_squid ADD pivot_column_value VARCHAR(500);
+ALTER TABLE ds_squid ADD aggregation_type int(11);
+ALTER TABLE ds_squid ADD pivot_column_id int(11);
+ALTER TABLE ds_squid ADD value_column_id int(11);
+ALTER TABLE ds_squid ADD group_by_column_ids VARCHAR(500);

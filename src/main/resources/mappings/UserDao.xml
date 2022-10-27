@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.UserDao">
+    <resultMap type="com.eurlanda.datashire.server.model.User" id="userMap">
+        <id property="id" column="ID" />
+        <result property="user_name" column="USER_NAME" />
+        <result property="full_name" column="FULL_NAME" />
+        <result property="password" column="PASSWORD" />
+        <result property="role_id" column="ROLE_ID" />
+        <result property="status_id" column="STATUS_ID" />
+        <result property="is_active" column="IS_ACTIVE" />
+        <result property="email_address" column="EMAIL_ADDRESS"/>
+        <result property="last_logon_date" column="last_logon_date" jdbcType="TIMESTAMP" javaType="java.lang.String" />
+        <result property="creation_date" column="CREATION_DATE" jdbcType="TIMESTAMP" javaType="java.lang.String" />
+    </resultMap>
+
+    <sql id="columns">
+
+    </sql>
+
+    <insert id="save" keyProperty="user.id" useGeneratedKeys="true" parameterType="User">
+        INSERT INTO ds_sys_user
+        (`key`, ROLE_ID, USER_NAME, PASSWORD, FULL_NAME, EMAIL_ADDRESS,STATUS_ID, IS_ACTIVE, last_logon_date, CREATION_DATE)
+        VALUES
+        ('', null, #{user.user_name}, #{user.password}, #{user.full_name}, #{user.email_address},
+        #{user.status_id}, #{user.is_active}, now(), now());
+    </insert>
+
+    <delete id="deleteById" parameterType="Integer">
+        DELETE from ds_sys_user where id=#{id}
+    </delete>
+
+    <update id="update" parameterType="User">
+        UPDATE ds_sys_user
+        <trim prefix="set" suffixOverrides=",">
+            <if test="user.user_name !=null">user_name=#{user.user_name},</if>
+            <if test="user.full_name !=null">full_name=#{user.full_name},</if>
+            <if test="user.password!=null">password=#{user.password},</if>
+            <if test="user.email_address!=null">email_address=#{user.email_address},</if>
+            <if test="user.status_id!=null">status_id=#{user.status_id},</if>
+            <if test="user.is_active!=null">is_active=#{user.is_active},</if>
+        </trim>
+        WHERE ID = #{user.id}
+    </update>
+
+    <select id="findUser" parameterType="com.eurlanda.datashire.server.model.User" resultMap="userMap">
+        select * from ds_sys_user where 1 = 1
+        <if test="user.id != null">
+          and id = #{user.id}
+        </if>
+        <if test="user.user_name != null">
+            and user_name = #{user.user_name}
+        </if>
+    </select>
+    <select id="findByUsernameAndPassword" resultMap="userMap">
+        select * from ds_sys_user where `USER_NAME`=#{username} and `PASSWORD`=#{password}
+    </select>
+
+    <select id="getAllUser" resultMap="userMap">
+        select * from ds_sys_user
+    </select>
+</mapper>

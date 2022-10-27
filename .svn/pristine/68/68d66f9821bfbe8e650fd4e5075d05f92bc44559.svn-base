@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.SquidDao" >
+    <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.Base.SquidModelBase" >
+        <id column="ID" property="id" jdbcType="INTEGER" />
+        <result column="SQUID_FLOW_ID" property="squidflow_id" jdbcType="INTEGER" />
+        <result column="NAME" property="name" jdbcType="VARCHAR" />
+        <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+        <result column="SQUID_TYPE_ID" property="squid_type" jdbcType="INTEGER" />
+        <result column="LOCATION_X" property="location_x" jdbcType="INTEGER" />
+        <result column="LOCATION_Y" property="location_y" jdbcType="INTEGER" />
+        <result column="SQUID_HEIGHT" property="squid_height" jdbcType="INTEGER" />
+        <result column="SQUID_WIDTH" property="squid_width" jdbcType="INTEGER" />
+        <result column="DESIGN_STATUS" property="design_status" jdbcType="INTEGER" />
+    </resultMap>
+
+
+    <resultMap id="ColumnResultMap" type="com.eurlanda.datashire.entity.Column">
+        <id column="id" property="id" jdbcType="INTEGER" />
+        <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+        <result column="SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+        <result column="DATA_TYPE" property="data_type" jdbcType="INTEGER" />
+        <result column="COLLATION" property="collation" jdbcType="INTEGER" />
+        <result column="NULLABLE" property="nullable" jdbcType="CHAR" />
+        <result column="LENGTH" property="length" jdbcType="INTEGER" />
+        <result column="PRECISION" property="precision" jdbcType="INTEGER" />
+        <result column="SCALE" property="scale" jdbcType="INTEGER" />
+        <result column="IS_GROUPBY" property="is_groupby" jdbcType="CHAR" />
+        <result column="AGGREGATION_TYPE" property="aggregation_type" jdbcType="INTEGER" />
+        <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+        <result column="ISUNIQUE" property="isUnique" jdbcType="CHAR" />
+        <result column="ISPK" property="isPK" jdbcType="CHAR" />
+        <result column="IS_BUSINESS_KEY" property="is_Business_Key" jdbcType="INTEGER" />
+        <result column="SORT_LEVEL" property="sort_level" jdbcType="INTEGER" />
+        <result column="SORT_TYPE" property="sort_type" jdbcType="INTEGER" />
+    </resultMap>
+
+    <resultMap id="ReferenceColumnResultMap" type="com.eurlanda.datashire.entity.ReferenceColumn">
+        <id column="COLUMN_ID" property="id" jdbcType="INTEGER" />
+        <result column="COLUMN_ID" property="column_id" jdbcType="INTEGER" />
+        <result column="REFERENCE_SQUID_ID" property="reference_squid_id" jdbcType="INTEGER" />
+        <result column="HOST_SQUID_ID" property="host_squid_id" jdbcType="INTEGER" />
+        <result column="IS_REFERENCED" property="is_referenced" jdbcType="CHAR" />
+        <result column="GROUP_ID" property="group_id" jdbcType="INTEGER" />
+        <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+        <result column="HOST_SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+        <result column="DATA_TYPE" property="data_type" jdbcType="INTEGER" />
+        <result column="COLLATION" property="collation" jdbcType="INTEGER" />
+        <result column="NULLABLE" property="nullable" jdbcType="CHAR" />
+        <result column="LENGTH" property="length" jdbcType="INTEGER" />
+        <result column="PRECISION" property="precision" jdbcType="INTEGER" />
+        <result column="SCALE" property="scale" jdbcType="INTEGER" />
+        <result column="IS_GROUPBY" property="is_groupby" jdbcType="CHAR" />
+        <result column="AGGREGATION_TYPE" property="aggregation_type" jdbcType="INTEGER" />
+        <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+        <result column="ISUNIQUE" property="isUnique" jdbcType="CHAR" />
+        <result column="ISPK" property="isPK" jdbcType="CHAR" />
+        <result column="IS_BUSINESS_KEY" property="is_Business_Key" jdbcType="INTEGER" />
+        <result column="SORT_LEVEL" property="sort_level" jdbcType="INTEGER" />
+        <result column="SORT_TYPE" property="sort_type" jdbcType="INTEGER" />
+    </resultMap>
+    <resultMap id="TransLinkResultMap"  type="com.eurlanda.datashire.entity.TransformationLink">
+        <result column="id" property="id" />
+        <result column="FROM_TRANSFORMATION_ID" property="from_transformation_id" jdbcType="INTEGER" />
+        <result column="TO_TRANSFORMATION_ID" property="to_transformation_id" jdbcType="INTEGER" />
+        <result column="IN_ORDER" property="in_order" jdbcType="INTEGER" />
+    </resultMap>
+    <resultMap id="TransformationResultMap"  type="com.eurlanda.datashire.entity.Transformation">
+        <result column="id" property="id" jdbcType="INTEGER"/>
+        <result column="SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+        <result column="TRANSFORMATION_TYPE_ID" property="transtype" jdbcType="INTEGER" />
+        <result column="LOCATION_X" property="location_x" jdbcType="INTEGER" />
+        <result column="LOCATION_Y" property="location_y" jdbcType="INTEGER" />
+        <result column="column_id" property="column_id" jdbcType="INTEGER" />
+        <result column="description" property="description" jdbcType="VARCHAR" />
+        <result column="NAME" property="name" jdbcType="VARCHAR" />
+        <result column="OUTPUT_DATA_TYPE" property="output_data_type" jdbcType="INTEGER" />
+        <result column="CONSTANT_VALUE" property="constant_value" jdbcType="VARCHAR" />
+        <result column="OUTPUT_NUMBER" property="output_number" jdbcType="INTEGER" />
+        <result column="ALGORITHM" property="algorithm" jdbcType="INTEGER" />
+        <result column="TRAN_CONDITION" property="tran_condition" jdbcType="VARCHAR" />
+        <result column="DIFFERENCE_TYPE" property="difference_type" jdbcType="INTEGER" />
+        <result column="IS_USING_DICTIONARY" property="is_using_dictionary" jdbcType="INTEGER" />
+        <result column="DICTIONARY_SQUID_ID" property="dictionary_squid_id" jdbcType="INTEGER" />
+        <result column="BUCKET_COUNT" property="bucket_count" jdbcType="INTEGER" />
+        <result column="MODEL_SQUID_ID" property="model_squid_id" jdbcType="INTEGER" />
+        <result column="MODEL_VERSION" property="model_version" jdbcType="INTEGER" />
+        <result column="OPERATOR" property="operator" jdbcType="INTEGER" />
+        <result column="DATE_FORMAT" property="date_format" jdbcType="VARCHAR" />
+        <result column="INC_UNIT" property="inc_unit" jdbcType="INTEGER" />
+        <result column="SPLIT_TYPE" property="split_type" jdbcType="INTEGER" />
+        <result column="encoding" property="encoding" jdbcType="INTEGER" />
+        <result column="OUTPUT_DATA_TYPE" property="inputDataType" jdbcType="INTEGER" />
+
+        <collection property="inputs"  javaType="java.util.ArrayList"
+                    ofType="com.eurlanda.datashire.entity.TransformationInputs">
+            <result column="tran_input_id" property="id" />
+            <result column="TRANSFORMATION_ID" property="transformationId" />
+            <result column="SOURCE_TRANSFORM_ID" property="source_transform_id" />
+
+            <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+            <result column="SOURCE_TRAN_OUTPUT_INDEX" property="source_tran_output_index" jdbcType="INTEGER" />
+            <result column="IN_CONDITION" property="in_condition" jdbcType="VARCHAR" />
+            <result column="INPUT_VALUE" property="input_value" jdbcType="VARCHAR" />
+            <result column="INPUT_DESCRIPTION" property="description" jdbcType="VARCHAR" />
+            <result column="INPUT_DATA_TYPE" property="input_Data_Type" jdbcType="INTEGER" />
+        </collection>
+    </resultMap>
+    <resultMap id="DataSquidBaseResultMap" type="com.eurlanda.datashire.server.model.Base.DataSquidBaseModel" extends="BaseResultMap">
+        <collection property="Columns"  javaType="java.util.ArrayList"
+                    ofType="com.eurlanda.datashire.entity.Column"
+                    column="id"
+                   select="findColumnBySquid" fetchType="eager">
+
+        </collection>
+        <collection property="SourceColumns"  javaType="java.util.ArrayList"
+                    ofType="com.eurlanda.datashire.entity.ReferenceColumn"
+                  column="id" select="findReColumnBySquid" fetchType="eager">
+
+        </collection>
+        <collection property="TransformationLinks"  javaType="java.util.ArrayList"
+                    ofType="com.eurlanda.datashire.entity.TransformationLink"
+                   column="id" select="findTransLinkBySquid" fetchType="eager">
+        </collection>
+        <collection property="Transformations"  javaType="java.util.ArrayList"
+                    ofType="com.eurlanda.datashire.entity.Transformation"
+            column="id" select="findTransBySquid" fetchType="eager">
+        </collection>
+    </resultMap>
+
+    <select id="findColumnBySquid" parameterType="java.lang.Integer" resultMap="ColumnResultMap">
+        select * from ds_column where squid_id =#{squid_id} order by  relative_order
+    </select>
+
+    <select id="findReColumnBySquid" parameterType="java.lang.Integer" resultMap="ReferenceColumnResultMap">
+        select * from ds_reference_column where reference_squid_id =#{reference_squid_id}
+    </select>
+
+    <select id="findTransBySquid" parameterType="java.lang.Integer" resultMap="TransformationResultMap">
+     SELECT DISTINCT t.*,
+    i.ID as tran_input_id,
+    i.TRANSFORMATION_ID,
+    i.RELATIVE_ORDER,
+    i.SOURCE_TRAN_OUTPUT_INDEX,
+    i.IN_CONDITION,
+    i.INPUT_VALUE,
+    i.DESCRIPTION as INPUT_DESCRIPTION,
+    i.INPUT_DATA_TYPE,
+     i.SOURCE_TRANSFORM_ID
+      FROM ds_transformation t
+    LEFT JOIN ds_tran_inputs i
+      ON t.id = i.transformation_id
+         where squid_id =#{squid_id}
+    </select>
+
+    <select id="findTransLinkBySquid" parameterType="java.lang.Integer" resultMap="TransLinkResultMap">
+        select k.* from ds_transformation_link k
+         inner join ds_transformation t
+         on k.FROM_TRANSFORMATION_ID=t.id
+         where t.squid_id =#{squid_id}
+    </select>
+
+    <select id="selectSquBySquIds" parameterType="java.util.List" resultMap="DataSquidBaseResultMap">
+        select * from ds_squid s
+        where s.id in
+        <foreach collection="list" item="id" index="index" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+
+    </select>
+
+
+    <sql id="Base_Column_List" >
+        ID, SQUID_FLOW_ID, NAME, DESCRIPTION, SQUID_TYPE_ID, LOCATION_X, LOCATION_Y, SQUID_HEIGHT,
+        SQUID_WIDTH,DESIGN_STATUS
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+        select
+        <include refid="Base_Column_List" />
+        from ds_squid
+        where ID = #{id,jdbcType=INTEGER}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+        delete from ds_squid
+        where ID = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="com.eurlanda.datashire.server.model.Base.SquidModelBase" >
+        <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        insert into ds_squid (SQUID_FLOW_ID, NAME, DESCRIPTION,
+        SQUID_TYPE_ID, LOCATION_X, LOCATION_Y,
+        SQUID_HEIGHT, SQUID_WIDTH,
+        DESIGN_STATUS)
+        SQUID_HEIGHT, SQUID_WIDTH,DESIGN_STATUS)
+        values (#{squidflow_id,jdbcType=INTEGER}, #{name,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
+        #{squid_type,jdbcType=INTEGER}, #{location_x,jdbcType=INTEGER}, #{location_y,jdbcType=INTEGER},
+        #{squid_height,jdbcType=INTEGER}, #{squid_width,jdbcType=INTEGER},
+        #{design_status,jdbcType=INTEGER})
+        #{squid_height,jdbcType=INTEGER}, #{squid_width,jdbcType=INTEGER},
+       #{design_status,jdbcType=INTEGER},
+  )
+    </insert>
+    <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.Base.SquidModelBase" >
+        <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        insert into ds_squid
+        <trim prefix="(" suffix=")" suffixOverrides="," >
+            <if test="squidflow_id != null" >
+                SQUID_FLOW_ID,
+            </if>
+            <if test="name != null" >
+                NAME,
+            </if>
+            <if test="description != null" >
+                DESCRIPTION,
+            </if>
+            <if test="squid_type != null" >
+                SQUID_TYPE_ID,
+            </if>
+            <if test="location_x != null" >
+                LOCATION_X,
+            </if>
+            <if test="location_y != null" >
+                LOCATION_Y,
+            </if>
+            <if test="squid_height != null" >
+                SQUID_HEIGHT,
+            </if>
+            <if test="squid_width != null" >
+                SQUID_WIDTH,
+            </if>
+            <if test="design_status != null" >
+                DESIGN_STATUS,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides="," >
+            <if test="squidflow_id != null" >
+                #{squidflow_id,jdbcType=INTEGER},
+            </if>
+            <if test="name != null" >
+                #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null" >
+                #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="squid_type != null" >
+                #{squid_type,jdbcType=INTEGER},
+            </if>
+            <if test="location_x != null" >
+                #{location_x,jdbcType=INTEGER},
+            </if>
+            <if test="location_y != null" >
+                #{location_y,jdbcType=INTEGER},
+            </if>
+            <if test="squid_height != null" >
+                #{squid_height,jdbcType=INTEGER},
+            </if>
+            <if test="squid_width != null" >
+                #{squid_width,jdbcType=INTEGER},
+            </if>
+            <if test="design_status != null" >
+                #{design_status,jdbcType=INTEGER},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.Base.SquidModelBase" >
+        update ds_squid
+        <set >
+            <if test="squidflow_id != null" >
+                SQUID_FLOW_ID = #{squidflow_id,jdbcType=INTEGER},
+            </if>
+            <if test="name != null" >
+                NAME = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null" >
+                DESCRIPTION = #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="squid_type != null" >
+                SQUID_TYPE_ID = #{squid_type,jdbcType=INTEGER},
+            </if>
+            <if test="location_x != null" >
+                LOCATION_X = #{location_x,jdbcType=INTEGER},
+            </if>
+            <if test="location_y != null" >
+                LOCATION_Y = #{location_y,jdbcType=INTEGER},
+            </if>
+            <if test="squid_height != null" >
+                SQUID_HEIGHT = #{squid_height,jdbcType=INTEGER},
+            </if>
+            <if test="squid_width != null" >
+                SQUID_WIDTH = #{squid_width,jdbcType=INTEGER},
+            </if>
+            <if test="design_status != null" >
+                DESIGN_STATUS = #{design_status,jdbcType=INTEGER},
+            </if>
+        </set>
+        where ID = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.Base.SquidModelBase" >
+        update ds_squid
+        set SQUID_FLOW_ID = #{squidflow_id,jdbcType=INTEGER},
+        NAME = #{name,jdbcType=VARCHAR},
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+        SQUID_TYPE_ID = #{squid_type,jdbcType=INTEGER},
+        LOCATION_X = #{location_x,jdbcType=INTEGER},
+        LOCATION_Y = #{location_y,jdbcType=INTEGER},
+        SQUID_HEIGHT = #{squid_height,jdbcType=INTEGER},
+        SQUID_WIDTH = #{squid_width,jdbcType=INTEGER},
+        DESIGN_STATUS = #{design_status,jdbcType=INTEGER}
+        DESIGN_STATUS = #{design_status,jdbcType=INTEGER},
+        where ID = #{id,jdbcType=INTEGER}
+    </update>
+
+    <select id="findNextSquidByFromSquid" resultType="java.util.Map" parameterType="java.lang.Integer">
+        SELECT
+        ds.id,
+        ds.squid_type_id
+        FROM
+        ds_squid ds,
+        ds_squid_link dsl
+        WHERE
+        ds.id = dsl.to_squid_id
+        AND dsl.from_squid_id = #{id}
+    </select>
+
+
+    <select id="findSquidType" parameterType="java.lang.Integer" resultType="java.util.Map">
+        select id from ds_squid_type where code=#{type}
+    </select>
+
+    <select id="selectFromSquidBySquLinkIds" parameterType="java.util.List" resultType="java.lang.Integer">
+       select DISTINCT s.id from ds_squid s
+         inner join ds_squid_link k
+         on s.id=k.FROM_SQUID_ID
+         where k.id in
+         <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+             #{item}
+         </foreach>
+
+    </select>
+
+    <select id="selectToSquidBySquLinkIds" parameterType="java.util.List" resultType="java.lang.Integer">
+        select DISTINCT s.id from ds_squid s
+        inner join ds_squid_link k
+        on s.id=k.TO_SQUID_ID
+        where k.id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+
+    </select>
+
+    <select id="selectSquBySquLinkIds" parameterType="java.util.List" resultMap="BaseResultMap">
+        select DISTINCT s.* from ds_squid s
+        inner join ds_squid_link k
+        on s.id=k.TO_SQUID_ID
+        where k.id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+
+
+
+    <select id="selectSquLinkBySquTypeAndSquIds" parameterType="java.util.Map" resultType="java.lang.Integer">
+        select s.id from ds_squid s
+        where s.SQUID_TYPE_ID=#{squidType}
+        and s.ID in
+        <foreach collection="squidIds" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+
+    <select id="findSquidBySquidId" resultType="java.util.Map">
+        select id,squid_type_id,name,source_table_id from ds_squid where id = #{id}
+    </select>
+
+    <select id="selectExceSquByFromSquIds" parameterType="java.util.Map" resultMap="BaseResultMap">
+        select DISTINCT s.* from ds_squid s where id in (
+              select k.TO_SQUID_ID from ds_squid_link k
+              where k.FROM_SQUID_ID =#{from_squid_id}
+             )
+        and s.SQUID_TYPE_ID=#{exceType}
+        <!-- <foreach collection="squidIds" item="item" index="index" open="(" separator="," close=")">
+                 #{item}
+             </foreach>-->
+    </select>
+
+    <update id="updateSquStatus" parameterType="java.lang.Integer">
+        update ds_squid  set DESIGN_STATUS=1
+            where id =#{id}
+       <!-- <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+            #{item}
+        </foreach>-->
+
+    </update>
+    <delete id="deleteSquid" parameterType="java.util.List" >
+        delete from ds_squid where ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteSourceTableBySquidId" parameterType="java.util.List" >
+        delete from ds_source_table where SOURCE_SQUID_ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteEsColumn" parameterType="java.util.List" >
+        delete from ds_es_column where SQUID_ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+    <delete id="deleteHDFSColumn" parameterType="java.util.List" >
+        delete from ds_dest_hdfs_column where SQUID_ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteImpalaColumn" parameterType="java.util.List" >
+        delete from ds_dest_impala_column where SQUID_ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteJoin" parameterType="java.util.List" >
+        delete from ds_join where JOINED_SQUID_ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteSqlConnection" parameterType="java.util.List" >
+        delete from ds_sql_connection where ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteUserdefinedDatamapColumn" parameterType="java.util.List" >
+        delete from ds_userdefined_datamap_column where squid_id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteUserdefinedParametersColumn" parameterType="java.util.List" >
+        delete from ds_userdefined_parameters_column where squid_id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteDestHiveColumn" parameterType="java.util.List" >
+        delete from ds_dest_hive_column where squid_id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteDestCassandraColumn" parameterType="java.util.List" >
+        delete from ds_dest_cassandra_column where squid_id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteStatisticsDatamapColumn" parameterType="java.util.List" >
+        delete from ds_statistics_datamap_column where squid_id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteStatisticsParametersColumn" parameterType="java.util.List" >
+        delete from ds_statistics_parameters_column where squid_id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteSourceTableColumnBySquidId" parameterType="java.util.List" >
+        delete c from ds_source_column c inner join ds_source_table t on c.SOURCE_TABLE_ID = t.ID inner join ds_squid s on t.SOURCE_SQUID_ID = s.ID where s.ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+    <delete id="deleteEsColumnBySquId" parameterType="java.lang.Integer">
+        delete from ds_es_column where squid_id =#{squid_id}
+    </delete>
+
+    <delete id="deleteHDFSColumnBySquId" parameterType="java.lang.Integer">
+        delete from ds_dest_hdfs_column where squid_id =#{squid_id}
+    </delete>
+
+    <delete id="deleteImpalaColumnBySquId" parameterType="java.lang.Integer">
+        delete from ds_dest_impala_column where squid_id =#{squid_id}
+    </delete>
+
+    <update id="updateHiveColumnBySquIds" parameterType="java.lang.Integer">
+        update ds_dest_hive_column set column_id=0
+        where squid_id =#{squid_id}
+    </update>
+
+    <update id="updateCASSSColumnBySquIds" parameterType="java.lang.Integer">
+        update ds_dest_cassandra_column set column_id=0
+        where squid_id =#{squid_id}
+    </update>
+
+
+
+    <select id="selectExceptionSquSquIds" parameterType="java.util.Map" resultType="java.lang.Integer">
+        select DISTINCT s.id from ds_squid s where s.id in (
+        select k.TO_SQUID_ID from ds_squid_link k
+        where k.FROM_SQUID_ID in
+         <foreach collection="squidIds" item="item" index="index" open="(" separator="," close=")">
+                 #{item}
+             </foreach>
+        )
+        and s.SQUID_TYPE_ID=#{exceType}
+
+      <!--  or s.id in (
+        select k.TO_SQUID_ID from ds_squid_link k
+        where k.ID in
+        <foreach collection="squLinkIds" item="linkId" index="index" open="(" separator="," close=")">
+            #{linkId}
+        </foreach>
+        )-->
+    </select>
+
+
+    <update id="updateSquStatusBySquIds" parameterType="java.util.List">
+        update ds_squid  set DESIGN_STATUS=1
+        where id in
+         <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+             #{item}
+         </foreach>
+
+    </update>
+    <select id="selectSquBySquTypeAndSquIds" parameterType="java.util.Map" resultType="java.util.Map">
+        select s.id as squid, k.id as squidLinkId from ds_squid s
+        inner join ds_squid_link k
+        on s.ID=k.TO_SQUID_ID
+        where s.SQUID_TYPE_ID=#{squidType}
+        and s.ID in
+        <foreach collection="squidIds" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <!--老的squidJoin实体类的映射-->
+    <resultMap id="JoinBaseResultMap" type="com.eurlanda.datashire.entity.SquidJoin" >
+        <id column="ID" property="id" jdbcType="INTEGER" />
+        <result column="TARGET_SQUID_ID" property="target_squid_id" jdbcType="INTEGER" />
+        <result column="JOINED_SQUID_ID" property="joined_squid_id" jdbcType="INTEGER" />
+        <result column="PRIOR_JOIN_ID" property="prior_join_id" jdbcType="INTEGER" />
+        <result column="JOIN_TYPE_ID" property="joinType" jdbcType="INTEGER" />
+        <result column="JOIN_CONDITION" property="join_Condition" jdbcType="VARCHAR" />
+    </resultMap>
+    <select id="selectJoinBySquid" parameterType="java.lang.Integer" resultMap="JoinBaseResultMap">
+        select * from ds_join where JOINED_SQUID_ID=#{joined_squid_id}
+    </select>
+    <select id="selectBySourceTable" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT * FROM ds_squid where SOURCE_TABLE_ID=#{id}
+    </select>
+
+
+
+    <select id="selectExceViewSquByTypeAndSquIds" parameterType="java.util.Map" resultType="java.util.Map">
+        select s.id as squid, k.id as squidLinkId from ds_squid s
+        inner join ds_squid_link k
+        on s.ID=k.TO_SQUID_ID
+        where s.ID in
+        <foreach collection="squidIds" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        and (s.SQUID_TYPE_ID=#{exception} or s.SQUID_TYPE_ID=#{dataView} or s.SQUID_TYPE_ID=#{coefficientSquid})
+    </select>
+
+
+    <select id="selectSquidTypeById" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+        select SQUID_TYPE_ID from ds_squid WHERE ID = #{id}
+    </select>
+
+
+    <select id="selectSourceTableIdBySquids" parameterType="java.util.List" resultType="java.lang.Integer">
+        select SOURCE_TABLE_ID from ds_squid WHERE id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <select id="selectProjectBySquidId" resultType="java.util.Map">
+        select dp.* from ds_squid ds ,ds_squid_flow dsf,ds_project dp where ds.squid_flow_id = dsf.id and dsf.project_id = dp.id and ds.id=#{id}
+    </select>
+
+    <select id="selectSquidTypesByIds" parameterType="java.util.List" resultType="java.lang.Integer">
+        select SQUID_TYPE_ID from ds_squid WHERE ID in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <select id="getSquidNameByColumnId" parameterType="java.lang.Integer" resultType="java.lang.String">
+        select ds.name from ds_squid ds inner join ds_column dc on ds.id=dc.squid_id where dc.id=#{columnId}
+    </select>
+    <select id="getSquidTypeById" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+        select squid_type_id from ds_squid where id=#{squid}
+    </select>
+
+    <update id="updateSquidByLastValue" parameterType="java.util.Map">
+        update ds_squid set last_value=#{lastValue} where id=#{squidId}
+    </update>
+</mapper>

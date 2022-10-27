@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.CloudOperateRecordDao">
+    <insert id="insert" keyProperty="CloudOperateRecord.id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.CloudOperateRecord">
+        <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO ds_cloud_operate_record
+        ( OPERATE_TIME, CONTENT, USER_ID, SPACE_ID, OPERATE_TYPE)
+        VALUES
+        ( #{operate_time,jdbcType=DATE}, #{content,jdbcType=VARCHAR}, #{user_id,jdbcType=INTEGER}, #{space_id,jdbcType=INTEGER}, #{operate_type,jdbcType=INTEGER});
+    </insert>
+</mapper>

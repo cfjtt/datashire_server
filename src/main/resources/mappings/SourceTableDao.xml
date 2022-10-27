@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.SourceTableDao" >
+
+
+    <resultMap id="BaseResultMap" type="com.eurlanda.datashire.entity.DBSourceTable" >
+        <id column="ID" property="id" jdbcType="INTEGER" />
+        <result column="table_name" property="table_name" jdbcType="VARCHAR" />
+        <result column="source_squid_id" property="source_squid_id" jdbcType="INTEGER" />
+        <result column="is_extracted" property="is_extracted" jdbcType="CHAR" />
+        <result column="url" property="url" jdbcType="VARCHAR" />
+        <result column="method" property="method" jdbcType="INTEGER" />
+        <result column="is_directory" property="is_directory" jdbcType="INTEGER" />
+    </resultMap>
+
+    <select id="getDbSourceTablesForExtracted" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+      SELECT * FROM DS_SOURCE_TABLE ds WHERE source_squid_id=#{squidid}  order  by id asc
+    </select>
+    <delete id="deleteDbSourceTableById" parameterType="java.util.List" >
+        delete from ds_source_table where id IN
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+    <delete id="deleteDbSourceTablesBySquid" parameterType="java.lang.Integer" >
+        delete from ds_source_table where source_squid_id=#{squidid}
+    </delete>
+    <insert id="insertDBSourceTable" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List">
+        insert into ds_source_table (table_name, source_squid_id,is_extracted,url,method,is_directory)
+        VALUES
+        <foreach collection="list" item="sourcetable" index="index" separator="," >
+            (#{sourcetable.table_name,jdbcType=VARCHAR}, #{sourcetable.source_squid_id,jdbcType=INTEGER},
+            #{sourcetable.is_extracted,jdbcType=CHAR}, #{sourcetable.url,jdbcType=VARCHAR}, #{sourcetable.method,jdbcType=INTEGER},
+            #{sourcetable.is_directory,jdbcType=INTEGER}
+            )
+        </foreach>
+    </insert>
+    <select id="getDbSourceTableById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT * FROM DS_SOURCE_TABLE  WHERE source_squid_id=#{squidid} order  by is_extracted desc
+    </select>
+    <update id="updateIsExtractedById" parameterType="java.lang.Integer">
+        update ds_source_table set IS_EXTRACTED=0 WHERE id=#{id}
+    </update>
+
+    <select id="getDbSourceBySourceTableId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT * FROM DS_SOURCE_TABLE  WHERE id=#{id}
+    </select>
+
+
+    <update id="updateIsExtractedByIds" parameterType="java.util.List">
+        update ds_source_table set IS_EXTRACTED=0 where id in
+        <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+
+    </update>
+
+
+</mapper>

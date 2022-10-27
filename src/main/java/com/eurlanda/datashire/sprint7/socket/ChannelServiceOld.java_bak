@@ -1,0 +1,341 @@
+/*
+ * ChannelManager.java - 2013.10.26
+ *
+ * 版权声明: (c) 2013，悦岚（上海）数据服务有限公司，保留所有权利。
+ *
+ * 项目名称: datashire-server
+ * 
+ * 修改历史:
+ * ===========================================
+ *   修改人	     日期		     描述
+ *   ---------------------------------------
+ *   dang.lu  2013.10.26   create    
+ * ===========================================
+ */
+package com.eurlanda.datashire.sprint7.socket;
+
+import java.nio.ByteOrder;
+import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
+
+import com.eurlanda.datashire.entity.User;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.utility.*;
+import org.apache.log4j.Logger;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.DynamicChannelBuffer;
+import org.jboss.netty.buffer.HeapChannelBufferFactory;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.util.internal.ConcurrentHashMap;
+import cn.com.jsoft.jframe.utils.CollectionUtils;
+import cn.com.jsoft.jframe.utils.ValidateUtils;
+import com.eurlanda.datashire.socket.MessagePacket;
+
+/**
+ * 维护socket连接通道
+ * 
+ * @author dang.lu 2013.10.26
+ * 
+ */
+public class ChannelServiceOld implements Runnable {
+	private static Logger logger = Logger.getLogger(ChannelServiceOld.class);
+
+	private static Map<String, ChannelWrapper> channels = new ConcurrentHashMap<String, ChannelWrapper>();
+	private static Queue<MessagePacket> outMsgQueue = new LinkedBlockingQueue<MessagePacket>();
+	private static Map<String, Vector<ChannelWrapper>> tokenChannels = new ConcurrentHashMap<String, Vector<ChannelWrapper>>();
+	private static String empty_token = "00000000000000000000000000000000";
+
+	public static Map<String, Vector<ChannelWrapper>> getTokenChannels() {
+		return tokenChannels;
+	}
+
+	public static void setTokenChannels(
+			Map<String, Vector<ChannelWrapper>> tokenChannels) {
+		ChannelServiceOld.tokenChannels = tokenChannels;
+	}
+
+	/**
+	 * 使用默认的key添加一个通道。默认的key等于channel连接的远程IP+端口。
+	 * 
+	 * @date 2014-4-18
+	 * @author jiwei.zhang
+	 * @param channel
+	 */
+	public static void addChannel(Channel channel) {
+		String key = channel.getRemoteAddress().toString();
+		ChannelWrapper cw = new ChannelWrapper();
+		cw.setChannel(channel);
+		Object obj = getServerVersion();
+		if (obj!=null){
+			cw.writeMessage(obj);
+		}
+		channels.put(key, cw);
+	}
+	
+	/**
+	 * 获取当前后台版本号
+	 * @return
+	 */
+	public static Object getServerVersion(){
+		try {
+			String line = VersionUtils.getServerVersion();
+			String[] strs = line.split("\\.");
+			// 占位符
+			byte[] separator = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 
+					(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+			// 写入压缩过的数据
+			ChannelBuffer buf = new DynamicChannelBuffer(ByteOrder.BIG_ENDIAN,
+					CommonConsts.PACKET_DATA_LENGTH + 12,
+					HeapChannelBufferFactory.getInstance(ByteOrder.BIG_ENDIAN));
+			buf.writeBytes(separator);
+			buf.writeBytes(IntUtils.intToBytes(12));
+			buf.writeBytes(IntUtils.int2byte(0));
+			buf.writeBytes(separator);
+			for (String s : strs) {
+				buf.writeBytes(IntUtils.int2byte(Integer.parseInt(s)));
+			}
+			return buf;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	/**
+	 * 使用默认的key删除一个通道。默认的key等于channel连接的远程IP+端口。
+	 * 
+	 * @date 2014-4-18
+	 * @author jiwei.zhang
+	 * @param cl
+	 *            通道
+	 */
+	public static void deleteChannel(Channel cl) {
+		// 删除channel
+		String key = cl.getRemoteAddress().toString();
+		// added by bo.dang
+		ChannelWrapper cw = channels.get(key);
+		if(null != cw){
+			//cw.getChannel().disconnect();
+			if (!cw.getChannel().isConnected()){
+				cw.getChannel().close();
+			}
+		}
+		channels.remove(key);
+		logger.info("client:"+key+" removed.");
+		removeChannelsByKey(key);
+	}
+
+	/**
+	 * 使用默认的key删除一个通道。默认的key等于channel连接的远程IP+端口。
+	 * @param key
+	 */
+	private static void removeChannelsByKey(String key) {
+		// 删除token对应关系。
+		String tempToken = "";
+		Map<String,User> userMaps = CommonConsts.UserSession;
+		if(userMaps!=null){
+			Iterator<Map.Entry<String,User>> it = userMaps.entrySet().iterator();
+			while(it.hasNext()){
+				Map.Entry<String,User> entry = it.next();
+				User user = entry.getValue();
+				if(key.equals(user.getKey())){
+					it.remove();
+				}
+			}
+		}
+		for (String token : tokenChannels.keySet()) {
+			Vector<ChannelWrapper> vc=tokenChannels.get(token);
+			if(vc==null||vc.size()==0){
+				tokenChannels.remove(token);
+			}
+			for(ChannelWrapper x: vc){
+				if(x.getChannel().getRemoteAddress().toString().equals(key)){
+					if (!x.getChannel().isConnected()){
+						x.getChannel().close();
+					}
+					//vc.remove(x);
+					tempToken = token;
+					logger.info("token client:"+token+" removed.");
+					break;
+				}
+			}
+			if (!ValidateUtils.isEmpty(tempToken)){
+				break;
+			}
+		}
+		if (!ValidateUtils.isEmpty(tempToken)){
+			//停止日志推送
+			new StopSendLog().stopSendLog(tempToken);
+			tokenChannels.remove(tempToken);
+		}
+	}
+	
+	/**
+	 * 删除token对应的通道。断开channel连接的远程IP+端口。
+	 * @param token
+	 */
+	public static void removeChannelsByToken(String token){
+		if (tokenChannels!=null&&tokenChannels.containsKey(token)){
+			Vector<ChannelWrapper> vc=tokenChannels.get(token);
+			if(vc==null||vc.size()==0){
+				logger.info("token client:"+token+" removed.");
+				tokenChannels.remove(token);
+				return;
+			}
+			for(ChannelWrapper x: vc){
+				x.getChannel().close();
+			}
+			tokenChannels.remove(token);
+			logger.info("token client:"+token+" removed.");
+		}
+	}
+
+	/**
+	 * 用指定的通道发送消息 。 消息发送模式分两种，一种是socket通道存在时，消息即时发送；另外一种是消息通道不存在时，放到临时队列发送。
+	 * 
+	 * @date 2014-4-18
+	 * @author jiwei.zhang
+	 * @param channelKey
+	 *            通道的唯一标识
+	 * @param packet
+	 *            消息内容。
+	 */
+	public static void sendMessage(MessagePacket packet) {
+		// TODO  通道繁忙,需要进一步研究
+		ChannelWrapper cw = getFreeChannel(packet);
+		if (cw == null) { // 如果通道已经被锁定，说明有其它人在用。
+			outMsgQueue.add(packet);
+			logger.info("通道繁忙，已加入队列。");
+		} else {
+			cw.writeMessage(packet);
+		}
+	}
+	/**
+	 * 将消息发送到所有客户端
+	 * @param packet 消息内容，token无效
+	 * @param excludeTokens ，排除的token.
+	 */
+	public static void sendToAllClients(MessagePacket packet,String ... excludeTokens){
+		for(String token :tokenChannels.keySet()){
+			if(excludeTokens==null || !CollectionUtils.contains(excludeTokens, token)){
+				packet.setToken(token.getBytes());
+				sendMessage(packet);
+			}
+		}
+	}
+	/**
+	 * 根据IP：端口取得一个空闲的通道。 优先以token取得空闲通道，如果token不存在，则以packet对应的Channel作为发送通道。
+	 * 
+	 * @date 2014-4-18
+	 * @author jiwei.zhang
+	 * @param token
+	 * @return
+	 */
+	private synchronized static ChannelWrapper getFreeChannel(MessagePacket packet) {
+		String token = new String(packet.getToken(), 0, 32);
+		ChannelWrapper cw = null;
+		if (!token.equals(empty_token)) {
+			cw = getFreeChannelByToken(token);
+		}
+		
+		if(cw!=null){
+			return cw;
+		}else if (cw == null && packet.getChannel()!=null) {
+			cw = channels.get(packet.getChannel().getRemoteAddress().toString());
+			if (cw!=null&&!cw.isLocked()) {
+				cw.setLocked(true);
+				return cw;
+			}
+		}
+		
+		return null;
+	}
+
+	/**
+	 * 按token 取一个空间的连接通道。
+	 * 
+	 * @date 2014-4-22
+	 * @author jiwei.zhang
+	 * @param token
+	 * @return
+	 */
+	private synchronized static ChannelWrapper getFreeChannelByToken(String token) {
+		Vector<ChannelWrapper> vc = tokenChannels.get(token);
+		if (vc != null) {
+			for (ChannelWrapper cw : vc) {
+				if (!cw.isLocked()) {
+					cw.setLocked(true);
+					return cw;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 消息发送线程。
+	 */
+	@Override
+	public void run() {
+		while (true) {
+			MessagePacket msg = outMsgQueue.poll();
+			if (msg != null) {
+				try {
+					sendMessage(msg);
+				} catch (Exception e) {
+					logger.error("消息发送错误", e);
+				}
+			} else {
+				try {
+					Thread.currentThread().wait(0);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 将token绑定到通道上。
+	 * 
+	 * @date 2014-4-22
+	 * @author jiwei.zhang
+	 * @param token
+	 * @param channel
+	 */
+	synchronized public static void bindTokenToChannel(SocketRequestContext rc) {
+		String token = rc.getToken();
+		Channel channel = rc.getChannel();
+		if (ValidateUtils.isEmpty(token) || token.equals(empty_token)){
+			if (ValidateUtils.isEmpty(token)){
+				logger.error("[发送的token]为空");
+			}
+			return;
+		}
+		Vector<ChannelWrapper> vc = tokenChannels.get(token);
+		if (vc == null) {
+			vc = new Vector<ChannelWrapper>();
+			tokenChannels.put(token, vc);
+		}
+		boolean exists = false;
+		for (ChannelWrapper cw : vc) {
+			if (cw.getChannel().getRemoteAddress().toString().equals(channel.getRemoteAddress().toString())) {
+				exists = true;
+				logger.info("[当前RemoteAddress："+channel.getRemoteAddress().toString()+"已经存在]");
+				break;
+			}
+		}
+		if (!exists) {
+			vc.add(new ChannelWrapper(channel));
+		}
+	}
+
+	//绑定绑定token和ip地址的关系
+	/*public static void bindTokenAndAddress(MessagePacket packet){
+		String token = StringUtils.bytes2Str(packet.getToken());
+		Channel channel = packet.getChannel();
+		String ip = channel.getRemoteAddress().toString();
+		CommonConsts.tokenAndAddress.put(token,ip);
+	}*/
+}

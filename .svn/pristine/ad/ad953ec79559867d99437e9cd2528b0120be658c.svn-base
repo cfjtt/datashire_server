@@ -1,0 +1,316 @@
+package com.eurlanda.datashire.server.api;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.enc.KeyGen;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.server.annotation.SocketApi;
+import com.eurlanda.datashire.server.annotation.SocketApiMethod;
+import com.eurlanda.datashire.server.model.CloudOperateRecord;
+import com.eurlanda.datashire.server.model.User;
+import com.eurlanda.datashire.server.service.CloudOperateRecordService;
+import com.eurlanda.datashire.server.service.RepositoryService;
+import com.eurlanda.datashire.server.service.UserService;
+import com.eurlanda.datashire.server.utils.MessagePacketUtils;
+import com.eurlanda.datashire.server.utils.SocketUtil;
+import com.eurlanda.datashire.server.utils.SysUtil;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.packet.InfoMessagePacket;
+import com.eurlanda.datashire.sprint7.packet.InfoPacket;
+import com.eurlanda.datashire.utility.*;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+/**
+ * Created by zhudebin on 16/1/13.
+ */
+@Service
+@SocketApi("2001")
+public class UserApi {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserApi.class);
+
+    @Autowired
+    private UserService userService;
+    @Autowired
+    private RepositoryService repositoryService;
+    @Autowired
+    private CloudOperateRecordService cloudOperateRecordService;
+
+    @SocketApiMethod(commandId = "0001")
+    public String login(String info) {
+        ReturnValue out = new ReturnValue();
+        User user = JsonUtil.object2HashMap(info, User.class);
+        Map<String, Object> map = null;
+
+        if (user != null && StringUtils.isNotEmpty(user.getUser_name())
+                && user.getPassword() != null) {
+            user = userService.findByUsernameAndPassword(user.getUser_name(), user.getPassword());
+            if (null == user) {
+                out.setMessageCode(MessageCode.ERR_USER_NOT_EXIST);//用户不存在
+                LOGGER.error(">>>>>>>>>>>>>>>>>>登陆的用户信息不存在<<<<<<<<<<<<<<");
+            } else {
+                map = userService.validateLoginInfo(out);
+                map.put("User", user);
+                // 将token与用户信息绑定
+                SocketUtil.SESSION.put(TokenUtil.getToken(), user);
+            }
+        } else {
+            out.setMessageCode(MessageCode.ERR_USER);//用户不存在
+            LOGGER.error(">>>>>>>>>>>>>>>>>>用户{" + info + "}信息错误<<<<<<<<<<<<<<");
+        }
+
+        return MessagePacketUtils.infoNewMessagePacket(map, DSObjectType.USER, out);
+    }
+
+    @SocketApiMethod(commandId = "0002")
+    public String logout() {
+        String ret = "";
+        InfoMessagePacket<Boolean> packet = new InfoMessagePacket<Boolean>();
+        // 修改用户状态[已退出]？
+        packet.setCode(MessageCode.SUCCESS.value());
+        ret = JsonUtil.object2Json(packet);
+        // 移除登录
+        User user = SocketUtil.SESSION.get(TokenUtil.getToken());
+        if (user != null) {
+            SocketUtil.SESSION.remove(TokenUtil.getToken());
+            TokenUtil.removeTokenAndKey();
+            LOGGER.info("退出登录,用户:{},时间:{}", user.getUser_name(),
+                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            LOGGER.debug("当前登陆用户数据:{}", SocketUtil.SESSION.size());
+            //只有云端的用户才写入数据库
+            if (StringUtils.isNotEmpty(user.getSpaceId())) {
+                CloudOperateRecord record = new CloudOperateRecord();
+                record.setUser_id(user.getId());
+                record.setSpace_id(Integer.parseInt(user.getSpaceId().substring(1)));
+                record.setOperate_time(new Date());
+                record.setOperate_type(1);
+                record.setContent("用户:" + user.getUser_name() + ",操作类型:退出,数猎场:" + user.getSpaceId());
+                IRelationalDataManager adapter = DataAdapterFactory.getDefaultDataManager();
+                try {
+                    adapter.openSession();
+                    adapter.insert2(record);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    adapter.closeSession();
+                }
+            }
+        } else {
+            LOGGER.error(">>>>>>>>>>>没有找到该用户的SESSION,token:{}<<<<<<<<<<<<", TokenUtil.getToken());
+        }
+        return ret;
+    }
+
+    @SocketApiMethod(commandId = "0003")
+    public String addUser(String info) {
+        ReturnValue out = new ReturnValue();
+        User user = JsonUtil.object2HashMap(info, User.class);
+        // 新增用户时，如果密码为空则保存为默认密码
+        if (StringUtils.isEmpty(user.getPassword())) {
+            user.setPassword(CommonConsts.DEFAULT_USER_PASSWORD);
+        }
+        // 新增/更新时，可不分配或取消角色权限
+        if (user.getRole_id() <= 0) {
+            user.setRole_id(0);
+        }
+        Map<String, Object> outputMap = new HashMap<String, Object>();
+        int count = userService.save(user);
+        if (count > 0) {
+            outputMap.put("Id", user.getId());
+        } else {
+            out.setMessageCode(MessageCode.ERR_CREATEUSER);
+        }
+        return JsonUtil.toJsonString(outputMap, DSObjectType.USER, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0004")
+    public String updateUser(String info) {
+        ReturnValue out = new ReturnValue();
+        User user = JsonUtil.object2HashMap(info, User.class);
+        user.setPassword(null);
+        int cnt = userService.update(user);
+        if (cnt > 0) {
+            out.setMessageCode(MessageCode.SUCCESS);
+        } else {
+            out.setMessageCode(MessageCode.ERR_UPDATEUSER);
+        }
+        return JsonUtil.toJsonString(null, DSObjectType.USER, out.getMessageCode());
+    }
+
+    private List<InfoPacket> genInfoPackets(List<User> userList, boolean isSuccess) {
+        List<InfoPacket> infoPackets = new ArrayList<>(userList.size());
+        // 封装返回消息
+        for (User u : userList) {
+            InfoPacket infoPacket = new InfoPacket();
+            infoPacket.setKey(TokenUtil.getKey());
+            infoPacket.setType(DSObjectType.USER);
+            infoPacket.setId(u.getId());
+            if (isSuccess) {  // 保存成功
+                infoPacket.setCode(MessageCode.SUCCESS.value());
+            } else {  // 保存失败
+                infoPacket.setCode(MessageCode.SQL_ERROR.value());
+            }
+            infoPackets.add(infoPacket);
+        }
+        return infoPackets;
+    }
+
+    @SocketApiMethod(commandId = "0005")
+    public String getAllUsers() {
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> outputMap = new HashMap<String, Object>();
+        List<User> users = userService.getAllUser();
+        if (users != null) {
+            out.setMessageCode(MessageCode.SUCCESS);
+        } else {
+            out.setMessageCode(MessageCode.ERR_UPDATEUSER);
+        }
+        outputMap.put("Users", users);
+        return JsonUtil.toJsonString(outputMap, DSObjectType.USER, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0006")
+    public String deleteUser(String info) {
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        int userid = Integer.parseInt(map.get("UserId").toString());
+        int execult = userService.deleteById(userid);
+        if (execult <= 0) {
+            out.setMessageCode(MessageCode.ERR_DELETEUSER);
+        }
+        return JsonUtil.toJsonString(null, DSObjectType.USER, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0007")
+    public String updateUserPassword(String info) {
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        Map<String, Object> paramMap = new HashMap<String, Object>();
+        if (map.get("UserId") == null || map.get("NewPassword") == null) {
+            out.setMessageCode(MessageCode.ERR_USERNAME_OR_PASSWORD);
+        } else {
+            // 应该把老的密码带过来的
+            User user = new User();
+            user.setId(Integer.parseInt(map.get("UserId") + ""));
+            user.setPassword(map.get("NewPassword").toString());
+            int count = userService.update(user);
+            if (count > 0) {
+                out.setMessageCode(MessageCode.SUCCESS);
+            } else {
+                out.setMessageCode(MessageCode.ERR_USERNAME_OR_PASSWORD);
+            }
+        }
+        return JsonUtil.toJsonString(null, DSObjectType.USER, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0008")
+    public String cloudLogin(String info) {
+        ReturnValue out = new ReturnValue();
+        //判断时间是否过期，以及目前现在登录的人数
+        Map<String, Object> infoMap = JsonUtil.toHashMap(info);
+        String spacedId = infoMap.get("SpaceId") + "";
+        String token = infoMap.get("Token") + "";
+        String time = token.split("\\^\\^\\^")[2];
+        String id = token.split("\\^\\^\\^")[0];
+        String email = token.split("\\^\\^\\^")[1];
+        String repositoryId = infoMap.get("RepositoryId") + "";
+        List<Integer> projectIds = JsonUtil.toList(infoMap.get("ProjectIds"), Integer.class);
+        Map<String, Object> returnMap = new HashMap<>();
+        //判断时间是否过去(5分钟)
+        Date nowDate = new Date();
+        long past = nowDate.getTime() - Long.parseLong(time);
+        if (past > Integer.parseInt(SysConf.getValue("SERVER_TIMEOUT"))) {
+            returnMap.put("flag", "N");
+            out.setMessageCode(MessageCode.LOGIN_TIMEOUT);
+            return JsonUtil.toJsonString(returnMap, DSObjectType.USER, out.getMessageCode());
+        } else if (SocketUtil.SESSION.size() > Integer.parseInt(SysConf.getValue("SERVER_MAX_USER"))) {
+            LOGGER.error("当前系统登录人数:" + SocketUtil.SESSION.size() + " 系统允许人数:" + SysConf.getValue("SERVER_MAX_USER"));
+            returnMap.put("flag", "N");
+            out.setMessageCode(MessageCode.QUEUE_ISMAX);
+            return JsonUtil.toJsonString(returnMap, DSObjectType.USER, out.getMessageCode());
+        } else {
+            try {
+                com.eurlanda.datashire.server.model.Repository repository = repositoryService.getRepositoryWithSquidFlows(Integer.parseInt(repositoryId),projectIds);
+                returnMap.put("repository", repository);
+                User user = new User();
+                user.setUser_name(email);
+                user.setId(Integer.parseInt(id));
+                user.setSpaceId(spacedId);
+                returnMap.put("User", user);
+                returnMap.put("flag", "Y");
+                // 将token与用户信息绑定
+                SocketUtil.SESSION.put(TokenUtil.getToken(), user);
+                //将登陆信息写入数据库(id,时间,操作记录,登录,退出)
+                CloudOperateRecord record = new CloudOperateRecord();
+                record.setUser_id(user.getId());
+                record.setOperate_time(new Date());
+                record.setSpace_id(Integer.parseInt(spacedId.substring(1)));
+                record.setOperate_type(0);
+                record.setContent("用户:" + email + ",操作类型:登录,数猎场:" + spacedId);
+                cloudOperateRecordService.saveCloudOperateRecord(record);
+            } catch (Exception e) {
+                out.setMessageCode(MessageCode.ERR);
+            } finally {
+//                adapter.closeSession();
+            }
+        }
+        return JsonUtil.toJsonString(returnMap, DSObjectType.USER, out.getMessageCode());
+    }
+
+    /**
+     * 获取license的key值
+     * @return
+     */
+    @SocketApiMethod(commandId = "0009")
+    public String getLicenseKey(){
+        ReturnValue out  = new ReturnValue();
+        Map<String, Object> outputMap = new HashMap<String, Object>();
+        try {
+            String temp = "";
+            String version = VersionUtils.getServerVersion();
+            System.out.println(temp);
+            byte[] ss = KeyGen.gen(version.getBytes());
+            String rt = new String(ss);
+            System.out.println(rt);
+            if (com.eurlanda.datashire.utility.StringUtils.isNotNull(rt)){
+                outputMap.put("LicenseKey", rt);
+            }else{
+                out.setMessageCode(MessageCode.ERR_LICENSE_NOT_EXISTS);
+            }
+        } catch (Exception e) {
+            // TODO: handle exception
+            LOGGER.error("getLicenseKey is error", e);
+            out.setMessageCode(MessageCode.ERR_LICENSE_NOT_EXISTS);
+        }
+        return JsonUtil.toJsonString(outputMap, DSObjectType.LINCENSE, out.getMessageCode());
+    }
+    @SocketApiMethod(commandId = "0010")
+    public String setLicense(String info){
+        ReturnValue out  = new ReturnValue();
+        Map<String, Object> outputMap = JsonUtil.toHashMap(info);
+        try {
+
+            String key = String.valueOf(outputMap.get("LicenseKey"));
+            int squidCnt = SysUtil.decodeLicenseKey(key);
+            // -99 代表无限制squid 数量
+            if (squidCnt>5 || squidCnt == -99){
+                 userService.saveLicenseKey(key);
+                CommonConsts.MaxSquidCount = squidCnt;
+                outputMap.put("SquidCount", squidCnt);
+            }else{
+                out.setMessageCode(MessageCode.ERR_LICENSE_NOT_EXISTS);
+            }
+        } catch (Exception e) {
+            LOGGER.error("getLicenseKey is error", e);
+            out.setMessageCode(MessageCode.ERR_LICENSE_NOT_EXISTS);
+        }
+        return JsonUtil.toJsonString(outputMap, DSObjectType.LINCENSE, out.getMessageCode());
+    }
+}

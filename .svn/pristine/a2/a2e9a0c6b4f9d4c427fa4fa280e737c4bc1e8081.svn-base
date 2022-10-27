@@ -1,0 +1,12 @@
+package com.eurlanda.datashire.server.dao;
+
+import org.springframework.stereotype.Repository;
+
+/**
+ * Created by hanrui on 2018/06/22.
+ */
+@Repository
+public interface LicenseDao {
+
+    void saveLicenseKey(String key);
+}

@@ -1,0 +1,661 @@
+package com.eurlanda.datashire.squidVersion;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.HyperSQLManager;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.IProjectDao;
+import com.eurlanda.datashire.dao.ISquidDao;
+import com.eurlanda.datashire.dao.ISquidFlowDao;
+import com.eurlanda.datashire.dao.ISquidJoinDao;
+import com.eurlanda.datashire.dao.ISquidLinkDao;
+import com.eurlanda.datashire.dao.IVariableDao;
+import com.eurlanda.datashire.dao.impl.ProjectDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidFlowDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidJoinDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidLinkDaoImpl;
+import com.eurlanda.datashire.dao.impl.VariableDaoImpl;
+import com.eurlanda.datashire.entity.DSVariable;
+import com.eurlanda.datashire.entity.DbSquid;
+import com.eurlanda.datashire.entity.Project;
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.entity.SquidFlow;
+import com.eurlanda.datashire.entity.SquidJoin;
+import com.eurlanda.datashire.entity.SquidLink;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.packet.PushMessagePacket;
+import com.eurlanda.datashire.sprint7.service.squidflow.DataShirServiceplug;
+import com.eurlanda.datashire.utility.DatabaseException;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import org.apache.log4j.Logger;
+import org.springframework.stereotype.Service;
+
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+
+/**
+ * 通过历史版本创建squidflow Created by Administrator on 2016/9/29.
+ */
+@Service
+public class SquidVersionService {
+    private static Logger logger = Logger.getLogger(SquidVersionService.class);// 记录日志
+    // 现有库
+    IRelationalDataManager adapter = DataAdapterFactory.getDefaultDataManager();
+    // 历史版本库
+    //IRelationalDataManager historyAdapter = getDefaultDataManager();
+    private String key;
+    private String token;
+
+    /**
+     * 获取历史版本库的连接信息(测试)
+     *
+     * @return
+     */
+    public static IRelationalDataManager getDefaultDataManager() {
+        DbSquid dataSource = new DbSquid();
+        dataSource.setDb_type(5);
+        dataSource.setDb_name("test");
+        if (dataSource.getDb_type() == DataBaseType.MYSQL.value()) {
+            dataSource.setHost("jdbc:mysql://127.0.0.1:3306/test?zeroDateTimeBehavior=convertToNull");
+        } else {
+            dataSource.setHost("jdbc:mysql://127.0.0.1:3306/test?zeroDateTimeBehavior=convertToNull");
+        }
+        dataSource.setUser_name("root");
+        dataSource.setPassword("123456");
+        return new HyperSQLManager(dataSource);
+    }
+
+    /**
+     * 测试
+     */
+    public static void main(String[] args) {
+        SquidVersionService service = new SquidVersionService();
+        IRelationalDataManager historyAdapter = getDefaultDataManager();
+        historyAdapter.openSession();
+        try {
+            ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(historyAdapter);
+            SquidFlowHistory squidFlowHistory = squidFlowHistoryDao.getSquidFlowHistoryBySquidFlow(1, 2460, 0, 0, 0).get(0);
+            String info = "{RepositoryId:1,SquidflowName:'squidflow2',ProjectId:52,SquidflowHistory:" + JsonUtil.object2Json(squidFlowHistory) + "}";
+            //String info = "{RepositoryId:1,SquidflowId:2460,Comments:'测试',UserId:0}";
+            service.createNewSquidFlowByVersion(info);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * 生成历史版本信息，到相应的库中(分为七层推送),需要定时器
+     *
+     * @param info
+     */
+    public void createSquidVersion(String info) {
+        adapter.openSession();
+        //historyAdapter.openSession();
+        logger.info("正在生成版本");
+        // 定时器，防止超时
+        Timer timer = new Timer();
+        final Map<String, Object> returnMaps = new HashMap<>();
+        returnMaps.put("1", 1);
+        key = TokenUtil.getKey();
+        token = TokenUtil.getToken();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                PushMessagePacket.pushMap(returnMaps, DSObjectType.SQUID, "1038", "0001", key,
+                        token, MessageCode.BATCH_CODE.value());
+            }
+        }, 25 * 1000, 25 * 1000);
+
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        int repositoryId = Integer.parseInt(map.get("RepositoryId") + "");
+        int squidFlowId = Integer.parseInt(map.get("SquidflowId") + "");
+        int datashireFieldType = Integer.parseInt(map.get("DataShireFieldType") + "");
+        // 根据squidflow和respository查询出所有的squid信息,squidflow下面的变量信息,respository下面的变量信息
+        ISquidFlowDao squidFlowDao = new SquidFlowDaoImpl(adapter);
+        IProjectDao projectDao = new ProjectDaoImpl(adapter);
+        IVariableDao variableDao = new VariableDaoImpl(adapter);
+        ISquidLinkDao squidLinkDao = new SquidLinkDaoImpl(adapter);
+        ISquidDao squidDao = new SquidDaoImpl(adapter);
+        //CreateSquidVersionService squidVersion = new CreateSquidVersionService(adapter,historyAdapter);
+        CreateSquidVersionService squidVersion = new CreateSquidVersionService(adapter);
+        List<DSVariable> variableList = new ArrayList<>();
+        String commit_time = new Timestamp(new Date().getTime()).toString();
+        String comments = map.get("Comments") + "";
+        try {
+            int userId = Integer.parseInt(map.get("UserId") + "");
+            //User user=userDao.getUserById(userId);
+            String username = map.get("UserName") + "";
+            /*if(user!=null){
+               username = user.getUser_name();
+            }*/
+            // 以squidType为单位进行编译
+            List<Map<String, Object>> squidTypeMaps = squidFlowDao.getSquidTypeBySquidFlow(squidFlowId);
+            // 查询出squidflow下面的变量
+            List<DSVariable> squidFlowVariable = variableDao.getDSVariableByScope(1, squidFlowId);
+            if (squidFlowVariable != null && squidFlowVariable.size() > 0) {
+                variableList.addAll(squidFlowVariable);
+            }
+            // 查询出squidflow的名字
+            SquidFlow squidFlow = squidFlowDao.getSquidFlowById(squidFlowId, repositoryId);
+            Project project = projectDao.getObjectById(squidFlow.getProject_id(), Project.class);
+            // 生成历史版本列表
+            SquidFlowHistory squidFlowHistory = new SquidFlowHistory(squidFlowId, squidFlow.getName(),
+                    project.getId(), project.getName(),
+                    repositoryId, commit_time, userId,
+                    comments, squidFlow.getSquidflow_type(), username, datashireFieldType);
+            //squidFlowHistory.setId(historyAdapter.insert2(squidFlowHistory));
+            squidFlowHistory.setId(adapter.insert2(squidFlowHistory));
+            squidFlowHistory.setVersion(squidFlowHistory.getId());
+            //historyAdapter.update2(squidFlowHistory);
+            adapter.update2(squidFlowHistory);
+            // 生成历史版本数据
+            for (int i = 0; i < 4; i++) {
+                // 生成squid版本(以每个类型为单位插入数据库)
+                if (i == 0) {
+                    logger.info("正在生成squid版本信息");
+                    // 推送squid
+                    SquidFlowHistoryCallBackInfo historyCallBackInfo = new SquidFlowHistoryCallBackInfo(squidFlowId,
+                            squidFlow.getName(), MessageCode.PROCESS_SQUID.value(), 7);
+                    Map<String, Object> returnMap = new HashMap<>();
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.SQUID, "1038", "0001", TokenUtil.getKey(),
+                            TokenUtil.getToken(), out.getMessageCode().value());
+
+                    if (variableList != null && variableList.size() > 0) {
+                        // 将squidFlow变量写入到数据库中
+                        HistoryData historyData = new HistoryData(repositoryId, squidFlowHistory.getId(), squidFlowId, commit_time,
+                                JsonUtil.toJSONString(variableList), -1, 1, squidFlow.getSquidflow_type());
+                        //historyAdapter.insert2(historyData);
+                        adapter.insert2(historyData);
+                        variableList.clear();
+                        variableList = null;
+                        squidFlowVariable = null;
+                    }
+                    // 生成squid(包括生成column,referenceColumn,transformation,transformationLink)
+                    squidVersion.createSquidVersionProcess(squidTypeMaps, repositoryId, squidFlowId, squidFlow.getSquidflow_type(), commit_time,
+                            squidFlowHistory.getId(), out);
+
+                } else if (i == 1) {
+                    logger.info("正在生成squidlink信息");
+                    // 推送squidLink(需要分拨写入数据库)
+                    SquidFlowHistoryCallBackInfo historyCallBackInfo = new SquidFlowHistoryCallBackInfo(squidFlowId,
+                            squidFlow.getName(), MessageCode.PROCESS_SQUID_LINK.value(), 7);
+                    Map<String, Object> returnMap = new HashMap<>();
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.SQUID, "1038", "0001", TokenUtil.getKey(),
+                            TokenUtil.getToken(), out.getMessageCode().value());
+                    // 生成squidLink
+                    List<SquidLink> squidLinkList = squidLinkDao.getSquidLinkListBySquidFlow(squidFlowId);
+                    List<SquidLink> returnLinkList = new ArrayList<>();
+                    if (squidLinkList != null && squidLinkList.size() > 0) {
+                        for (int j = 0; j < squidLinkList.size(); j++) {
+                            if (j != 0 && j % 50 == 0) {
+                                HistoryData historyData = new HistoryData(repositoryId, squidFlowHistory.getId(),
+                                        squidFlowId, commit_time, JsonUtil.toJSONString(returnLinkList), -1, 2, squidFlow.getSquidflow_type());
+                                //historyAdapter.insert2(historyData);
+                                adapter.insert2(historyData);
+                                returnLinkList.clear();
+                            }
+                            returnLinkList.add(squidLinkList.get(j));
+                        }
+                    }
+                    if (returnLinkList.size() > 0) {
+                        HistoryData historyData = new HistoryData(repositoryId, squidFlowHistory.getId(), squidFlowId,
+                                commit_time, JsonUtil.toJSONString(returnLinkList), -1, 2, squidFlow.getSquidflow_type());
+                        //historyAdapter.insert2(historyData);
+                        adapter.insert2(historyData);
+                    }
+                    returnLinkList.clear();
+                    returnLinkList = null;
+                    squidLinkList.clear();
+                    squidLinkList = null;
+
+                } else if (i == 2) {
+                    logger.info("正在生成join信息");
+                    // 推送join级别(join只有stage和stream_stage有)
+                    SquidFlowHistoryCallBackInfo historyCallBackInfo = new SquidFlowHistoryCallBackInfo(squidFlowId,
+                            squidFlow.getName(), MessageCode.PROCESS_JOIN.value(), 7);
+                    Map<String, Object> returnMap = new HashMap<>();
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.SQUIDJOIN, "1038", "0001", TokenUtil.getKey(),
+                            TokenUtil.getToken(), out.getMessageCode().value());
+                    // 生成Join信息
+                    List<SquidJoin> squidJoinList = new ArrayList<SquidJoin>();
+                    for (Map<String, Object> squidTypeMap : squidTypeMaps) {
+                        int squidTypeId = Integer.parseInt(squidTypeMap.get("SQUID_TYPE_ID") + "");
+                        if (squidTypeId == SquidTypeEnum.STAGE.value()
+                                || squidTypeId == SquidTypeEnum.STREAM_STAGE.value()) {
+                            ISquidJoinDao squidJoinDao = new SquidJoinDaoImpl(adapter);
+                            List<?> squidLists = squidDao.getSquidListForParams(squidTypeId, squidFlowId, "",
+                                    SquidTypeEnum.classOfValue(squidTypeId));
+                            if (squidLists != null && squidLists.size() > 0) {
+                                for (int j = 0; j < squidLists.size(); j++) {
+                                    Squid squid = (Squid) squidLists.get(j);
+                                    List<SquidJoin> squidJoins = squidJoinDao.getSquidJoinListByJoinedId(squid.getId());
+                                    if (squidJoins != null && squidJoins.size() > 0) {
+                                        squidJoinList.addAll(squidJoins);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (squidJoinList != null && squidJoinList.size() > 0) {
+                        // 插入数据库
+                        HistoryData historyData = new HistoryData(repositoryId, squidFlowHistory.getId(), squidFlowId,
+                                commit_time, JsonUtil.toJSONString(squidJoinList), -1, 3, squidFlow.getSquidflow_type());
+                        //historyAdapter.insert2(historyData);
+                        adapter.insert2(historyData);
+                    }
+                } else if (i == 3) {
+                    logger.info("正在生成Column信息");
+                    // 推送column级别
+                    SquidFlowHistoryCallBackInfo historyCallBackInfo = new SquidFlowHistoryCallBackInfo(squidFlowId,
+                            squidFlow.getName(), MessageCode.PROCESS_COLUMN.value(), 7);
+                    Map<String, Object> returnMap = new HashMap<String, Object>();
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.COLUMN, "1038", "0001", TokenUtil.getKey(),
+                            TokenUtil.getToken(), out.getMessageCode().value());
+
+                    // 推送ReferenceColumn
+                    historyCallBackInfo.setCallBackStepInfo(MessageCode.PROCESS_REFERENCE_COLUMN.value());
+                    historyCallBackInfo.setStepCount(7);
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.COLUMNGROUP, "1038", "0001", TokenUtil.getKey(),
+                            TokenUtil.getToken(), out.getMessageCode().value());
+
+                    // 推送Transformation
+                    historyCallBackInfo.setCallBackStepInfo(MessageCode.PROCESS_TRANFORMATION.value());
+                    historyCallBackInfo.setStepCount(7);
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.TRANSFORMATION, "1038", "0001",
+                            TokenUtil.getKey(), TokenUtil.getToken(), out.getMessageCode().value());
+
+                    // 推送TransformationLink
+                    historyCallBackInfo.setCallBackStepInfo(MessageCode.PROCESS_TRANFORMATION_LINK.value());
+                    historyCallBackInfo.setStepCount(7);
+                    returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.TRANSFORMATIONLINK, "1038", "0001",
+                            TokenUtil.getKey(), TokenUtil.getToken(), out.getMessageCode().value());
+
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.ERR);
+            timer.cancel();
+            timer.purge();
+            try {
+                adapter.rollback();
+                //historyAdapter.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+
+        } finally {
+            timer.cancel();
+            timer.purge();
+            adapter.closeSession();
+            //historyAdapter.closeSession();
+        }
+
+    }
+
+    /**
+     * 获取当前squidFlow历史版本
+     *
+     * @param info
+     * @return
+     */
+    public String getSquidFlowList(String info) {
+        adapter.openSession();
+        //historyAdapter.openSession();
+        logger.info("获取squidFlow版本信息列表");
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        int repositoryId = Integer.parseInt(map.get("RepositoryId") + "");
+        int squidFlowId = Integer.parseInt(map.get("SquidflowId") + "");
+        int datashireFieldType = Integer.parseInt(map.get("DataShireFieldType") + "");
+        int userId = Integer.parseInt(map.get("UserId") + "");
+        ISquidFlowDao squidFlowDao = new SquidFlowDaoImpl(adapter);
+        List<SquidFlowHistory> squidFlowHistoryList = null;
+        try {
+            SquidFlow squidFlow = squidFlowDao.getSquidFlowById(squidFlowId, repositoryId);
+            //ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(historyAdapter);
+            ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(adapter);
+            squidFlowHistoryList = squidFlowHistoryDao.getSquidFlowHistoryBySquidFlow(repositoryId, squidFlowId, userId, squidFlow.getSquidflow_type(), datashireFieldType);
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                //historyAdapter.rollback();
+                adapter.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        } finally {
+            //historyAdapter.closeSession();
+            adapter.closeSession();
+        }
+        Map<String, Object> outputMap = new HashMap<>();
+        outputMap.put("SquidFlowHistoryList", squidFlowHistoryList);
+        return JsonUtil.infoNewMessagePacket(outputMap, DSObjectType.SQUID_FLOW, out);
+
+    }
+
+    /**
+     * respostory获取历史版本列表
+     *
+     * @param info
+     * @return
+     */
+    public String getRespositorySquidFlowList(String info) {
+        //historyAdapter.openSession();
+        adapter.openSession();
+        logger.info("获取squidFlow版本信息列表");
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        int repositoryId = Integer.parseInt(map.get("RepositoryId") + "");
+        int userId = Integer.parseInt(map.get("UserId") + "");
+        int datashireFieldType = Integer.parseInt(map.get("DataShireFieldType") + "");
+        //ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(historyAdapter);
+        ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(adapter);
+        List<SquidFlowHistory> squidFlowHistoryList = null;
+        try {
+            squidFlowHistoryList = squidFlowHistoryDao.getSquidFlowHistoryByRespository(repositoryId, userId, datashireFieldType);
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                //historyAdapter.rollback();
+                adapter.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        } finally {
+            //historyAdapter.closeSession();
+            adapter.closeSession();
+        }
+        Map<String, Object> outputMap = new HashMap<>();
+        outputMap.put("SquidFlowHistoryList", squidFlowHistoryList);
+        return JsonUtil.infoNewMessagePacket(outputMap, DSObjectType.SQUID_FLOW, out);
+    }
+
+    /**
+     * 获取projectId下历史版本信息
+     *
+     * @param info
+     * @return
+     */
+    public String getSquidHistoryByProjectId(String info) {
+        //historyAdapter.openSession();
+        adapter.openSession();
+        logger.info("获取squidFlow版本信息列表");
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        int repositoryId = Integer.parseInt(map.get("RepositoryId") + "");
+        int projectId = Integer.parseInt(map.get("ProjectId") + "");
+        int userId = Integer.parseInt(map.get("UserId") + "");
+        int dataShireFieldType = Integer.parseInt(map.get("DataShireFieldType") + "");
+        //ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(historyAdapter);
+        ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(adapter);
+        List<SquidFlowHistory> squidFlowHistoryList = new ArrayList<>();
+        try {
+            List<SquidFlowHistory> squidFlowHistorys = squidFlowHistoryDao.getSquidFlowHistoryByProjectId(projectId, userId, repositoryId, dataShireFieldType);
+            if (squidFlowHistorys != null) {
+                squidFlowHistoryList.addAll(squidFlowHistorys);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            //historyAdapter.closeSession();
+            adapter.closeSession();
+        }
+        Map<String, Object> outputMap = new HashMap<>();
+        outputMap.put("SquidFlowHistoryList", squidFlowHistoryList);
+        return JsonUtil.infoNewMessagePacket(outputMap, DSObjectType.SQUID_FLOW, out);
+    }
+
+    /**
+     * 删除历史版本
+     *
+     * @param info
+     * @return
+     */
+    public String deleteSquidFlowVersion(String info) {
+        //historyAdapter.openSession();
+        adapter.openSession();
+        logger.info("删除squidFlow历史版本");
+        ReturnValue out = new ReturnValue();
+        //ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(historyAdapter);
+        ISquidFlowHistoryDao squidFlowHistoryDao = new SquidFlowHistoryDaoImpl(adapter);
+        Map<String, Object> map = JsonUtil.toHashMap(info);
+        SquidFlowHistory squidFlowHistory = JsonUtil.toGsonBean(map.get("SquidflowHistory") + "", SquidFlowHistory.class);
+        try {
+            squidFlowHistoryDao.delSquidFlowHistory(squidFlowHistory.getId());
+        } catch (DatabaseException e) {
+            e.printStackTrace();
+            try {
+                //historyAdapter.rollback();
+                adapter.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+            out.setMessageCode(MessageCode.DELETE_SQUIDFLOWHISTORY_ERR);
+        } finally {
+            //historyAdapter.closeSession();
+            adapter.closeSession();
+        }
+        return JsonUtil.infoNewMessagePacket(new HashMap<>(), DSObjectType.SQUID_FLOW, out);
+    }
+
+    /**
+     * 通过历史版本创建squidflow
+     *
+     * @param info
+     */
+    public void createSquidFlowByVersion(String info) {
+        adapter.openSession();
+        //需要增加定时器
+        final Map<String, Object> returnMap = new HashMap<String, Object>();
+        returnMap.put("1", 1);
+        Timer timer = new Timer();
+        key = TokenUtil.getKey();
+        token = TokenUtil.getToken();
+        try {
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.SQUID, "1038", "0003", key,
+                            token, MessageCode.BATCH_CODE.value());
+
+                }
+            }, 25 * 1000, 25 * 1000);
+            //historyAdapter.openSession();
+            ReturnValue out = new ReturnValue();
+            //删除原来的squidflow
+            ISquidFlowDao squidFlowDao = new SquidFlowDaoImpl(adapter);
+            Map<String, Object> map = JsonUtil.toHashMap(info);
+            SquidFlowHistory squidFlowHistory = JsonUtil.toGsonBean(map.get("SquidflowHistory") + "", SquidFlowHistory.class);
+            int repositoryId = squidFlowHistory.getRepositoryId();
+            int SquidflowId = squidFlowHistory.getSquidFlowId();
+            SquidFlow squidFlow = squidFlowDao.getSquidFlowById(SquidflowId, repositoryId);
+            //删除原来的squidflow的信息
+            DataShirServiceplug repositoryPlug = new DataShirServiceplug(token);
+            repositoryPlug.deleteSquidFlow(adapter, SquidflowId, repositoryId, true, out, 1);
+            //删除squidflow下面的变量信息
+            String deleteVarSql = "delete from ds_variable where SQUID_FLOW_ID = " + SquidflowId;
+            adapter.execute(deleteVarSql);
+            //获取squidFlow版本信息
+            int ProjectId = squidFlowHistory.getProjectId();
+            //createSquidFlowByHistory(squidFlow,squidFlowHistory,repositoryId,ProjectId,out,adapter,historyAdapter);
+            createSquidFlowByHistory(squidFlow, squidFlowHistory, repositoryId, ProjectId, out, adapter/*,adapter*/);
+        } catch (Exception e) {
+            timer.cancel();
+            timer.purge();
+            e.printStackTrace();
+            if(e.getMessage().equals(MessageCode.ERR_SQUID_OVER_LIMIT.value()+"")){
+                Map<String,Object> map = new HashMap<>();
+                map.put("1",1);
+                PushMessagePacket.pushMap(map,DSObjectType.SQUID_FLOW,"1038","0003",TokenUtil.getKey(),TokenUtil.getToken(),MessageCode.ERR_SQUID_OVER_LIMIT.value());
+            }
+            try {
+                adapter.rollback();
+                //historyAdapter.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+
+        } finally {
+            timer.cancel();
+            timer.purge();
+            adapter.closeSession();
+            //historyAdapter.closeSession();
+        }
+    }
+
+    /**
+     * 通过历史版本创建新的squidFlow(需要定时器)
+     *
+     * @param info
+     */
+    public void createNewSquidFlowByVersion(String info) {
+        adapter.openSession();
+        //historyAdapter.openSession();
+        logger.info("正在获取SquidFlow版本");
+        Timer timer = new Timer();
+        final Map<String, Object> returnMap = new HashMap<String, Object>();
+        returnMap.put("1", 1);
+        key = TokenUtil.getKey();
+        token = TokenUtil.getToken();
+        try {
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    PushMessagePacket.pushMap(returnMap, DSObjectType.SQUID, "1038", "0004", key,
+                            token, MessageCode.BATCH_CODE.value());
+                }
+            }, 25 * 1000, 25 * 1000);
+            ReturnValue out = new ReturnValue();
+            ISquidFlowDao squidFlowDao = new SquidFlowDaoImpl(adapter);
+            Map<String, Object> map = JsonUtil.toHashMap(info);
+            SquidFlowHistory squidFlowHistory = JsonUtil.toGsonBean(map.get("SquidflowHistory") + "", SquidFlowHistory.class);
+            int respositoryId = Integer.parseInt(map.get("RepositoryId") + "");
+            String newSquidFlowName = map.get("SquidflowName") + "";
+            int projectId = Integer.parseInt(map.get("ProjectId") + "");
+            //创建squidflow
+            SquidFlow squidFlow = new SquidFlow();
+            squidFlow.setKey(TokenUtil.getKey());
+            squidFlow.setName(newSquidFlowName);
+            squidFlow.setCreation_date(new Timestamp(new Date().getTime()).toString());
+            squidFlow.setModification_date(new Timestamp(new Date().getTime()).toString());
+            squidFlow.setProject_id(projectId);
+            squidFlow.setSquidflow_type(squidFlowHistory.getSquidFlowType());
+            squidFlow.setDataShireFieldType(squidFlowHistory.getDataShireFieldType());
+            squidFlow.setId(squidFlowDao.insert2(squidFlow));
+            // 正在创建SquidFlow
+            //createSquidFlowByHistory(squidFlow,squidFlowHistory,respositoryId,projectId,out,adapter,historyAdapter);
+            createSquidFlowByHistory(squidFlow, squidFlowHistory, respositoryId, projectId, out, adapter/*,adapter*/);
+        } catch (Exception e) {
+            timer.cancel();
+            timer.purge();
+            e.printStackTrace();
+            if(e.getMessage().equals(MessageCode.ERR_SQUID_OVER_LIMIT.value()+"")){
+                Map<String,Object> map = new HashMap<>();
+                map.put("1",1);
+                PushMessagePacket.pushMap(map,DSObjectType.SQUID_FLOW,"1038","0004",TokenUtil.getKey(),TokenUtil.getToken(),MessageCode.ERR_SQUID_OVER_LIMIT.value());
+            }
+            try {
+                adapter.rollback();
+                //historyAdapter.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+
+        } finally {
+            timer.cancel();
+            timer.purge();
+            adapter.closeSession();
+            //historyAdapter.closeSession();
+        }
+    }
+
+    /**
+     * 通过历史记录创建squidflow
+     *
+     * @param squidFlow
+     * @param squidFlowHistory
+     * @param respositoryId
+     * @param projectId
+     * @param out
+     * @param adapter
+     * @throws Exception
+     */
+    public void createSquidFlowByHistory(SquidFlow squidFlow, SquidFlowHistory squidFlowHistory, int respositoryId, int projectId, ReturnValue out, IRelationalDataManager adapter/*,IRelationalDataManager historyAdapter*/) throws Exception {
+
+        int newSquidFlowId = squidFlow.getId();
+        Map<String, Object> returnMap = new HashMap<>();
+        SquidFlowHistoryCallBackInfo historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_SQUID.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.SQUID, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+        //正在创建squid(包括sourceColumn，变量)
+        Map<Integer, Integer> squidIdMap = CreateSquidFlowByHistoryService.createSquidFlowByHistoryInSquid(respositoryId, newSquidFlowId, projectId,
+                    squidFlowHistory, adapter);
+
+        // 正在创建squidLink
+        logger.info("正在获取squidlink版本信息");
+        historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_SQUID_LINK.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.SQUIDLINK, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+        CreateSquidFlowByHistoryService.createSquidLink(newSquidFlowId, squidIdMap, squidFlowHistory, adapter/*,historyAdapter*/);
+        //正在创建squidJoin
+        logger.info("正在获取squidJoin");
+        historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_JOIN.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.SQUIDJOIN, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+        CreateSquidFlowByHistoryService.createSquidJoin(squidFlowHistory, squidIdMap, adapter/*,historyAdapter*/);
+        //正在创建Column(包括column,referenceColumn,Transformation,TransformationLink)
+        logger.info("正在获取column,referenceColumn,Transformation,TransformationLink");
+        historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_COLUMN.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.COLUMN, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+        CreateSquidFlowByHistoryService.createColumn(squidFlowHistory, squidIdMap, adapter, newSquidFlowId);
+        //正在生成reference
+        historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_REFERENCE_COLUMN.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.COLUMNREFERENCE, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+        //正在生成Transformation
+        historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_TRANFORMATION.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.TRANSFORMATION, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+        //正在生成TransformationLink
+        historyCallBackInfo = new SquidFlowHistoryCallBackInfo(newSquidFlowId,
+                squidFlow.getName(), MessageCode.PROCESS_TRANFORMATION_LINK.value(), 7);
+        returnMap.put("SquidFlowHistoryCallBackInfo", historyCallBackInfo);
+        PushMessagePacket.pushMap(returnMap, DSObjectType.TRANSFORMATIONLINK, "1038", "0004", TokenUtil.getKey(),
+                TokenUtil.getToken(), out.getMessageCode().value());
+    }
+}

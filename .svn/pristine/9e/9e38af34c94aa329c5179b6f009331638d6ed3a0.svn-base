@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.SquidJoinDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.SquidJoin" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="KEY" property="key" jdbcType="VARCHAR" />
+    <result column="TARGET_SQUID_ID" property="target_squid_id" jdbcType="INTEGER" />
+    <result column="JOINED_SQUID_ID" property="joined_squid_id" jdbcType="INTEGER" />
+    <result column="PRIOR_JOIN_ID" property="prior_join_id" jdbcType="INTEGER" />
+    <result column="JOIN_TYPE_ID" property="joinType" jdbcType="INTEGER" />
+    <result column="JOIN_CONDITION" property="join_Condition" jdbcType="VARCHAR" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, KEY, TARGET_SQUID_ID, JOINED_SQUID_ID, PRIOR_JOIN_ID, JOIN_TYPE_ID, JOIN_CONDITION
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_join
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_join
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.SquidJoin" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_join (KEY, TARGET_SQUID_ID, JOINED_SQUID_ID, 
+      PRIOR_JOIN_ID, JOIN_TYPE_ID, JOIN_CONDITION
+      )
+    values (#{key,jdbcType=VARCHAR}, #{target_squid_id,jdbcType=INTEGER}, #{joined_squid_id,jdbcType=INTEGER}, 
+      #{prior_join_id,jdbcType=INTEGER}, #{joinType,jdbcType=INTEGER}, #{join_Condition,jdbcType=VARCHAR}
+      )
+  </insert>
+  <insert id="insertSelective" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.SquidJoin"  >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_join
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="key != null" >
+        `key`,
+      </if>
+      <if test="target_squid_id != null" >
+        TARGET_SQUID_ID,
+      </if>
+      <if test="joined_squid_id != null" >
+        JOINED_SQUID_ID,
+      </if>
+      <if test="prior_join_id != null" >
+        PRIOR_JOIN_ID,
+      </if>
+      <if test="joinType != null" >
+        JOIN_TYPE_ID,
+      </if>
+      <if test="join_Condition != null" >
+        JOIN_CONDITION,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="key != null" >
+        #{key,jdbcType=VARCHAR},
+      </if>
+      <if test="target_squid_id != null" >
+        #{target_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="joined_squid_id != null" >
+        #{joined_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="prior_join_id != null" >
+        #{prior_join_id,jdbcType=INTEGER},
+      </if>
+      <if test="joinType != null" >
+        #{joinType,jdbcType=INTEGER},
+      </if>
+      <if test="join_Condition != null" >
+        #{join_Condition,jdbcType=VARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.SquidJoin" >
+    update ds_join
+    <set >
+      <if test="key != null" >
+        KEY = #{key,jdbcType=VARCHAR},
+      </if>
+      <if test="target_squid_id != null" >
+        TARGET_SQUID_ID = #{target_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="joined_squid_id != null" >
+        JOINED_SQUID_ID = #{joined_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="prior_join_id != null" >
+        PRIOR_JOIN_ID = #{prior_join_id,jdbcType=INTEGER},
+      </if>
+      <if test="joinType != null" >
+        JOIN_TYPE_ID = #{joinType,jdbcType=INTEGER},
+      </if>
+      <if test="join_Condition != null" >
+        JOIN_CONDITION = #{join_Condition,jdbcType=VARCHAR},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.SquidJoin" >
+    update ds_join
+    set KEY = #{key,jdbcType=VARCHAR},
+      TARGET_SQUID_ID = #{target_squid_id,jdbcType=INTEGER},
+      JOINED_SQUID_ID = #{joined_squid_id,jdbcType=INTEGER},
+      PRIOR_JOIN_ID = #{prior_join_id,jdbcType=INTEGER},
+      JOIN_TYPE_ID = #{joinType,jdbcType=INTEGER},
+      JOIN_CONDITION = #{join_Condition,jdbcType=VARCHAR}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+
+  <select id="selectJoinByFromsquidAndTosquid" parameterType="java.util.Map" resultMap="BaseResultMap">
+    select * from ds_join j
+   where j.TARGET_SQUID_ID =#{target_squid_id}
+    and j.JOINED_SQUID_ID =#{joined_squid_id}
+    <!--<foreach collection="fromSquids" item="fromid" index="index" open="(" separator="," close=")">
+      #{fromid}
+    </foreach>
+    <foreach collection="toSquids" item="toid" index="index" open="(" separator="," close=")">
+      #{toid}
+    </foreach>-->
+  </select>
+
+  <delete id="deleteSquidJoinByIds" parameterType="java.util.List">
+    delete from ds_join where id in
+    <foreach collection="list" index="index" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+<select id="selectJoinsByjoinIdAndJoinedId" parameterType="java.util.Map" resultMap="BaseResultMap">
+  select * from ds_join j
+  where j.joined_squid_id =#{joinedId}
+  and j.id not in
+  <foreach collection="ids" item="id" index="index" open="(" separator="," close=")">
+    #{id}
+  </foreach>
+  order by prior_join_id,id
+</select>
+<update id="updateTypeAndPrior" parameterType="java.lang.Integer">
+  update ds_join j set j.prior_join_id=1,join_type_id=0
+  where j.id =#{id}
+</update>
+
+
+
+
+  <select id="selectJoinByFromsqusAndTosqus" parameterType="java.util.Map" resultMap="BaseResultMap">
+    select * from ds_join j
+    where j.TARGET_SQUID_ID in
+    <foreach collection="fromSquids" item="fromid" index="index" open="(" separator="," close=")">
+    #{fromid}
+    </foreach>
+     and j.JOINED_SQUID_ID in
+    <foreach collection="toSquids" item="toid" index="index" open="(" separator="," close=")">
+      #{toid}
+    </foreach>
+  </select>
+
+
+  <select id="selectJoinBySquid" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select * from ds_join where JOINED_SQUID_ID=#{joined_squid_id}
+  </select>
+
+  <select id="selectJoinBysquidLinkIds" parameterType="java.util.List" resultMap="BaseResultMap">
+    select s.* from ds_join s
+    inner join ds_squid_link k
+    on k.FROM_SQUID_ID=s.TARGET_SQUID_ID
+    and k.TO_SQUID_ID=s.JOINED_SQUID_ID
+    where k .id in
+    <foreach collection="list" item="linkId" index="index" open="(" separator="," close=")">
+      #{linkId}
+    </foreach>
+  </select>
+
+
+  <select id="selectJoinByLinkIdAndGroupSquid" parameterType="java.util.List" resultType="java.util.Map">
+    select group_concat(s.id) as joinIds,group_concat(s.join_type_id) as joinTypes,s.joined_squid_id as squid  from ds_join s
+    inner join ds_squid_link k
+    on k.FROM_SQUID_ID=s.TARGET_SQUID_ID
+    and k.TO_SQUID_ID=s.JOINED_SQUID_ID
+    where k.id in
+    <foreach collection="list" item="linkId" index="index" open="(" separator="," close=")">
+      #{linkId}
+    </foreach>
+    group by k.TO_SQUID_ID
+  </select>
+
+  <select id="selectJoinByToSquid" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    SELECT * from ds_join WHERE JOINED_SQUID_ID=#{joined_squid_id}
+  </select>
+
+
+</mapper>

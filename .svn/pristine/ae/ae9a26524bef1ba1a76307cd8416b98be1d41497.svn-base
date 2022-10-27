@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.ProjectDao">
+    <resultMap type="com.eurlanda.datashire.server.model.Project" id="objMap">
+        <id property="id" column="ID" />
+        <result property="key" column="KEY" />
+        <result property="name" column="NAME" />
+        <result property="repository_id" column="REPOSITORY_ID" />
+        <result property="description" column="DESCRIPTION" />
+        <result property="modification_date" column="MODIFICATION_DATE" jdbcType="TIMESTAMP" javaType="java.lang.String"/>
+        <result property="creator" column="CREATOR"/>
+    </resultMap>
+    <select id="getProjectById" resultMap="objMap" parameterType="java.lang.Integer">
+        select * from ds_project where id=#{id}
+    </select>
+</mapper>

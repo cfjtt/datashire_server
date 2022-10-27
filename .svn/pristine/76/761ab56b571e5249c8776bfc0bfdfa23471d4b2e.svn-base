@@ -1,0 +1,149 @@
+package com.eurlanda.datashire.server.model;
+
+import com.eurlanda.datashire.entity.DSBaseModel;
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.entity.SquidLink;
+
+import java.util.List;
+
+public class SquidFlow extends DSBaseModel {
+
+	//操作者
+	private String creator;
+
+	//备注
+	private String description;
+
+	//修改日期
+	private String modification_date;
+
+	//所属Project ID
+	private int project_id;
+
+	//编译状态
+	private int compilation_status;
+
+	//SquidFlow 类型
+    private int squidflow_type;
+
+    //数猎场类型
+	private int dataShireFieldType;
+
+	private boolean isPush;
+
+	//所属project 名称
+	private String project_name;
+
+	//SquidLink 列表
+	private List<SquidLink> squidLinkList;
+
+	//Squid列表
+	private List<Squid> squidList;
+
+	//SquidFlow 状态
+    private int squid_flow_status;
+	public SquidFlow(){
+
+	}
+
+	public String getProject_name() {
+		return project_name;
+	}
+
+	public void setProject_name(String project_name) {
+		this.project_name = project_name;
+	}
+
+	public String getCreator() {
+		return creator;
+	}
+
+	public void setCreator(String creator) {
+		this.creator = creator;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	public String getModification_date() {
+		return modification_date;
+	}
+
+	public void setModification_date(String modificationDate) {
+		modification_date = modificationDate;
+	}
+
+	public int getProject_id() {
+		return project_id;
+	}
+
+	public void setProject_id(int projectId) {
+		project_id = projectId;
+	}
+
+	public List<SquidLink> getSquidLinkList() {
+		return squidLinkList;
+	}
+
+	public void setSquidLinkList(List<SquidLink> squidLinkList) {
+		this.squidLinkList = squidLinkList;
+	}
+
+	public List<Squid> getSquidList() {
+		return squidList;
+	}
+
+	public void setSquidList(List<Squid> squidList) {
+		this.squidList = squidList;
+	}
+
+	/**
+	 * @return isPush
+	 */
+	public boolean isPush() {
+		return isPush;
+	}
+
+	/**
+	 * @param isPush
+	 */
+	public void setPush(boolean isPush) {
+		this.isPush = isPush;
+	}
+
+	public int getSquid_flow_status() {
+		return squid_flow_status;
+	}
+
+	public void setSquid_flow_status(int squid_flow_status) {
+		this.squid_flow_status = squid_flow_status;
+	}
+
+    public int getCompilation_status() {
+        return compilation_status;
+    }
+
+    public void setCompilation_status(int compilation_status) {
+        this.compilation_status = compilation_status;
+    }
+
+    public int getSquidflow_type() {
+        return squidflow_type;
+    }
+
+    public void setSquidflow_type(int squidflow_type) {
+        this.squidflow_type = squidflow_type;
+    }
+
+	public int getDataShireFieldType() {
+		return dataShireFieldType;
+	}
+	public void setDataShireFieldType(int dataShireFieldType) {
+		this.dataShireFieldType = dataShireFieldType;
+	}
+}

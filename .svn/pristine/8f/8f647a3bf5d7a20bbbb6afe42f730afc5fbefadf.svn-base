@@ -1,0 +1,82 @@
+package com.eurlanda.datashire.server.model;
+
+import com.eurlanda.datashire.server.model.Base.BaseObject;
+
+import java.util.List;
+
+/**
+ * Created by zhudebin on 2017/6/8.
+ */
+public class Repository extends BaseObject {
+
+    // 描述
+    private String description;
+
+    // type
+    private int repository_type;
+
+    // 状态ID
+    private int status_id;
+
+    // 创建时间
+    private String creation_date;
+
+    //套餐id
+    private Integer packageId;
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public int getRepository_type() {
+        return repository_type;
+    }
+
+    public void setRepository_type(int repository_type) {
+        this.repository_type = repository_type;
+    }
+
+    public int getStatus_id() {
+        return status_id;
+    }
+
+    public void setStatus_id(int status_id) {
+        this.status_id = status_id;
+    }
+
+    public String getCreation_date() {
+        return creation_date;
+    }
+
+    public void setCreation_date(String creation_date) {
+        this.creation_date = creation_date;
+    }
+
+    public Integer getPackageId() {
+        return packageId;
+    }
+
+    public void setPackageId(Integer packageId) {
+        this.packageId = packageId;
+    }
+    private List<Project> projectList;
+
+    public List<Project> getProjectList() {
+        return projectList;
+    }
+
+    public void setProjectList(List<Project> projectList) {
+        this.projectList = projectList;
+    }
+}

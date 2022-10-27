@@ -1,0 +1,15 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.server.dao.CloudOperateRecordDao;
+import com.eurlanda.datashire.server.model.CloudOperateRecord;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CloudOperateRecordService {
+    @Autowired
+    private CloudOperateRecordDao cloudOperateRecordDao;
+    public void saveCloudOperateRecord(CloudOperateRecord record) {
+        cloudOperateRecordDao.insert(record);
+    }
+}

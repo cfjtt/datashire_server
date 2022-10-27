@@ -1,0 +1,14 @@
+package com.eurlanda.datashire.server.dao;
+
+
+import com.eurlanda.datashire.server.model.Project;
+import org.springframework.stereotype.Repository;
+
+/**
+ * Created by hanrui on 2018/6/19.
+ */
+@Repository
+public interface ProjectDao {
+    Project getProjectById(int id);
+
+}

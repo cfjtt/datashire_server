@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.TransformationDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.Transformation" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+    <result column="TRANSFORMATION_TYPE_ID" property="transtype" jdbcType="INTEGER" />
+    <result column="LOCATION_X" property="location_x" jdbcType="INTEGER" />
+    <result column="LOCATION_Y" property="location_y" jdbcType="INTEGER" />
+    <result column="COLUMN_ID" property="column_id" jdbcType="INTEGER" />
+    <result column="DESCRIPTION" property="description" jdbcType="VARCHAR" />
+    <result column="NAME" property="name" jdbcType="VARCHAR" />
+    <result column="OUTPUT_DATA_TYPE" property="output_data_type" jdbcType="INTEGER" />
+    <result column="CONSTANT_VALUE" property="constant_value" jdbcType="VARCHAR" />
+    <result column="OUTPUT_NUMBER" property="output_number" jdbcType="INTEGER" />
+    <result column="ALGORITHM" property="algorithm" jdbcType="INTEGER" />
+    <result column="TRAN_CONDITION" property="tran_condition" jdbcType="VARCHAR" />
+    <result column="DIFFERENCE_TYPE" property="difference_type" jdbcType="INTEGER" />
+    <result column="IS_USING_DICTIONARY" property="is_using_dictionary" jdbcType="INTEGER" />
+    <result column="DICTIONARY_SQUID_ID" property="dictionary_squid_id" jdbcType="INTEGER" />
+    <result column="BUCKET_COUNT" property="bucket_count" jdbcType="INTEGER" />
+    <result column="MODEL_SQUID_ID" property="model_squid_id" jdbcType="INTEGER" />
+    <result column="MODEL_VERSION" property="model_version" jdbcType="INTEGER" />
+    <result column="OPERATOR" property="operator" jdbcType="INTEGER" />
+    <result column="DATE_FORMAT" property="date_format" jdbcType="VARCHAR" />
+    <result column="INC_UNIT" property="inc_unit" jdbcType="INTEGER" />
+    <result column="SPLIT_TYPE" property="split_type" jdbcType="INTEGER" />
+    <result column="encoding" property="encoding" jdbcType="INTEGER" />
+    <result column="SQUID_TYPE_ID" property="squidModelType" jdbcType="INTEGER"/>
+    <collection property="inputs"  javaType="java.util.ArrayList"
+                ofType="com.eurlanda.datashire.server.model.TransformationInputs">
+      <result column="tran_input_id" property="id" />
+      <result column="TRANSFORMATION_ID" property="transformationId" />
+      <result column="SOURCE_TRANSFORM_ID" property="source_transform_id" />
+
+
+      <result column="RELATIVE_ORDER" property="relative_order" jdbcType="INTEGER" />
+      <result column="SOURCE_TRAN_OUTPUT_INDEX" property="source_tran_output_index" jdbcType="INTEGER" />
+      <result column="IN_CONDITION" property="in_condition" jdbcType="VARCHAR" />
+      <result column="INPUT_VALUE" property="input_value" jdbcType="VARCHAR" />
+      <result column="INPUT_DESCRIPTION" property="description" jdbcType="VARCHAR" />
+      <result column="INPUT_DATA_TYPE" property="input_Data_Type" jdbcType="INTEGER" />
+
+    </collection>
+
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, SQUID_ID, TRANSFORMATION_TYPE_ID, LOCATION_X, LOCATION_Y, COLUMN_ID, DESCRIPTION,
+    NAME, OUTPUT_DATA_TYPE, CONSTANT_VALUE, OUTPUT_NUMBER, ALGORITHM, TRAN_CONDITION, 
+    DIFFERENCE_TYPE, IS_USING_DICTIONARY, DICTIONARY_SQUID_ID, BUCKET_COUNT, MODEL_SQUID_ID, 
+    MODEL_VERSION, OPERATOR, DATE_FORMAT, INC_UNIT, SPLIT_TYPE, encoding
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_transformation
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_transformation
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List" >
+    insert into ds_transformation (SQUID_ID, TRANSFORMATION_TYPE_ID, 
+      LOCATION_X, LOCATION_Y, COLUMN_ID, 
+      DESCRIPTION, NAME, OUTPUT_DATA_TYPE, 
+      CONSTANT_VALUE, OUTPUT_NUMBER, ALGORITHM, 
+      TRAN_CONDITION, DIFFERENCE_TYPE, IS_USING_DICTIONARY, 
+      DICTIONARY_SQUID_ID, BUCKET_COUNT, MODEL_SQUID_ID, 
+      MODEL_VERSION, OPERATOR, DATE_FORMAT, 
+      INC_UNIT, SPLIT_TYPE, encoding
+      )
+    VALUES
+    <foreach collection="list" item="trans" index="index" separator="," >
+      (#{trans.squid_id,jdbcType=INTEGER}, #{trans.transtype,jdbcType=INTEGER},
+            #{trans.location_x,jdbcType=INTEGER}, #{trans.location_y,jdbcType=INTEGER}, #{trans.column_id,jdbcType=INTEGER},
+            #{trans.description,jdbcType=VARCHAR}, #{trans.name,jdbcType=VARCHAR}, #{trans.output_data_type,jdbcType=INTEGER},
+            #{trans.constant_value,jdbcType=VARCHAR}, #{trans.output_number,jdbcType=INTEGER}, #{trans.algorithm,jdbcType=INTEGER},
+            #{trans.tran_condition,jdbcType=VARCHAR}, #{trans.difference_type,jdbcType=INTEGER}, #{trans.is_using_dictionary,jdbcType=INTEGER},
+            #{trans.dictionary_squid_id,jdbcType=INTEGER}, #{trans.bucket_count,jdbcType=INTEGER}, #{trans.model_squid_id,jdbcType=INTEGER},
+            #{trans.model_version,jdbcType=INTEGER}, #{trans.operator,jdbcType=INTEGER}, #{trans.date_format,jdbcType=VARCHAR},
+            #{trans.inc_unit,jdbcType=INTEGER}, #{trans.split_type,jdbcType=INTEGER}, #{trans.encoding,jdbcType=INTEGER}
+            )
+    </foreach>
+  </insert>
+  <insert id="insertSelective" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.Transformation" >
+    insert into ds_transformation
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="squid_id != null" >
+        SQUID_ID,
+      </if>
+      <if test="transtype != null" >
+        TRANSFORMATION_TYPE_ID,
+      </if>
+      <if test="location_x != null" >
+        LOCATION_X,
+      </if>
+      <if test="location_y != null" >
+        LOCATION_Y,
+      </if>
+      <if test="column_id != null" >
+        COLUMN_ID,
+      </if>
+      <if test="description != null" >
+        DESCRIPTION,
+      </if>
+      <if test="name != null" >
+        NAME,
+      </if>
+      <if test="output_data_type != null" >
+        OUTPUT_DATA_TYPE,
+      </if>
+      <if test="constant_value != null" >
+        CONSTANT_VALUE,
+      </if>
+      <if test="output_number != null" >
+        OUTPUT_NUMBER,
+      </if>
+      <if test="algorithm != null" >
+        ALGORITHM,
+      </if>
+      <if test="tran_condition != null" >
+        TRAN_CONDITION,
+      </if>
+      <if test="difference_type != null" >
+        DIFFERENCE_TYPE,
+      </if>
+      <if test="is_using_dictionary != null" >
+        IS_USING_DICTIONARY,
+      </if>
+      <if test="dictionary_squid_id != null" >
+        DICTIONARY_SQUID_ID,
+      </if>
+      <if test="bucket_count != null" >
+        BUCKET_COUNT,
+      </if>
+      <if test="model_squid_id != null" >
+        MODEL_SQUID_ID,
+      </if>
+      <if test="model_version != null" >
+        MODEL_VERSION,
+      </if>
+      <if test="operator != null" >
+        OPERATOR,
+      </if>
+      <if test="date_format != null" >
+        DATE_FORMAT,
+      </if>
+      <if test="inc_unit != null" >
+        INC_UNIT,
+      </if>
+      <if test="split_type != null" >
+        SPLIT_TYPE,
+      </if>
+      <if test="encoding != null" >
+        encoding,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="squid_id != null" >
+        #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="transtype != null" >
+        #{transtype,jdbcType=INTEGER},
+      </if>
+      <if test="location_x != null" >
+        #{location_x,jdbcType=INTEGER},
+      </if>
+      <if test="location_y != null" >
+        #{location_y,jdbcType=INTEGER},
+      </if>
+      <if test="column_id != null" >
+        #{column_id,jdbcType=INTEGER},
+      </if>
+      <if test="description != null" >
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="name != null" >
+        #{name,jdbcType=VARCHAR},
+      </if>
+      <if test="output_data_type != null" >
+        #{output_data_type,jdbcType=INTEGER},
+      </if>
+      <if test="constant_value != null" >
+        #{constant_value,jdbcType=VARCHAR},
+      </if>
+      <if test="output_number != null" >
+        #{output_number,jdbcType=INTEGER},
+      </if>
+      <if test="algorithm != null" >
+        #{algorithm,jdbcType=INTEGER},
+      </if>
+      <if test="tran_condition != null" >
+        #{tran_condition,jdbcType=VARCHAR},
+      </if>
+      <if test="difference_type != null" >
+        #{difference_type,jdbcType=INTEGER},
+      </if>
+      <if test="is_using_dictionary != null" >
+        #{is_using_dictionary,jdbcType=INTEGER},
+      </if>
+      <if test="dictionary_squid_id != null" >
+        #{dictionary_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="bucket_count != null" >
+        #{bucket_count,jdbcType=INTEGER},
+      </if>
+      <if test="model_squid_id != null" >
+        #{model_squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="model_version != null" >
+        #{model_version,jdbcType=INTEGER},
+      </if>
+      <if test="operator != null" >
+        #{operator,jdbcType=INTEGER},
+      </if>
+      <if test="date_format != null" >
+        #{date_format,jdbcType=VARCHAR},
+      </if>
+      <if test="inc_unit != null" >
+        #{inc_unit,jdbcType=INTEGER},
+      </if>
+      <if test="split_type != null" >
+        #{split_type,jdbcType=INTEGER},
+      </if>
+      <if test="encoding != null" >
+        #{encoding,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.Transformation" >
+  update ds_transformation
+  <set >
+    <if test="squid_id != null" >
+      SQUID_ID = #{squid_id,jdbcType=INTEGER},
+    </if>
+    <if test="transtype != null" >
+      TRANSFORMATION_TYPE_ID = #{transtype,jdbcType=INTEGER},
+    </if>
+    <if test="location_x != null" >
+      LOCATION_X = #{location_x,jdbcType=INTEGER},
+    </if>
+    <if test="location_y != null" >
+      LOCATION_Y = #{location_y,jdbcType=INTEGER},
+    </if>
+    <if test="column_id != null" >
+      COLUMN_ID = #{column_id,jdbcType=INTEGER},
+    </if>
+    <if test="description != null" >
+      DESCRIPTION = #{description,jdbcType=VARCHAR},
+    </if>
+    <if test="name != null" >
+      NAME = #{name,jdbcType=VARCHAR},
+    </if>
+    <if test="output_data_type != null" >
+      OUTPUT_DATA_TYPE = #{output_data_type,jdbcType=INTEGER},
+    </if>
+    <if test="constant_value != null" >
+      CONSTANT_VALUE = #{constant_value,jdbcType=VARCHAR},
+    </if>
+    <if test="output_number != null" >
+      OUTPUT_NUMBER = #{output_number,jdbcType=INTEGER},
+    </if>
+    <if test="algorithm != null" >
+      ALGORITHM = #{algorithm,jdbcType=INTEGER},
+    </if>
+    <if test="tran_condition != null" >
+      TRAN_CONDITION = #{tran_condition,jdbcType=VARCHAR},
+    </if>
+    <if test="difference_type != null" >
+      DIFFERENCE_TYPE = #{difference_type,jdbcType=INTEGER},
+    </if>
+    <if test="is_using_dictionary != null" >
+      IS_USING_DICTIONARY = #{is_using_dictionary,jdbcType=INTEGER},
+    </if>
+    <if test="dictionary_squid_id != null" >
+      DICTIONARY_SQUID_ID = #{dictionary_squid_id,jdbcType=INTEGER},
+    </if>
+    <if test="bucket_count != null" >
+      BUCKET_COUNT = #{bucket_count,jdbcType=INTEGER},
+    </if>
+    <if test="model_squid_id != null" >
+      MODEL_SQUID_ID = #{model_squid_id,jdbcType=INTEGER},
+    </if>
+    <if test="model_version != null" >
+      MODEL_VERSION = #{model_version,jdbcType=INTEGER},
+    </if>
+    <if test="operator != null" >
+      OPERATOR = #{operator,jdbcType=INTEGER},
+    </if>
+    <if test="date_format != null" >
+      DATE_FORMAT = #{date_format,jdbcType=VARCHAR},
+    </if>
+    <if test="inc_unit != null" >
+      INC_UNIT = #{inc_unit,jdbcType=INTEGER},
+    </if>
+    <if test="split_type != null" >
+      SPLIT_TYPE = #{split_type,jdbcType=INTEGER},
+    </if>
+    <if test="encoding != null" >
+      encoding = #{encoding,jdbcType=INTEGER},
+    </if>
+  </set>
+  where ID = #{id,jdbcType=INTEGER}
+</update>
+
+  <update id="updateBySelectiveList" parameterType="com.eurlanda.datashire.server.model.Transformation" >
+    <foreach collection="list" separator=";" item="trans">
+      update ds_transformation
+      <set >
+        <if test="trans.squid_id != null" >
+          SQUID_ID = #{trans.squid_id,jdbcType=INTEGER},
+        </if>
+        <if test="trans.transtype != null" >
+          TRANSFORMATION_TYPE_ID = #{trans.transtype,jdbcType=INTEGER},
+        </if>
+        <if test="trans.location_x != null" >
+          LOCATION_X = #{trans.location_x,jdbcType=INTEGER},
+        </if>
+        <if test="trans.location_y != null" >
+          LOCATION_Y = #{trans.location_y,jdbcType=INTEGER},
+        </if>
+        <if test="trans.column_id != null" >
+          COLUMN_ID = #{trans.column_id,jdbcType=INTEGER},
+        </if>
+        <if test="trans.description != null" >
+          DESCRIPTION = #{trans.description,jdbcType=VARCHAR},
+        </if>
+        <if test="trans.name != null" >
+          NAME = #{trans.name,jdbcType=VARCHAR},
+        </if>
+        <if test="trans.output_data_type != null" >
+          OUTPUT_DATA_TYPE = #{trans.output_data_type,jdbcType=INTEGER},
+        </if>
+        <if test="trans.constant_value != null" >
+          CONSTANT_VALUE = #{trans.constant_value,jdbcType=VARCHAR},
+        </if>
+        <if test="trans.output_number != null" >
+          OUTPUT_NUMBER = #{trans.output_number,jdbcType=INTEGER},
+        </if>
+        <if test="trans.algorithm != null" >
+          ALGORITHM = #{trans.algorithm,jdbcType=INTEGER},
+        </if>
+        <if test="trans.tran_condition != null" >
+          TRAN_CONDITION = #{trans.tran_condition,jdbcType=VARCHAR},
+        </if>
+        <if test="trans.difference_type != null" >
+          DIFFERENCE_TYPE = #{trans.difference_type,jdbcType=INTEGER},
+        </if>
+        <if test="trans.is_using_dictionary != null" >
+          IS_USING_DICTIONARY = #{trans.is_using_dictionary,jdbcType=INTEGER},
+        </if>
+        <if test="trans.dictionary_squid_id != null" >
+          DICTIONARY_SQUID_ID = #{trans.dictionary_squid_id,jdbcType=INTEGER},
+        </if>
+        <if test="trans.bucket_count != null" >
+          BUCKET_COUNT = #{trans.bucket_count,jdbcType=INTEGER},
+        </if>
+        <if test="trans.model_squid_id != null" >
+          MODEL_SQUID_ID = #{trans.model_squid_id,jdbcType=INTEGER},
+        </if>
+        <if test="trans.model_version != null" >
+          MODEL_VERSION = #{trans.model_version,jdbcType=INTEGER},
+        </if>
+        <if test="trans.operator != null" >
+          OPERATOR = #{trans.operator,jdbcType=INTEGER},
+        </if>
+        <if test="trans.date_format != null" >
+          DATE_FORMAT = #{trans.date_format,jdbcType=VARCHAR},
+        </if>
+        <if test="trans.inc_unit != null" >
+          INC_UNIT = #{trans.inc_unit,jdbcType=INTEGER},
+        </if>
+        <if test="trans.split_type != null" >
+          SPLIT_TYPE = #{trans.split_type,jdbcType=INTEGER},
+        </if>
+        <if test="trans.encoding != null" >
+          encoding = #{trans.encoding,jdbcType=INTEGER},
+        </if>
+      </set>
+      where ID = #{trans.id,jdbcType=INTEGER}
+    </foreach>
+  </update>
+
+
+
+
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.Transformation" >
+    update ds_transformation
+    set SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      TRANSFORMATION_TYPE_ID = #{transtype,jdbcType=INTEGER},
+      LOCATION_X = #{location_x,jdbcType=INTEGER},
+      LOCATION_Y = #{location_y,jdbcType=INTEGER},
+      COLUMN_ID = #{column_id,jdbcType=INTEGER},
+      DESCRIPTION = #{description,jdbcType=VARCHAR},
+      NAME = #{name,jdbcType=VARCHAR},
+      OUTPUT_DATA_TYPE = #{output_data_type,jdbcType=INTEGER},
+      CONSTANT_VALUE = #{constant_value,jdbcType=VARCHAR},
+      OUTPUT_NUMBER = #{output_number,jdbcType=INTEGER},
+      ALGORITHM = #{algorithm,jdbcType=INTEGER},
+      TRAN_CONDITION = #{tran_condition,jdbcType=VARCHAR},
+      DIFFERENCE_TYPE = #{difference_type,jdbcType=INTEGER},
+      IS_USING_DICTIONARY = #{is_using_dictionary,jdbcType=INTEGER},
+      DICTIONARY_SQUID_ID = #{dictionary_squid_id,jdbcType=INTEGER},
+      BUCKET_COUNT = #{bucket_count,jdbcType=INTEGER},
+      MODEL_SQUID_ID = #{model_squid_id,jdbcType=INTEGER},
+      MODEL_VERSION = #{model_version,jdbcType=INTEGER},
+      OPERATOR = #{operator,jdbcType=INTEGER},
+      DATE_FORMAT = #{date_format,jdbcType=VARCHAR},
+      INC_UNIT = #{inc_unit,jdbcType=INTEGER},
+      SPLIT_TYPE = #{split_type,jdbcType=INTEGER},
+      encoding = #{encoding,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <delete id="deleteTransformations" parameterType="java.util.List" >
+    delete from ds_transformation where ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+  <delete id="deleteVirtualTransformations" parameterType="java.util.List" >
+    delete from ds_transformation where column_id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+
+  <select id="selectTransformationByLinkIds" parameterType="java.util.List" resultType="com.eurlanda.datashire.server.model.Transformation">
+    select t.* from ds_transformation t inner join ds_transformation_link k
+    on t.id=k.to_transformation_id where k.id IN
+    <foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+  <select id="selectTransAndInputsByLinkIds" parameterType="java.util.List" resultMap="BaseResultMap">
+    SELECT DISTINCT t.*,
+    i.ID as tran_input_id,
+    i.TRANSFORMATION_ID,
+    i.RELATIVE_ORDER,
+    i.SOURCE_TRAN_OUTPUT_INDEX,
+    i.IN_CONDITION,
+    i.INPUT_VALUE,
+    i.DESCRIPTION as INPUT_DESCRIPTION,
+    i.INPUT_DATA_TYPE,
+    i.SOURCE_TRANSFORM_ID FROM ds_transformation t
+    LEFT JOIN ds_tran_inputs i
+      ON t.id = i.transformation_id
+    LEFT JOIN ds_transformation_link k
+      ON t.id = k.to_transformation_id
+  WHERE k.id in
+  <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+    #{item}
+  </foreach>
+  </select>
+
+  <update id="updateTransOutDataType" parameterType="java.util.Map">
+    update ds_transformation set output_data_type = #{type} where id IN
+    <foreach collection="idsList" item="id" separator="," open="(" close=")">
+      #{id}
+    </foreach>
+  </update>
+
+
+  <select id="selectTransAndInputsByIds" parameterType="java.util.List" resultMap="BaseResultMap">
+    SELECT DISTINCT t.*,
+    i.ID as tran_input_id,
+    i.TRANSFORMATION_ID,
+     i.SOURCE_TRANSFORM_ID FROM ds_transformation t
+    LEFT JOIN ds_tran_inputs i
+      ON t.id = i.transformation_id
+  where t.id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+
+
+  <select id="selectFromTransIdsByLinkIds" parameterType="java.util.List" resultType="java.lang.Integer">
+    select t.id from ds_transformation_link k
+          inner join ds_transformation t
+          on t.ID=k.FROM_TRANSFORMATION_ID
+      where k.id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+<select id="selectByColumnIdAndSquId" parameterType="java.util.Map" resultType="java.lang.Integer">
+         select t.id from ds_transformation t
+           where t.SQUID_ID =#{squidList}
+            and t.COLUMN_ID in
+            <foreach collection="columnList" item="columnid" open="(" separator="," close=")">
+              #{columnid}
+            </foreach>
+  <!-- <foreach collectisquidModelBaseListList" itsquidModelBasequid" open="(" separator="," close=")">
+            squidModelBasequid}
+            </foreach>-->
+</select>
+
+  <select id="findTransformationType" parameterType="java.util.Map" resultType="java.util.Map">
+    select dtid.input_data_type, dtid.description, dtid.input_order from ds_tran_input_definition dtid
+    inner join ds_transformation_type dtt on dtid.code=dtt.code
+    inner join ds_transformation dt on dtt.id=dt.transformation_type_id
+    where dt.id=#{transformationId}
+    <if test="source_trans_id>0" >
+      and dtid.input_order not in (-1)
+    </if>
+    <if test="source_trans_id==-1" >
+      and dtid.input_order not in (-1,9999)
+    </if>
+    order by dtid.input_order
+  </select>
+  <delete id="deleteTransformationBySquidId" parameterType="java.util.List" >
+    delete from ds_transformation where SQUID_ID in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </delete>
+
+  <select id="getTransParamsByTransId" resultType="java.util.Map">
+    select max(dtid.input_order) as CNT,max(dtid.input_data_type) as INPUT_DATA_TYPE from ds_tran_input_definition dtid
+    inner join ds_transformation_type dtt on dtid.code=dtt.code
+    inner join ds_transformation dt on dtt.id=dt.transformation_type_id
+    where dtid.input_order not in (-1) and dt.id=#{transId}
+  </select>
+
+
+  <select id="selectTransByCoIdAndSquIds" parameterType="java.util.Map" resultType="java.lang.Integer">
+    select t.id from ds_transformation t
+    where t.SQUID_ID in
+    <foreach collection="squidList" item="squid" open="(" separator="," close=")">
+      #{squid}
+    </foreach>
+    and t.COLUMN_ID in
+    <foreach collection="columnList" item="columnid" open="(" separator="," close=")">
+      #{columnid}
+    </foreach>
+  </select>
+
+  <select id="selectByColumnIdAndSquLinkId" parameterType="java.util.Map" resultType="java.lang.Integer">
+      select DISTINCT t.id from ds_transformation t
+      inner join ds_reference_column r
+      on t.column_id=r.column_id
+      and t.squid_id=r.reference_squid_id
+      inner join ds_squid_link k
+      on r.reference_squid_id=k.TO_SQUID_ID
+    and r.host_squid_id=k.FROM_SQUID_ID
+    where t.COLUMN_ID in
+    <foreach collection="columnIdList" item="columnId" open="(" separator="," close=")">
+      #{columnId}
+    </foreach>
+      and k.ID in
+    <foreach collection="squLinkIdList" item="squLinkid" open="(" separator="," close=")">
+      #{squLinkid}
+    </foreach>
+  </select>
+
+  <select id="selectToTransIdsByLinkIds" parameterType="java.util.List" resultType="java.lang.Integer">
+    select t.id from ds_transformation_link k
+    inner join ds_transformation t
+    on t.ID=k.TO_TRANSFORMATION_ID
+    where k.id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+
+  <select id="selectTransByIds" parameterType="java.util.List" resultMap="BaseResultMap">
+    SELECT DISTINCT t.*,
+    i.ID as tran_input_id,
+    i.TRANSFORMATION_ID,
+    i.RELATIVE_ORDER,
+    i.SOURCE_TRAN_OUTPUT_INDEX,
+    i.IN_CONDITION,
+    i.INPUT_VALUE,
+    i.DESCRIPTION as INPUT_DESCRIPTION,
+    i.INPUT_DATA_TYPE,
+    i.SOURCE_TRANSFORM_ID,
+    s.SQUID_TYPE_ID
+    FROM ds_transformation t
+    LEFT JOIN ds_tran_inputs i
+    ON t.id = i.transformation_id
+    LEFT join ds_squid s
+    on s.id=t.model_squid_id
+    WHERE t.id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+  
+  <select id="selectTransformationBySquidId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    SELECT * FROM ds_transformation
+    WHERE SQUID_ID = #{squidId}
+  </select>
+
+</mapper>

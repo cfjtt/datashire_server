@@ -1,0 +1,332 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.enumeration.datatype.SystemDatatype;
+import com.eurlanda.datashire.server.dao.*;
+import com.eurlanda.datashire.server.exception.ErrorMessageException;
+import com.eurlanda.datashire.server.model.*;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+
+/**
+ * Created by eurlanda - new 2 on 2017/6/27.
+ */
+@Service
+@Transactional
+public class NormalizerSquidService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NormalizerSquidService.class);
+    @Autowired
+    private ColumnDao columnDao;
+    @Autowired
+    private ColumnService columnService;
+    @Autowired
+    private TransformationService transformationService;
+    @Autowired
+    private TransformationLinkService transformationLinkService;
+    @Autowired
+    private SquidLinkDao squidLinkDao;
+    @Autowired
+    private ReferenceColumnGroupDao referenceColumnGroupDao;
+    @Autowired
+    private ReferenceColumnService referenceColumnService;
+    @Autowired
+    private NormalizerSquidDao normalizerSquidDao;
+    @Autowired
+    private TransformationInputsService transformationInputsService;
+    @Autowired
+    private TransformationInputsDao transformationInputsDao;
+    @Autowired
+    private SquidDao squidDao;
+    /**
+     * 创建NormalizerSquid
+     * @return
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public Map<String, Object> createNormalizerSquid(NormalizerSquid normalizerSquid) throws Exception{
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        try {
+            if(normalizerSquid!=null){
+                normalizerSquidDao.insertNormalizerSquid(normalizerSquid);
+            }else{
+                throw new ErrorMessageException(MessageCode.DESERIALIZATION_FAILED.value());
+            }
+            int squidId=normalizerSquid.getId();
+            List<Column> columnList = new ArrayList<Column>();
+            //列的信息
+            Map<String, Integer> columnsMap = new LinkedHashMap<>();
+            columnsMap.put("id", SystemDatatype.INT.value());
+            columnsMap.put("total_dataset", SystemDatatype.INT.value());
+            columnsMap.put("model", SystemDatatype.VARBINARY.value());
+            columnsMap.put("creation_date", SystemDatatype.DATETIME.value());
+            columnsMap.put("version", SystemDatatype.SMALLINT.value());
+            columnsMap.put("key", SystemDatatype.NVARCHAR.value());
+
+            Column column = null;
+            Transformation trans=null;
+            int index = 0;
+            int columnId = 0;
+            int modelTransId = 0;
+            Transformation transformationModel = null;
+            List<Transformation> transformationList = new ArrayList<Transformation>();
+            for (Map.Entry<String, Integer> entry : columnsMap.entrySet()) {
+                Transformation transformation = new Transformation();
+                index++;
+                Column newColumn = new Column();
+                newColumn.setCollation(0);
+                newColumn.setData_type(entry.getValue());
+                if (entry.getKey().toLowerCase().equals("model")
+                        || entry.getKey().toLowerCase().equals("trees")) {
+                    newColumn.setLength(9999);
+                }
+                if (entry.getKey().toLowerCase().equals("uid")) {
+                    newColumn.setLength(64);
+                }
+                newColumn.setName(entry.getKey());
+                newColumn.setNullable(false);
+                newColumn.setUnique(false);
+                newColumn.setCdc(0);
+                newColumn.setRelative_order(index);
+                newColumn.setSquid_id(squidId);
+                newColumn.setAggregation_type(0);
+                if (entry.getKey().toLowerCase().equals("key")) {
+                    newColumn.setLength(256);
+                }
+
+                // 创建Transformation
+                transformation.setSquid_id(squidId);
+                transformation.setOutput_data_type(newColumn.getData_type());
+                transformation.setTranstype(TransformationTypeEnum.VIRTUAL.value());
+                transformation.setOutput_number(newColumn.getRelative_order());
+                if (entry.getKey().toLowerCase().equals("model")) {
+                    //连线的单独添加
+                    columnDao.insertSelective(newColumn);
+                    transformation.setColumn_id(newColumn.getId());
+                    //连线的单独添加
+                    transformationService.addTransformation(transformation);
+                    modelTransId = transformation.getId();
+                    transformationModel = transformation;
+                    transformationModel.setInputs(transformationInputsService.initTransInputs(transformation,transformation.getOutput_data_type(),-1, "", -1, 0));
+                    trans=transformation;
+                    column=newColumn;
+                }else{
+                    columnList.add(newColumn);
+                    transformationList.add(transformation);
+                }
+            }
+            //批量创建column
+            columnService.insertColumn(columnList);
+            int i=0;
+            //批量创建Transformation
+            for (Column column1 :columnList){
+                transformationList.get(i).setColumn_id(column1.getId());
+                i++;
+            }
+            transformationService.insertTransformation(transformationList);
+
+            // 创建Train
+            Map<String, Object> transDefinition = normalizerSquidDao.findTransformationType(TransformationTypeEnum.TRAIN.value());
+            int transTypeId = Integer.valueOf(transDefinition
+                    .get("OUTPUT_DATA_TYPE") + "");
+            // 创建新增列对应的虚拟变换
+            Transformation transformationTrain = new Transformation();
+            transformationTrain.setName("Train");
+            transformationTrain.setLocation_x(85);
+            transformationTrain.setLocation_y(85);
+            transformationTrain.setSquid_id(squidId);
+            transformationTrain.setTranstype(TransformationTypeEnum.TRAIN.value());
+            transformationTrain.setOutput_data_type(transTypeId);
+            transformationTrain.setOutput_number(1);
+            transformationService.addTransformation(transformationTrain);
+
+            // 创建Train的Link
+            TransformationLink transformationTrainLink = new TransformationLink();
+            transformationTrainLink.setIn_order(1);
+            // transformationLinkTrain.setType();
+            transformationTrainLink
+                    .setFrom_transformation_id(transformationTrain.getId());
+            transformationTrainLink.setTo_transformation_id(modelTransId);// TODO
+            transformationTrainLink.setKey(StringUtils.generateGUID());
+            transformationLinkService.addTransformationLink(transformationTrainLink);
+            transformationInputsService.updTransInputs(transformationTrainLink,transformationModel);
+
+            columnList.add(column);
+            transformationList.add(trans);
+            resultMap.put("SquidId",normalizerSquid.getId());
+            resultMap.put("ColumnList", columnList);
+            resultMap.put("TransformationList", transformationList);
+            resultMap.put("TransformationTrain", transformationTrain);
+            resultMap.put("TransformationTrainLink", transformationTrainLink);
+        }catch (Exception e){
+            e.printStackTrace();
+            throw e;
+        }
+        return resultMap;
+    }
+
+
+    /**
+     * 修改NormalizerSquid
+     * @param normalizerSquid
+     * @throws Exception
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public void updateNormalizerSquid(NormalizerSquid normalizerSquid)throws Exception{
+        try {
+            if(normalizerSquid!=null){
+                normalizerSquidDao.updateNormalizerSquid(normalizerSquid);
+            }else{
+                throw new ErrorMessageException(MessageCode.DESERIALIZATION_FAILED.value());
+            }
+        }catch (Exception e){
+            throw e;
+        }
+    }
+
+    /**
+     * 创建NormalizerSquidLink
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public Map<String, Object> createNormalizerSquidLink(String info) throws Exception{
+        ReturnValue out =new ReturnValue();
+        Map<String, Object> returnMap = new HashMap<>();
+        try {
+            Map<String, Object> paramMap = JsonUtil.toHashMap(info);
+             SquidLink squidLink = JsonUtil.toGsonBean(paramMap.get("SquidLink") + "", SquidLink.class);
+            if (squidLink == null) {
+                throw new ErrorMessageException(MessageCode.DESERIALIZATION_FAILED.value());
+            } else {
+                squidLinkDao.insertSelective(squidLink);
+                returnMap.put("SquidLinkId", squidLink.getId());
+                //创建referenceColumn
+                List<Column> columnList = columnDao.findByFromSquidId(squidLink.getFrom_squid_id());
+                List<ReferenceColumn> refColumnList = new ArrayList<>();
+                List<Transformation> transformationList = new ArrayList<>();
+                if (columnList != null && columnList.size() > 0) {
+                    List<ReferenceColumnGroup> rg = referenceColumnGroupDao.findReferenceColumnGroup(squidLink.getTo_squid_id());
+                    ReferenceColumnGroup columnGroup = new ReferenceColumnGroup();
+                    columnGroup.setReference_squid_id(squidLink.getTo_squid_id());
+                    columnGroup.setRelative_order(rg == null || rg.isEmpty() ? 1 : rg.size() + 1);
+                    referenceColumnGroupDao.insertReferenceColumnGroup(columnGroup);
+                    Map<String,Object> fromSquidMap= normalizerSquidDao.findSquidBySquidId(squidLink.getFrom_squid_id());
+                    for (Column column : columnList) {
+                        // 创建引用列
+                        ReferenceColumn ref = new ReferenceColumn();
+                        Transformation transformation =new Transformation();
+                        ref.setColumn_id(column.getId());
+                        ref.setId(ref.getColumn_id());
+                        ref.setCollation(0);
+                        ref.setData_type(column.getData_type());
+                        ref.setName(column.getName());
+                        ref.setNullable(column.isNullable());
+                        ref.setLength(column.getLength());
+                        ref.setPrecision(column.getPrecision());
+                        ref.setSquid_id((Integer) fromSquidMap.get("id"));
+                        ref.setScale(column.getScale());
+                        ref.setRelative_order(column.getRelative_order());
+                        ref.setReference_squid_id(squidLink.getTo_squid_id());
+                        ref.setHost_squid_id((Integer) fromSquidMap.get("id"));
+                        ref.setIsPK(column.isPK());
+                        ref.setIsUnique(column.isUnique());
+                        ref.setIs_referenced(true);
+                        ref.setGroup_id(columnGroup.getId());
+                        // 添加新创建的ReferenceColumn信息
+                        refColumnList.add(ref);
+
+                        transformation.setSquid_id(squidLink.getTo_squid_id());
+                        transformation.setOutput_data_type(column.getData_type());
+                        transformation.setTranstype(TransformationTypeEnum.VIRTUAL.value());
+                        transformation.setOutput_number(column.getRelative_order());
+                        // 添加新创建的transformation信息
+                        transformationList.add(transformation);
+                    }
+                    //批量创建referencecolumn
+                    referenceColumnService.insertReferenceColumn(refColumnList);
+                    int i=0;
+                    //批量创建Transformation
+                    for (ReferenceColumn column1 :refColumnList){
+                        transformationList.get(i).setColumn_id(column1.getColumn_id());
+                        i++;
+                    }
+                    transformationService.insertTransformation(transformationList);
+                }
+                returnMap.put("ReferenceColumnList", refColumnList);
+                returnMap.put("TransformationList", transformationList);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            LOGGER.error("[创建NormalizerSquidLink=================exception]", e);
+            throw e;
+        }
+        return returnMap;
+    }
+
+    /**
+     * 获取标准化模型
+     * @return
+     * @throws Exception
+     */
+    public Map<String,Object> getNormalizerSquidIds(int repositoryId,int squidId,boolean isFilter,int projectId) throws Exception{
+        ReturnValue out =new ReturnValue();
+        Map<String, Object> returnMap = new HashMap<>();
+        try{
+            if (repositoryId>0&&squidId>0){
+                List<Integer> ids=this.getFilterSquidIds(squidId);
+                //获取projectId
+                Map<String,Object> map=new HashMap<>();
+                map.put("RepositoryId",repositoryId);
+                map.put("ids",ids);
+                map.put("isFilter",isFilter);
+                map.put("projectId",projectId);
+                List<Map<String, Object>> vals = normalizerSquidDao.getNormalizer(map);
+                returnMap.put("DataList", vals);
+            }else{
+                throw new ErrorMessageException(MessageCode.NODATA.value());
+            }
+        } catch (Exception e) {
+            LOGGER.error("[获取getAllDataMiningSquidInRepository=================exception]", e);
+            throw e;
+        }
+        return returnMap;
+    }
+    /**
+     * 排除squidId 下游的 NormalizerSquid
+     * @param
+     * @param squidId
+     * @return
+     */
+    public List<Integer> getFilterSquidIds(int squidId){
+        List<SquidLink> link = squidLinkDao.getSquidLinkListByFromSquid(squidId);
+        List<Integer> ids = new ArrayList<>();
+        if (link!=null&&link.size()>0){
+            for (SquidLink squidLink : link) {
+                int fromSquidId = squidLink.getTo_squid_id();
+                List<Integer> filterSquidIds= getFilterSquidIds(fromSquidId);
+                if (filterSquidIds.size()>0){
+                    ids.addAll(filterSquidIds);
+                }
+            }
+            ids.add(squidId);
+        }else{
+            ids.add(squidId);
+        }
+        return ids;
+    }
+
+    /**
+     * 根据squidId查找出当前squid所属的project
+     * @param squidId
+     * @return
+     */
+    public Map<String,Object> getProjectBySquidId(int squidId){
+        return squidDao.selectProjectBySquidId(squidId);
+    }
+}

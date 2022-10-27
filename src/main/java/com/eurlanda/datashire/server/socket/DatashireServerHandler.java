@@ -1,0 +1,343 @@
+package com.eurlanda.datashire.server.socket;
+
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.Feature;
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.server.model.CloudOperateRecord;
+import com.eurlanda.datashire.server.model.User;
+import com.eurlanda.datashire.server.utils.SocketUtil;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.socket.Agreement;
+import com.eurlanda.datashire.socket.AgreementProtocol;
+import com.eurlanda.datashire.socket.MessagePacket;
+import com.eurlanda.datashire.socket.protocol.ServiceConf;
+import com.eurlanda.datashire.utility.CommonConsts;
+import com.eurlanda.datashire.utility.MD5;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.StringUtils;
+import com.eurlanda.report.global.Global;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.text.MessageFormat;
+import java.util.Date;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * 生命周期:
+ * 通道创建
+ * ------handlerAdded----
+ * ------ channelRegistered ----
+ * ------ channelActive ----
+ * 通道关闭
+ * ------ channelInactive ----
+ * ------ channelUnregistered ----
+ * ------ handlerRemoved ----
+ * Handles a server-side channel.
+ */
+public class DatashireServerHandler extends ChannelInboundHandlerAdapter { // (1)
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DatashireServerHandler.class);
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        super.channelActive(ctx);
+        LOGGER.info("新增连接成功");
+        ctx.channel().writeAndFlush(SocketUtil.getServerVersion());
+        SocketUtil.CHANNELS.add(ctx.channel());
+    }
+
+    @Override public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        super.channelInactive(ctx);
+        LOGGER.debug("连接断开-----------" + ctx.channel().remoteAddress().toString());
+        removeChannel(ctx.channel());
+    }
+
+    /**
+     * 读取对应协议数据,获取需要执行的方法,调用
+     *
+     * @param ctx
+     * @param msg
+     */
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) { // (2)
+
+        MessagePacket packet = (MessagePacket) msg;
+
+        String cmd = packet.getCommandId() + packet.getChildCommandId();
+
+        // 如果是登录接口, 需要替换token
+        if("20010001".equals(cmd)) {
+            packet.setToken(MD5.encrypt(UUID.randomUUID().toString()).getBytes());
+        }
+        if("10400002".equals(cmd)){
+            packet.setToken(MD5.encrypt(UUID.randomUUID().toString()).getBytes());
+        }
+        // 设置token key到ThreadLocal
+        TokenUtil.setTokenAndKey(StringUtils.bytes2Str(packet.getToken()),
+                StringUtils.bytes2Str(packet.getGuid()));
+
+        //心跳信息
+        if (CommonConsts.CMD_ID_HEARTBEAT.equals(packet.getCommandId()) &&
+                CommonConsts.CMD_ID_HEARTBEAT.equals(packet.getChildCommandId())) {
+            //logger.info("心跳包（已收到）... "+ctx.getChannel());
+            return;
+        } else {
+            LOGGER.debug("start request Channel" + ctx.channel().toString() + ",cmd[" + cmd + "]," +
+                    "guid[" + new String(packet.getGuid(), 0, 36) + "]," +
+                    "data[" + (packet.getData() == null ? -1 : (packet.getData().length) + 84)
+                    + "]");
+        }
+
+        // 验证是否允许访问
+        boolean flag = validateAccess(packet);
+        if (flag) {  // 允许
+            // 调用接口
+            packet = this.process(packet);
+        } else {
+            Object retobj = "{\"code\":-9999,\"desc\":\"" + msg + "\"}";
+            packet.setData(StringUtils.str2Bytes(
+                    net.sf.json.JSONObject.fromObject(retobj == null ? "" : retobj.toString())
+                            .toString()));
+            LOGGER.error("[调用失败，通道验证不通过，CMD：" + cmd + "]");
+        }
+
+        // 只有在登录的时候才会绑定
+        String token = TokenUtil.getToken();
+        if (!SocketUtil.TOKEN2CHANNEL.containsKey(TokenUtil.getToken())) {
+            SocketUtil.TOKEN2CHANNEL.put(TokenUtil.getToken(), ctx.channel());
+            // 将token 设置到channel的attr中
+            ctx.channel()
+                    .attr(SocketUtil.LOGIN_TOKEN)
+                    .set(TokenUtil.getToken());
+        }
+
+        //注销客户端不接收消息
+        if (!cmd.equals("00000002") && packet != null) {
+            SocketUtil.sendMessage(packet);
+        }
+
+        // 将token 和 key 从 ThreadLocal中移除
+        TokenUtil.removeTokenAndKey();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { // (4)
+        // Close the connection when an exception is raised.
+        cause.printStackTrace();
+        LOGGER.error("socket异常", cause);
+        removeChannel(ctx.channel());
+        ctx.close();
+    }
+
+    /**
+     * 移除通道
+     * @param channel
+     */
+    private void removeChannel(Channel channel) {
+        // 连接断开
+        SocketUtil.CHANNELS.remove(channel);
+        // 将已经登录的移除
+        Object tokenObj = channel.attr(SocketUtil.LOGIN_TOKEN).get();
+        if (tokenObj != null) {  // 已经登录用户
+            SocketUtil.TOKEN2CHANNEL.remove(tokenObj.toString());
+            // 登录的用户也需要移除
+            User user = SocketUtil.SESSION.get(tokenObj.toString());
+            if(user!=null && StringUtils.isNotNull(user.getSpaceId())){
+                CloudOperateRecord record = new CloudOperateRecord();
+                record.setOperate_type(1);
+                record.setOperate_time(new Date());
+                record.setSpace_id(Integer.parseInt(user.getSpaceId().substring(1)));
+                record.setUser_id(user.getId());
+                record.setContent("用户:"+user.getUser_name()+",操作类型:退出,数猎场:"+user.getSpaceId());
+                IRelationalDataManager adapter = DataAdapterFactory.getDefaultDataManager();
+                try{
+                    adapter.openSession();
+                    adapter.insert2(record);
+                } catch (Exception e){
+                    e.printStackTrace();
+                } finally {
+                    adapter.closeSession();
+                }
+            }
+            SocketUtil.SESSION.remove(tokenObj.toString());
+            //去除global中的内容
+            Object taskId = Global.getTask2Map(tokenObj.toString());
+            if(taskId!=null){
+                Object obj = Global.getTask2Map(taskId.toString());
+                if(obj!=null){
+                    if(obj instanceof Map){
+                        Map map = (Map) obj;
+                        String squidFlow = map.get("squidFlowId")+"";
+                        if(StringUtils.isNotNull(squidFlow)){
+                            Global.removeTask2Map(squidFlow);
+                        }
+                    }
+                }
+                Global.removeTask2Map(taskId.toString());
+            }
+            Global.removeTask2Map(tokenObj.toString());
+        }
+    }
+
+    /**
+     * 验证是否有权限访问
+     *
+     * @param packet
+     * @return
+     */
+    private boolean validateAccess(MessagePacket packet) {
+        String token = TokenUtil.getToken();
+        String cmd = packet.getCommandId() + packet.getChildCommandId();
+
+        if(!Agreement.ServiceConfMap.containsKey(cmd) && !cmd.equals("99999999")){
+            LOGGER.error("不存在的命令号[" + cmd + "]", new RuntimeException(">>>>>>不存在的命令号["+cmd+"]"+"]！服务器将清空通道缓存！"));
+            return false;
+        }
+
+        User user = SocketUtil.SESSION.get(token);
+        if (user != null) {
+            return true;
+        } else {
+            if (cmd.equals("10180001")
+                    || cmd.equals("00000002")
+                    || cmd.equals("20010001")   // 重构后新增的接口
+                    || cmd.equals("10180020")
+                    || cmd.equals("10180022")
+                    || cmd.equals("10180021")
+                    || cmd.equals("10400001")
+                    || cmd.equals("10400002")
+                    || cmd.equals("00011000")
+                    || cmd.equals("10010026")) {    //用户登录成功，加入token与channel关系
+                return true;
+            }
+        }
+        LOGGER.error("[调用失败！接口信息(token：" + token + ", cmd：" + cmd + ")]");
+        return false;
+    }
+
+    /**
+     * 实际处理
+     *
+     * @param packet
+     * @return
+     */
+    private MessagePacket process(MessagePacket packet) {
+
+        // 单例对象,需要注意线程安全
+        Object service = AgreementProtocol.AGREEMENT_HANDLER.get(packet.getCommandId());
+        // 获取对应参数定义
+        ServiceConf serviceConf =
+                Agreement.ServiceConfMap
+                        .get(packet.getCommandId().concat(packet.getChildCommandId()));
+
+        Class<?> cls = null;
+        Method meth = null;
+        Object retobj = null;
+        long start = System.currentTimeMillis();
+        try {
+
+            cls = service.getClass();
+
+            //入参类型为空的情况
+            if (Void.TYPE.equals(serviceConf.getArgType())) {
+                meth = cls.getMethod(serviceConf.getMethodName());
+            } else {
+                meth = cls.getMethod(serviceConf.getMethodName(), serviceConf.getArgType());
+            }
+
+            // 消息包内容
+            String info = StringUtils.bytes2Str(packet.getData());
+
+            //校验连接数
+            CommonConsts.initDBSourceState();
+            if (Void.TYPE.equals(serviceConf.getArgType())) {
+                retobj = meth.invoke(service);
+            } else {
+                retobj = meth.invoke(service, info);
+            }
+            int state = CommonConsts.checkDBSourceState();
+            if (state > 0) {
+                // 存在开启的数据库连接没有关闭
+                LOGGER.error("\t\t\t=========== 存在开启的数据库连接没有关闭 ======== ");
+                LOGGER.error("\t\t\t=========== 存在开启的数据库连接没有关闭 ======== ");
+                LOGGER.error("\t\t\t=========== 存在开启的数据库连接没有关闭 ======== 流水号：{} \n,\t\t=========== 消息号:{}{}，调用业务：{}.{}",
+                        new String(packet.getGuid(), 0, 36),
+                        packet.getCommandId(), packet.getChildCommandId(),
+                        service.getClass().getSimpleName(), meth.getName());
+            }
+
+            LOGGER.debug("流水号：{},消息号:{}{}，调用业务：{}.{}",
+                    new String(packet.getGuid(), 0, 36),
+                    packet.getCommandId(), packet.getChildCommandId(),
+                    service.getClass().getSimpleName(), meth.getName());
+
+            // 不向客户端发送响应内容
+            if (!serviceConf.isSendResponse()) {
+                LOGGER.info("消息提示：函数设置为取消发送响应内容!");
+
+                return null;
+            }
+            if (serviceConf.isReplaceKey()) { // 替换包头
+                throw new RuntimeException("替换包头----------------找socket开发");
+                //                packet.setGuid(StringUtils.str2Bytes(field.get(service).toString()));
+            }
+        } catch (Exception e) {  // 异常
+            StringWriter pw = new StringWriter();
+            PrintWriter p = new PrintWriter(pw);
+            String message = ((InvocationTargetException) e).getTargetException().getMessage();
+            if((MessageCode.ERR_SQUID_OVER_LIMIT.value()+"").equals(message)){
+                //超过了限制
+                retobj = "{\"code\":"+MessageCode.ERR_SQUID_OVER_LIMIT.value()+",\"desc\":\"" + pw.toString() + "\"}";
+            } else {
+                e.printStackTrace(p);
+                retobj = "{\"code\":-9999,\"desc\":\"" + pw.toString() + "\"}";
+            }
+            LOGGER.error(MessageFormat
+                    .format("{0}.{1} service error!", cls == null ? null : cls.getSimpleName(),
+                            meth == null ? null : meth.getName()), e);
+            packet.setData(StringUtils.str2Bytes(
+                    JSONObject.parseObject(
+                            retobj == null ? "" : retobj.toString()
+                    ).toString())
+            );
+            LOGGER.error(
+                    "=====异常====调用业务：{}.{} 执行时间 :{} 包大小：{} CODE：{}",
+                    service.getClass().getSimpleName(), meth.getName(),
+                    System.currentTimeMillis() - start,
+                    packet.getData() == null ? -1 : packet.getData().length + 84, -9999);
+            return packet;
+        }
+        /*JSONObject jsonObj = JSONObject.parseObject(
+                retobj == null ? "" : retobj.toString()
+        );*/
+        JSONObject jsonObj = JSONObject.parseObject(retobj == null ? "" : retobj.toString(), Feature.OrderedField);
+        String code = "";
+        int type = 0;
+        if (jsonObj != null && jsonObj.containsKey("code")) {
+            code = String.valueOf(jsonObj.get("code"));
+        }
+        if (jsonObj != null && jsonObj.containsKey("type")) {
+            type = DSObjectType.parse(jsonObj.get("type") + "").value();
+        }
+        packet.setDsObjectType(type);
+        packet.setData(StringUtils.str2Bytes(jsonObj.toString()));
+        LOGGER.debug(
+                "调用业务：{}.{} 执行时间 :{} 包大小：{} CODE：{}",
+                service.getClass().getSimpleName(), meth.getName(),
+                System.currentTimeMillis() - start,
+                packet.getData() == null ? -1 : packet.getData().length + 84, code);
+
+        return packet;
+    }
+}

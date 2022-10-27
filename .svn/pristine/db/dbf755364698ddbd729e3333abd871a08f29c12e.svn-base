@@ -1,0 +1,622 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.common.util.ConstantsUtil;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.server.dao.*;
+import com.eurlanda.datashire.server.model.Column;
+import com.eurlanda.datashire.server.model.ReferenceColumn;
+import com.eurlanda.datashire.server.model.Transformation;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.utility.EnumException;
+import org.apache.commons.collections.map.HashedMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.eurlanda.datashire.utility.StringUtils;
+
+import java.sql.SQLException;
+import java.util.*;
+
+/**
+ * Created by Eurlanda on 2017/6/19.
+ */
+@Service
+public class ColumnService {
+    private static final Logger logger = LoggerFactory.getLogger(ColumnService.class);
+    @Autowired
+    private ColumnDao columnDao;
+    @Autowired
+    private ReferenceColumnService refColumnService;
+    @Autowired
+    private TransformationService transService;
+    @Autowired
+    private SquidDao squidDao;
+    @Autowired
+    private TransformationInputsDao inputsDao;
+    @Autowired
+    private TransformationDao transformationDao;
+    @Autowired
+    private ReferenceColumnDao referenceColumnDao;
+    @Autowired
+    private ReferenceColumnGroupDao referenceColumnGroupDao;
+    @Autowired
+    private SquidLinkDao squidLinkDao;
+    @Autowired
+    private  TransformationLinkService transformationLinkService;
+
+    /**
+     * 批量删除column
+     * @param delColumnIds
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, List<Integer>> deleteColumn(List<Integer> delColumnIds, int tag) throws Exception {
+        Map<String, List<Integer>> resultMaps = new HashMap<>();
+        try {
+            int squidId = columnDao.findSquidByColumnId(delColumnIds.get(0));
+            //找出当前squid需要删除的元素
+            //tag(0表示删除column时，1表示HDFS、ftp、系统文件，表获取元数据时)
+            findCurrentSquidColumn(squidId, delColumnIds, resultMaps, tag);
+            //找出下游需要删除和修改的元素
+            findAllNeedDelColumnId(squidId,delColumnIds,resultMaps,tag);
+            //删除所有需要删除的元素
+            for(Map.Entry<String,List<Integer>> resultMap : resultMaps.entrySet()){
+                deleteOrUpdateColumn(resultMap.getValue(),resultMap.getKey());
+            }
+        } catch (SQLException e1) {
+            e1.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+        return resultMaps;
+    }
+
+    /**
+     * 查看下游所有影响到的元素
+     * @param fromSquid
+     * @param columnId
+     * @param resultMap
+     * @return
+     * @throws SQLException
+     * @throws EnumException
+     */
+    public Map<String,List<Integer>> findAllNeedDelColumnId(int fromSquid, List columnId, Map<String,List<Integer>> resultMap,int state) throws Exception {
+        if(columnId==null || columnId.size()==0){
+            logger.error("存在column为空");
+            return resultMap;
+        }
+        //下游
+        List<Map<String, Object>> squidMaps = squidDao.findNextSquidByFromSquid(fromSquid);
+        if (squidMaps != null) {
+            for (Map<String, Object> squidMap : squidMaps) {
+
+                //下游squid需要删除的column
+                List<Integer> columnIds = new ArrayList<>();
+                //需要递归的column
+                List<Integer> needRegecive = new ArrayList<>();
+
+                int toSquidId = Integer.parseInt(squidMap.get("id") + "");
+                int squidType = Integer.parseInt(squidMap.get("squid_type_id") + "");
+
+                /**
+                 * DESTES，DEST_HDFS，DEST_IMPALA删除
+                 * DEST_HIVE,DEST_CASSANDRA,USERDEFINED,STATISTICS更新
+                 */
+
+                if (SquidTypeEnum.isDestSquid(squidType)
+                        || SquidTypeEnum.USERDEFINED.value() == squidType
+                        || SquidTypeEnum.STATISTICS.value() == squidType) {
+                    if (resultMap.containsKey(SquidTypeEnum.valueOf(squidType).name())) {
+                       resultMap.get(SquidTypeEnum.valueOf(squidType).name()).addAll(columnId);
+                        //去重重复数据
+                        List<Integer> integerList = resultMap.get(SquidTypeEnum.valueOf(squidType).name());
+                        integerList.addAll(columnId);
+                        HashSet h = new HashSet(integerList);
+                        integerList.clear();
+                        integerList.addAll(h);
+                        resultMap.remove(SquidTypeEnum.valueOf(squidType).name());
+                        resultMap.put(SquidTypeEnum.valueOf(squidType).name(), integerList);
+                    } else {
+                        resultMap.put(SquidTypeEnum.valueOf(squidType).name(), columnId);
+                    }
+                    if(resultMap.get("refColumn")==null){
+                        resultMap.put("refColumn",columnId);
+                    } else {
+                        resultMap.get("refColumn").addAll(columnId);
+                    }
+                } else if (SquidTypeEnum.EXCEPTION.value() == squidType) {
+                    Map<String,Object> fromSquidMap = squidDao.findSquidBySquidId(fromSquid);
+                    //需要删除的trans
+                    List<Integer> exceTransIds  = new ArrayList<>();
+                    //需要删除的transLink
+                    List<Integer> exceTransLinks =  new ArrayList<>();
+
+                    if(!SquidTypeEnum.isExtractBySquidType((Integer) fromSquidMap.get("squid_type_id"))){
+
+                        Map<String, Object> paramMap = new HashMap<>();
+                        paramMap.put("SquidId", toSquidId);
+                        paramMap.put("ColumnIds", columnId);
+                        //右边的trans
+                        List<Integer> currentSquidTransId = columnDao.findTransByColumnId(paramMap);
+
+                        if (currentSquidTransId != null && currentSquidTransId.size()>0) {
+                            //添加需要删除的trans
+                            exceTransIds.addAll(currentSquidTransId);
+                            //tranformationLink
+                            List<Map<String,Object>> squidLeftTransMaps = columnDao.findLeftTransAndLinkAndColumn(currentSquidTransId);
+                            List<Integer> leftTransIds = new ArrayList<>();
+                            if(squidLeftTransMaps!=null){
+                                for(Map<String,Object> leftTransMap : squidLeftTransMaps){
+                                    //左边的transformation
+                                    leftTransIds.add((Integer) leftTransMap.get("to_transformation_id"));
+                                    //添加需要删除的transLink
+                                    exceTransLinks.add((Integer) leftTransMap.get("transLinkId"));
+                                }
+                            }
+                            exceTransIds.addAll(leftTransIds);
+                            //找出columnId
+                            List<Map<String, Object>> refColumnMaps = columnDao.findTransformationById(leftTransIds);
+                            List<Integer> currentColumnIds = new ArrayList<>();
+                            for (Map<String, Object> refColumnMap : refColumnMaps) {
+                                currentColumnIds.add((Integer) refColumnMap.get("column_id"));
+                            }
+                            //查找出当前exception的Transformation
+                            //paramMap.clear();
+                            //paramMap.put("SquidId", toSquidId);
+                            //paramMap.put("ColumnIds", currentColumnIds);
+
+                            //exceTransIds = columnDao.findTransByColumnId(paramMap);
+
+                            //left transformation
+                            //List<Map<String, Object>> leftTransMaps = columnDao.findLeftTransAndLinkAndColumn(exceTransIds);
+                            /*if (leftTransMaps != null) {
+                                for (Map<String, Object> leftTransMap : leftTransMaps) {
+                                    leftTrans.add((Integer) leftTransMap.get("to_transformation_id"));
+                                    exceTransLinks.add((Integer) leftTransMap.get("transLinkId"));
+                                }
+                                if(leftTrans.size()>0) {
+                                    exceTransIds.addAll(leftTrans);
+                                }
+                                //查找出column
+                                List<Map<String, Object>> leftColumnMaps = columnDao.findTransformationById(leftTrans);
+                                if (leftColumnMaps != null) {
+                                    for (Map<String, Object> leftColumnMap : leftColumnMaps) {
+                                        columnIds.add((Integer) leftColumnMap.get("column_id"));
+                                    }
+                                }*/
+                                if(currentColumnIds.size()>0) {
+                                    columnIds.addAll(currentColumnIds);
+                                    needRegecive.addAll(currentColumnIds);
+                                }
+
+                            }
+                        } else {
+                        if(state==0){
+                        //0:单独删除column 不需要找上游的column连着找referenceCOlumn  1：获取元数据。下游是exception。它需要找抽取Squid的referenceColumn
+                        }else{
+                        //columnId->transLink->reference->transformation
+                            //根据上游Squid 查询所有的column
+                            List<ReferenceColumn> formReferenceColumnList=referenceColumnDao.selectByReferenceSquidId(fromSquid);
+                            List<Integer> referenceColumnId=new ArrayList<>();
+                            if(formReferenceColumnList!=null && formReferenceColumnList.size()>0){
+                                for(ReferenceColumn referenceColumn:formReferenceColumnList){
+                                    referenceColumnId.add(referenceColumn.getColumn_id());
+                                }
+                            }
+
+
+                        //注释的代码。是根据上游的column找对应的referenceColumn。存在bug.如果上游的column删除了一个。然后再获取元数据就会对应少查到了一个referenceCOlumn。
+                       /* Map<String,Object> map = new HashMap<>();
+                        map.put("SquidId", fromSquid);
+                        map.put("ColumnIds", columnId);
+
+                        List<Integer> transId = columnDao.findTransByColumnId(map);
+                        List<Map<String,Object>> rightTransMaps = columnDao.findRightTransAndLinkAndRefColumn(transId);*/
+                        if(referenceColumnId.size()>0){
+                            /*List<Integer> referenceColumnId=new ArrayList<>();
+                            for(Map<String,Object> rightTransMap : rightTransMaps){
+                                //拿到右边得transformation ->columnId->(squid,
+                                Integer rightTransId = (Integer) rightTransMap.get("from_transformation_id");
+                                Transformation trans=transformationDao.selectByPrimaryKey(rightTransId);
+                                if(trans!=null){
+                                    referenceColumnId.add(trans.getColumn_id());
+                                }
+                            }*/
+                            Map<String, Object> paramMap = new HashMap<>();
+                            paramMap.put("SquidId", toSquidId);
+                            paramMap.put("ColumnIds", referenceColumnId);
+                            //右边的trans
+                            List<Integer> currentSquidTransId = columnDao.findTransByColumnId(paramMap);
+
+                            if (currentSquidTransId != null && currentSquidTransId.size()>0) {
+                                //添加需要删除的trans
+                                exceTransIds.addAll(currentSquidTransId);
+                                //tranformationLink
+                                List<Map<String,Object>> squidLeftTransMaps = columnDao.findLeftTransAndLinkAndColumn(currentSquidTransId);
+                                List<Integer> leftTransIds = new ArrayList<>();
+                                if(squidLeftTransMaps!=null){
+                                    for(Map<String,Object> leftTransMap : squidLeftTransMaps){
+                                        //左边的transformation
+                                        leftTransIds.add((Integer) leftTransMap.get("to_transformation_id"));
+                                        //添加需要删除的transLink
+                                        exceTransLinks.add((Integer) leftTransMap.get("transLinkId"));
+                                    }
+                                }
+                                exceTransIds.addAll(leftTransIds);
+                                //找出columnId
+                                List<Map<String, Object>> refColumnMaps = columnDao.findTransformationById(leftTransIds);
+                                List<Integer> currentColumnIds = new ArrayList<>();
+                                for (Map<String, Object> refColumnMap : refColumnMaps) {
+                                    currentColumnIds.add((Integer) refColumnMap.get("column_id"));
+                                }
+                                if(currentColumnIds.size()>0) {
+                                    columnIds.addAll(currentColumnIds);
+                                    needRegecive.addAll(currentColumnIds);
+                                }
+
+                            }
+                        }
+                    }
+                }
+
+                    //添加需要删除的column
+                    if(columnIds.size()>0) {
+                        resultMap.get("column").addAll(columnIds);
+                    }
+                    //添加需要删除的transformation
+                    if(exceTransIds.size()>0) {
+                        if (resultMap.containsKey("transformation")) {
+                            resultMap.get("transformation").addAll(exceTransIds);
+                        } else {
+                            resultMap.put("transformation", exceTransIds);
+                        }
+                    }
+                    //添加需要删除的transformationLink
+                    if(exceTransLinks.size()>0){
+                        if (resultMap.containsKey("transLink")) {
+                            resultMap.get("transLink").addAll(exceTransLinks);
+                        } else {
+                            resultMap.put("transLink", exceTransLinks);
+                        }
+                    }
+                } else {
+                    //需要删除的refColumn
+                    if (resultMap.containsKey("refColumn")) {
+                        resultMap.get("refColumn").addAll(columnId);
+                    } else {
+                        resultMap.put("refColumn", columnId);
+                    }
+                    if(squidMaps!=null && squidMaps.size()>0){
+                        for(Map<String,Object> nextSquidMap : squidMaps){
+                            int squid=(Integer)nextSquidMap.get("id");
+                            //根据当前squid找到下游的Squid类型
+                            List<Integer> toSquidIds=squidLinkDao.selectSquidByFromSquId(squid);
+                            if(toSquidIds!=null && toSquidIds.size()>0){
+                                List<Integer>  toSquidTypes=squidDao.selectSquidTypesByIds(toSquidIds);
+                                for(Integer type:toSquidTypes){
+                                    if(SquidTypeEnum.parse(type)==SquidTypeEnum.EXCEPTION){
+                                        if(columnId.size()>0){
+                                            needRegecive.addAll(columnId);
+                                        }
+                                    }
+                                }
+                            }
+
+
+
+                            //int squid_type_id = (Integer) nextSquidMap.get("squid_type_id");
+
+                        }
+                    }
+                    //找到需要删除的Transformation
+                    Map<String, Object> paramMap = new HashMap<>();
+                    paramMap.put("SquidId", toSquidId);
+                    paramMap.put("ColumnIds", columnId);
+                    List<Integer> otherTransIds = columnDao.findTransByColumnId(paramMap);
+                    List<Integer> otherTranLinkIds = new ArrayList<>();
+                    //Transformation->TransformationLink->Column
+                    List<Map<String, Object>> linkColumnMaps=null;
+                    if(otherTransIds!=null&&otherTransIds.size()!=0){
+                        linkColumnMaps=columnDao.findLeftTransAndLinkAndColumn(otherTransIds);
+                    }
+                    if (linkColumnMaps != null) {
+                        List<Integer> leftTransIds = new ArrayList<>();
+                        List<Map<String,Integer>> updateInputs = new ArrayList<>();
+                        for (Map<String, Object> linkColumnMap : linkColumnMaps) {
+                            //if (squidType == SquidTypeEnum.GROUPTAGGING.value()) {
+                                if (linkColumnMap.containsKey("to_transformation_id")) {
+                                    leftTransIds.add((Integer) linkColumnMap.get("to_transformation_id"));
+
+                                    //添加需要修改的input相关信息
+                                    if(linkColumnMap.containsKey("transformation_type_id")){
+                                        if((Integer)linkColumnMap.get("transformation_type_id")>=0){
+                                            Map<String,Integer> inputMap = new HashMap<>();
+                                            inputMap.put("id",(Integer) linkColumnMap.get("to_transformation_id"));
+                                            inputMap.put("source_transform_id",(Integer) linkColumnMap.get("from_transformation_id"));
+                                            inputMap.put("transformation_type_id",(Integer)linkColumnMap.get("transformation_type_id"));
+                                            updateInputs.add(inputMap);
+                                        }
+                                    }
+                                }
+                            //}
+                            if (linkColumnMap.containsKey("transLinkId")) {
+                                otherTranLinkIds.add((Integer) linkColumnMap.get("transLinkId"));
+                            }
+                        }
+                        if(SquidTypeEnum.GROUPTAGGING.value() == squidType || SquidTypeEnum.SAMPLINGSQUID.value()==squidType){
+                            if(leftTransIds.size()>0) {
+                                otherTransIds.addAll(leftTransIds);
+                            }
+                        } else {
+                            if(updateInputs.size()>0) {
+                                List<Map<String,Integer>> delInputTrans = new ArrayList<>();
+                                Iterator<Map<String,Integer>> it = updateInputs.iterator();
+                                while(it.hasNext()){
+                                    Map<String,Integer> updateInput = it.next();
+                                    int typeId = (Integer)updateInput.get("transformation_type_id");
+                                    if( typeId == TransformationTypeEnum.CONCATENATE.value()
+                                            || typeId == TransformationTypeEnum.CHOICE.value()
+                                            || typeId == TransformationTypeEnum.NUMASSEMBLE.value()
+                                            || typeId == TransformationTypeEnum.CSVASSEMBLE.value()
+                                            || typeId == TransformationTypeEnum.NULLPERCENTAGE.value()){
+                                        Map<String,Integer> delInputs = new HashMap<>();
+                                        delInputs.put("source_transform_id",updateInput.get("source_transform_id"));
+                                        delInputs.put("transformation_id",updateInput.get("id"));
+                                        delInputTrans.add(delInputs);
+                                        it.remove();
+                                    }
+                                }
+                                //需要删除的input
+                                if(delInputTrans.size()>0){
+                                    inputsDao.deleteInputsByTransId(delInputTrans);
+                                }
+                                //需要更新的input
+                                if(updateInputs.size()>0){
+                                    inputsDao.updateInputSourceByTransIdAndSource(updateInputs);
+                                }
+                                List<Integer> updateTransLikeChice = new ArrayList<>();
+                                //判断input的个数(从而判断是否需要更新)
+                                if(delInputTrans.size()>0){
+                                    List<Map<String,Object>> transInputCounts = inputsDao.findTransInputCount(delInputTrans);
+                                    if(transInputCounts!=null){
+                                        for(Map<String,Object> transInputCount : transInputCounts){
+                                            if(Integer.valueOf(transInputCount.get("count").toString())==0){
+                                                if (transInputCount.get("transformation_id") != null && !transInputCount.get("transformation_id").equals("")) {
+                                                    //需要将tran out_data_type设置为99
+                                                    updateTransLikeChice.add(Integer.valueOf(transInputCount.get("transformation_id").toString()));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if(resultMap.containsKey("updateTransOutType")){
+                                    resultMap.get("updateTransOutType").addAll(updateTransLikeChice);
+                                } else {
+                                    resultMap.put("updateTransOutType",updateTransLikeChice);
+                                }
+                            }
+                        }
+                        if(SquidTypeEnum.GROUPTAGGING.value() == squidType || SquidTypeEnum.SAMPLINGSQUID.value() == squidType) {
+                            //根据当前squidId  查询column。为同步下游做准备。不需要删除的
+                            /*List<Column> columns=columnDao.selectColumnBySquid_Id(toSquidId);
+                            if(columns!=null && columns.size()>0){
+                                for(Column column:columns){
+                                    if(column.getName().equals(ConstantsUtil.CN_GROUP_TAG)){
+                                        continue;
+                                    }
+                                    needRegecive.add(column.getId());
+                                }
+                            }*/
+                            if (leftTransIds.size() > 0) {
+                                //这里查询是当前需要删除的Column
+                                List<Map<String, Object>> columnMaps = columnDao.findTransformationById(leftTransIds);
+                                if (columnMaps != null) {
+                                    for (Map<String, Object> columnMap : columnMaps) {
+                                        if((Integer) columnMap.get("column_id")!=0){
+                                            needRegecive.add((Integer) columnMap.get("column_id"));
+                                        }
+                                        if(SquidTypeEnum.GROUPTAGGING.value()==squidType || SquidTypeEnum.SAMPLINGSQUID.value()==squidType) {
+                                            if((Integer) columnMap.get("column_id")!=0){
+                                                columnIds.add((Integer) columnMap.get("column_id"));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    //添加需要删除的column
+                    if(columnIds.size()>0) {
+                        resultMap.get("column").addAll(columnIds);
+                    }
+                    //添加需要删除的trans
+                    if(otherTransIds.size()>0) {
+                        if (resultMap.containsKey("transformation")) {
+                            resultMap.get("transformation").addAll(otherTransIds);
+                        } else {
+                            resultMap.put("transformation", otherTransIds);
+                        }
+                    }
+                    //添加需要删除的tranLink
+                    if(otherTranLinkIds.size()>0) {
+                        if (resultMap.containsKey("transLink")) {
+                            resultMap.get("transLink").addAll(otherTranLinkIds);
+                        } else {
+                            resultMap.put("transLink", otherTranLinkIds);
+                        }
+                        if(resultMap.get("transLink")!=null && resultMap.get("transLink").size()>0){
+                            //调用删除transformationLink的方法，有的trans 需要递归删除
+                            transformationLinkService.deleteTransformationLinkIds(resultMap.get("transLink"),null,1);
+                        }
+
+
+                    }
+                }
+
+              findAllNeedDelColumnId(toSquidId,needRegecive,resultMap,state);
+            }
+        }
+        return resultMap;
+    }
+
+    /**
+     * 找出当前squid需要删除的元素
+     * @param squidId
+     * @param ids
+     * @param resultMaps
+     */
+    public void findCurrentSquidColumn(int squidId, List<Integer> ids, Map<String, List<Integer>> resultMaps, int tag) {
+        //找到当前squid需要删除的column，TransformationLink和transformation
+        Map<String,Object> paramsMap = new HashMap<>();
+        paramsMap.put("SquidId",squidId);
+        paramsMap.put("ColumnIds",ids);
+        //当前squid需要删除的transformation
+        List<Integer> transIds = columnDao.findTransByColumnId(paramsMap);
+        List<Integer> transLinkIds = new ArrayList<>();
+        List<Integer> groupIds = new ArrayList<>();
+        List<Integer> referenceColumnIds = new ArrayList<>();
+        if (tag == 1) {
+            List<ReferenceColumn> referenceColumns = referenceColumnDao.selectByReferenceSquidId(squidId);
+            for (ReferenceColumn referenceColumn : referenceColumns) {
+                referenceColumnIds.add(referenceColumn.getColumn_id());
+            }
+            if (referenceColumns != null && referenceColumns.size() > 0) {
+                paramsMap.clear();
+                paramsMap.put("hostSquidId", referenceColumns.get(0).getHost_squid_id());
+                paramsMap.put("referenceSquidId", squidId);
+                Map<String, Object> groupIdMap = referenceColumnDao.selectReferenceColumnById(paramsMap);
+                int groupId = 0;
+                if (StringUtils.isNotNull(groupIdMap) && !groupIdMap.isEmpty()) {
+                    groupId = Integer.parseInt(groupIdMap.get("group_id").toString(), 10);
+                }
+                if (groupId != 0) {
+                    groupIds.add(groupId);
+                }
+            }
+        }
+        if(transIds!=null && transIds.size()>0){
+            //查找出当前squid的transformationLink
+            List<Map<String,Object>> linkMapIds = columnDao.findRightTransAndLinkAndRefColumn(transIds);
+            if(linkMapIds!=null){
+                for(Map<String,Object> linkMap : linkMapIds){
+                    transLinkIds.add((Integer) linkMap.get("transLinkId"));
+                }
+            }
+        }
+        if(transIds.size()>0){
+            resultMaps.put("transformation", transIds);
+        }
+        if(transLinkIds.size()>0) {
+            resultMaps.put("transLink", transLinkIds);
+        }
+        if(ids.size()>0) {
+            resultMaps.put("column", ids);
+        }
+        if (referenceColumnIds.size() > 0) {
+            resultMaps.put("refColumn", referenceColumnIds);
+        }
+        if (groupIds.size() > 0) {
+            resultMaps.put("group", groupIds);
+        }
+    }
+
+    /**
+     * 删除入口
+     * @param ids
+     * @param key
+     */
+    public void deleteOrUpdateColumn(List<Integer> ids,String key) throws Exception{
+        if (ids.size() > 0) {
+            if (key.equals(SquidTypeEnum.DEST_CASSANDRA.name())) {
+                columnDao.updateCassandraColumn(ids);
+            } else if (key.equals(SquidTypeEnum.DEST_HDFS.name()) || key.equals(SquidTypeEnum.DESTCLOUDFILE.name())) {
+                columnDao.deleteDestHdfsColumn(ids);
+            } else if (key.equals(SquidTypeEnum.DEST_HIVE.name())) {
+                columnDao.updateHiveColumn(ids);
+            } else if (key.equals(SquidTypeEnum.DEST_IMPALA.name())) {
+                columnDao.deleteDestImpalaColumn(ids);
+            } else if (key.equals(SquidTypeEnum.DESTES.name())) {
+                columnDao.deleteESColumn(ids);
+            } else if (key.equals(SquidTypeEnum.USERDEFINED.name())) {
+                columnDao.updateUserDefinedColumn(ids);
+            } else if (key.equals(SquidTypeEnum.STATISTICS.name())) {
+                columnDao.updateStatisticColumn(ids);
+            } else if (key.equals("column")) {
+                columnDao.deleteBatch(ids);
+            } else if (key.equals("transLink")) {
+                columnDao.deleteTransLink(ids);
+            } else if (key.equals("group")) {
+                referenceColumnGroupDao.deleteGroupByIds(ids);
+            } else if (key.equals("refColumn")) {
+                try {
+                    refColumnService.deleteReferenceColumn(ids);
+                }catch (Exception e){
+                    e.printStackTrace();
+                    throw e;
+                }
+            } else if (key.equals("transformation")) {
+                try {
+                    transService.deleteTransformation(ids);
+                }catch (Exception e){
+                    e.printStackTrace();
+                    throw e;
+                }
+            }  else if(key.equals("updateTransOutType")){
+                Map<String,Object> paramMap = new HashMap<>();
+                paramMap.put("type",21);
+                paramMap.put("idsList",ids);
+                transformationDao.updateTransOutDataType(paramMap);
+
+            }
+        }
+    }
+
+    /**
+     * 批量添加column
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public int insertColumn(List<Column> columnList,Integer squid) throws Exception{
+        try {
+            if(squid==0||columnList.size()==0){
+                throw new Exception("数据不完整");
+            }
+            if(null!=columnList&&columnList.size()>0){
+                for (Column column:columnList){
+                    column.setSquid_id(squid);
+                }
+                columnDao.insert(columnList);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            throw e;
+        }
+        return 0;
+    }
+    /**
+     * 批量添加column
+     */
+    @Transactional(rollbackFor = {Exception.class})
+    public int insertColumn(List<Column> columnList) throws Exception{
+        try {
+            if(columnList.size()==0){
+                throw new Exception("数据不完整");
+            }
+            if(null!=columnList&&columnList.size()>0){
+                columnDao.insert(columnList);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            throw e;
+        }
+        return 0;
+    }
+
+
+    public void synchronousDeleteTransLink(List<Integer> transLink){
+
+    }
+}

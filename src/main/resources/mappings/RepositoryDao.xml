@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.RepositoryDao">
+
+    <resultMap type="com.eurlanda.datashire.server.model.Repository" id="objMap">
+        <id property="id" column="ID" />
+        <result property="name" column="NAME" />
+        <result property="full_name" column="FULL_NAME" />
+        <result property="description" column="DESCRIPTION" />
+        <result property="repository_type" column="TYPE" />
+        <result property="status_id" column="STATUS_ID" />
+        <result property="creation_date" column="CREATION_DATE" jdbcType="TIMESTAMP" javaType="java.lang.String" />
+        <result property="packageId" column="packageId" jdbcType="INTEGER" javaType="java.lang.Integer" />
+    </resultMap>
+
+    <select id="getAllRepository" resultMap="objMap">
+        select * from ds_sys_repository
+    </select>
+
+    <select id="getRepositoryBySquidFlowId" resultMap="objMap" parameterType="java.lang.Integer">
+        select dsr.* from ds_sys_repository dsr,ds_project dp,ds_squid_flow dsf where dsr.id = dp.REPOSITORY_ID and dp.id = dsf.project_id  and dsf.id=#{id}
+    </select>
+
+    <!--获取当前repository下面存在squid总数-->
+    <select id="getSquidCount" resultType="java.lang.Integer" parameterType="java.lang.Integer">
+        select count(1) from ds_squid ds,ds_squid_flow dsf,ds_project dp,ds_sys_repository dsr where ds.squid_flow_id = dsf.id and dsf.project_id = dp.id and dp.repository_id = dsr.id and dsr.id=#{repository_id}
+    </select>
+</mapper>

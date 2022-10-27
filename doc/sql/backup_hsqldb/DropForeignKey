@@ -1,0 +1,1 @@
+alter table ds_sys_sf_job_history drop foreign key FK_JOB_ID

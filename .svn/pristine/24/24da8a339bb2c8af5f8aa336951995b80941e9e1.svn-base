@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.ScheduleJobDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.ScheduleJob" >
+    <id column="id" property="id" jdbcType="INTEGER" />
+    <result column="squid_flow_id" property="squid_flow_id" jdbcType="INTEGER" />
+    <result column="schedule_type" property="schedule_type" jdbcType="INTEGER" />
+    <result column="cron_expression" property="cron_expression" jdbcType="VARCHAR" />
+    <result column="enable_email" property="enable_email" jdbcType="INTEGER" />
+    <result column="email_address" property="email_address" jdbcType="VARCHAR" />
+    <result column="job_status" property="job_status" jdbcType="INTEGER" />
+    <result column="create_time" property="createTime" jdbcType="DATE" />
+    <result column="update_time" property="updateTime" jdbcType="DATE" />
+    <result column="name" property="name" jdbcType="VARCHAR" />
+    <result column="comment" property="comment" jdbcType="VARCHAR" />
+  </resultMap>
+  <resultMap id="BaseResultMap2" type="com.eurlanda.datashire.server.model.ScheduleJob" >
+    <id column="id" property="id" jdbcType="INTEGER" />
+    <result column="squid_flow_id" property="squid_flow_id" jdbcType="INTEGER" />
+    <result column="schedule_type" property="schedule_type" jdbcType="INTEGER" />
+    <result column="cron_expression" property="cron_expression" jdbcType="VARCHAR" />
+    <result column="enable_email" property="enable_email" jdbcType="INTEGER" />
+    <result column="email_address" property="email_address" jdbcType="VARCHAR" />
+    <result column="job_status" property="job_status" jdbcType="INTEGER" />
+    <result column="create_time" property="createTime" jdbcType="DATE" />
+    <result column="update_time" property="updateTime" jdbcType="DATE" />
+    <result column="name" property="name" jdbcType="VARCHAR" />
+    <result column="comment" property="comment" jdbcType="VARCHAR" />
+    <result column="repository_id" property="repository_id" jdbcType="INTEGER" javaType="java.lang.Integer" />
+    <result column="project_id" property="project_id" jdbcType="INTEGER" javaType="java.lang.Integer" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    id, squid_flow_id, schedule_type, cron_expression, enable_email, email_address, job_status, 
+    create_time, update_time, name, comment
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap2" parameterType="java.lang.Integer" >
+    select
+    dsj.*,dp.id as project_id,dsr.id as repository_id
+    from ds_sys_schedule_job dsj,ds_squid_flow dsf,ds_project dp,ds_sys_repository dsr
+    where dsj.id = #{id,jdbcType=INTEGER} and dsj.squid_flow_id = dsf.id and dsf.project_id = dp.id and dp.repository_id = dsr.id
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_sys_schedule_job
+    where id = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.ScheduleJob" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_sys_schedule_job (squid_flow_id, schedule_type, cron_expression, 
+      enable_email, email_address, job_status, 
+      create_time, update_time, name, 
+      comment)
+    values (#{squid_flow_id,jdbcType=INTEGER}, #{schedule_type,jdbcType=INTEGER}, #{cron_expression,jdbcType=VARCHAR}, 
+      #{enable_email,jdbcType=INTEGER}, #{email_address,jdbcType=VARCHAR}, #{job_status,jdbcType=INTEGER}, 
+      #{createTime,jdbcType=DATE}, #{updateTime,jdbcType=DATE}, #{name,jdbcType=VARCHAR}, 
+      #{comment,jdbcType=VARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.ScheduleJob" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_sys_schedule_job
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="squid_flow_id != null" >
+        squid_flow_id,
+      </if>
+      <if test="schedule_type != null" >
+        schedule_type,
+      </if>
+      <if test="cron_expression != null" >
+        cron_expression,
+      </if>
+      <if test="enable_email != null" >
+        enable_email,
+      </if>
+      <if test="email_address != null" >
+        email_address,
+      </if>
+      <if test="job_status != null" >
+        job_status,
+      </if>
+      <if test="createTime != null" >
+        create_time,
+      </if>
+      <if test="updateTime != null" >
+        update_time,
+      </if>
+      <if test="name != null" >
+        name,
+      </if>
+      <if test="comment != null" >
+        comment,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="squid_flow_id != null" >
+        #{squid_flow_id,jdbcType=INTEGER},
+      </if>
+      <if test="schedule_type != null" >
+        #{schedule_type,jdbcType=INTEGER},
+      </if>
+      <if test="cron_expression != null" >
+        #{cron_expression,jdbcType=VARCHAR},
+      </if>
+      <if test="enable_email != null" >
+        #{enable_email,jdbcType=INTEGER},
+      </if>
+      <if test="email_address != null" >
+        #{email_address,jdbcType=VARCHAR},
+      </if>
+      <if test="job_status != null" >
+        #{job_status,jdbcType=INTEGER},
+      </if>
+      <if test="createTime != null" >
+        #{createTime,jdbcType=DATE},
+      </if>
+      <if test="updateTime != null" >
+        #{updateTime,jdbcType=DATE},
+      </if>
+      <if test="name != null" >
+        #{name,jdbcType=VARCHAR},
+      </if>
+      <if test="comment != null" >
+        #{comment,jdbcType=VARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.ScheduleJob" >
+    update ds_sys_schedule_job
+    <set >
+      <if test="squid_flow_id != null" >
+        squid_flow_id = #{squid_flow_id,jdbcType=INTEGER},
+      </if>
+      <if test="schedule_type != null" >
+        schedule_type = #{schedule_type,jdbcType=INTEGER},
+      </if>
+      <if test="cron_expression != null" >
+        cron_expression = #{cron_expression,jdbcType=VARCHAR},
+      </if>
+      <if test="enable_email != null" >
+        enable_email = #{enable_email,jdbcType=INTEGER},
+      </if>
+      <if test="email_address != null" >
+        email_address = #{email_address,jdbcType=VARCHAR},
+      </if>
+      <if test="job_status != null" >
+        job_status = #{job_status,jdbcType=INTEGER},
+      </if>
+      <if test="createTime != null" >
+        create_time = #{createTime,jdbcType=DATE},
+      </if>
+      <if test="updateTime != null" >
+        update_time = #{updateTime,jdbcType=DATE},
+      </if>
+      <if test="name != null" >
+        name = #{name,jdbcType=VARCHAR},
+      </if>
+      <if test="comment != null" >
+        comment = #{comment,jdbcType=VARCHAR},
+      </if>
+    </set>
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.ScheduleJob" >
+    update ds_sys_schedule_job
+    set squid_flow_id = #{squid_flow_id,jdbcType=INTEGER},
+      schedule_type = #{schedule_type,jdbcType=INTEGER},
+      cron_expression = #{cron_expression,jdbcType=VARCHAR},
+      enable_email = #{enable_email,jdbcType=INTEGER},
+      email_address = #{email_address,jdbcType=VARCHAR},
+      job_status = #{job_status,jdbcType=INTEGER},
+      create_time = #{createTime,jdbcType=DATE},
+      update_time = #{updateTime,jdbcType=DATE},
+      name = #{name,jdbcType=VARCHAR},
+      comment = #{comment,jdbcType=VARCHAR}
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+
+  <select id="selectScheduleJobByRepositoryId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    SELECT * FROM
+    ds_sys_schedule_job ssj
+    LEFT JOIN ds_squid_flow sf
+    ON ssj.squid_flow_id = sf.ID
+    LEFT JOIN ds_project p
+    ON sf.PROJECT_ID = p.ID
+    LEFT JOIN ds_sys_repository sr
+    ON p.REPOSITORY_ID = sr.ID
+    WHERE sr.ID = #{repositoryId,jdbcType=INTEGER}
+
+  </select>
+
+  <select id="selectBySelective" parameterType="com.eurlanda.datashire.server.model.ScheduleJob" resultMap="BaseResultMap">
+    select * from ds_sys_schedule_job where 1=1
+    <if test="squid_flow_id != null" >
+      and squid_flow_id = #{squid_flow_id,jdbcType=INTEGER}
+    </if>
+    <if test="schedule_type != null" >
+      and schedule_type = #{schedule_type,jdbcType=INTEGER}
+    </if>
+    <if test="cron_expression != null" >
+      and cron_expression = #{cron_expression,jdbcType=VARCHAR}
+    </if>
+    <if test="enable_email != null" >
+      and enable_email = #{enable_email,jdbcType=INTEGER}
+    </if>
+    <if test="email_address != null" >
+      and email_address = #{email_address,jdbcType=VARCHAR}
+    </if>
+    <if test="job_status != null" >
+      and job_status = #{job_status,jdbcType=INTEGER}
+    </if>
+    <if test="createTime != null" >
+      and create_time = #{createTime,jdbcType=DATE}
+    </if>
+    <if test="updateTime != null" >
+      and update_time = #{updateTime,jdbcType=DATE}
+    </if>
+    <if test="name != null" >
+      and name = #{name,jdbcType=VARCHAR}
+    </if>
+    <if test="comment != null" >
+      and comment = #{comment,jdbcType=VARCHAR}
+    </if>
+  </select>
+</mapper>

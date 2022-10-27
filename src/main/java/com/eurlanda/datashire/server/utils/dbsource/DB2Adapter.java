@@ -1,0 +1,270 @@
+package com.eurlanda.datashire.server.utils.dbsource;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.entity.DbSquid;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.enumeration.datatype.DbBaseDatatype;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.server.utils.dbsource.datatype.DataTypeConvertor;
+import com.eurlanda.datashire.server.utils.entity.DBConnectionInfo;
+import com.eurlanda.datashire.server.utils.entity.operation.BasicTableInfo;
+import com.eurlanda.datashire.server.utils.entity.operation.ColumnInfo;
+import com.eurlanda.datashire.utility.SQLUtils;
+import com.eurlanda.datashire.utility.objectsql.TemplateParser;
+import org.apache.commons.lang.StringUtils;
+import org.apache.thrift.TException;
+
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * adapter for mysql
+ * 
+ * CREATE TABLE `gc`.`new_table` ( `id` INT NOT NULL AUTO_INCREMENT , `name`
+ * VARCHAR(45) NULL , `address` VARCHAR(45) NULL , `addDate` VARCHAR(45) NULL ,
+ * PRIMARY KEY (`id`) , UNIQUE INDEX `id_UNIQUE` (`id` ASC) );
+ * 
+ * @author eurlanda
+ * @version 1.0
+ * @updated 19-八月-2013 8:50:25
+ */
+public class DB2Adapter extends AbsDBAdapter implements INewDBAdapter {
+	public DB2Adapter(DBConnectionInfo info) {
+		super(info);
+	}
+	@Override
+	protected String buildColumnSql(ColumnInfo col) {
+		String column_template = "${colName} ${colType} ${nullable} ${auto_increment}";
+		TemplateParser parser = new TemplateParser();
+		parser.addParam("colName", "\""+col.getName()+"\"");
+		String typeStr = DataTypeConvertor.getOutTypeByColumn(DataBaseType.DB2.value(), col);
+		parser.addParam("colType", typeStr);
+		if (col.isNullable()&& !col.isIdentity()) {
+			parser.addParam("nullable", "NULL");
+		} else {
+			parser.addParam("nullable", "NOT NULL");
+		}
+		String sql= parser.parseTemplate(column_template);
+		return sql;
+	}
+
+	@Override
+	public List<BasicTableInfo> getAllTables(String filter) {
+		List<Map<String, Object>> results=null;
+		String sql="";
+		String owner = "";
+		DBConnectionInfo info = this.connectionInfo;
+		if(info!=null){
+			owner = info.getUserName();
+		}
+		if (StringUtils.isBlank(filter)) {
+			sql = "select * from syscat.tables where ownertype='U' and TYPE in ('T','V') and tabschema<>'SYSTOOLS' AND OWNER <> 'SYSIBM' ";
+			results=this.jdbcTemplate.queryForList(sql,null);
+		} else {
+			sql = "select * from syscat.tables where ownertype='U' and TYPE in ('T','V') and tabschema<>'SYSTOOLS' AND OWNER <> 'SYSIBM' AND  TABNAME like '"
+					+ SQLUtils.sqlserverFilter(filter) +"'";
+			results= this.jdbcTemplate.queryForList(sql,null);
+			sql=" select * from syscat.views where OWNERTYPE='U'  and TYPE in ('T','V') and VIEWSCHEMA<>'SYSIBMADM' " +
+					" and  OWNER <> 'SYSIBM' and VIEWNAME like '"+SQLUtils.sqlserverFilter(filter)+"'";
+//			if(results!=null){
+//				results.addAll(this.jdbcTemplate.queryForList(sql,null));
+//			} else {
+//				results=this.jdbcTemplate.queryForList(sql,null);
+//			}
+		}
+
+		List<BasicTableInfo> tableList = new ArrayList<BasicTableInfo>();
+		/*String constraintsSQL = "select t.*," +
+				"fk.column_name as source_column,ref.column_name as ref_column,ref.table_name as ref_table " +
+				"from user_constraints t " +
+				"left join user_cons_columns fk on  t.constraint_name=fk.constraint_name " +
+				"left join user_cons_columns ref on  t.r_constraint_name=ref.constraint_name  " +
+				"where table_name=?";
+		String indexSQL = "select t.*,fk.column_name as source_column from user_indexes t  left join user_cons_columns fk on  t.index_name=fk.constraint_name where t.table_name=?";*/
+		for(Map<String,Object> tableMap:results){		// 表
+			String tableName=null;
+			if(tableMap.containsKey("OWNER")){
+				this.connectionInfo.setUserName(tableMap.get("OWNER")+"".trim());
+				JDBCTemplate jdbc=this.jdbcTemplate;
+				if(!(tableMap.get("OWNER")+"").trim().equals(owner.toUpperCase().trim())){
+					continue;
+				}
+
+				//如果需要查找出其他用户的表，需要设置connectionInfo中的owner（可以考虑传入一个参数）
+			}
+			if(tableMap.containsKey("VIEWNAME")){
+				tableName=tableMap.get("VIEWNAME").toString();
+			} else if(tableMap.containsKey("TABNAME")){
+				tableName=tableMap.get("TABNAME").toString();
+			}
+			//String tableName = tableMap.get("TABNAME").toString();
+			BasicTableInfo tableInfo = new BasicTableInfo(tableName);
+//			tableInfo.setRecordCount(super.getRecordCount(tableName));
+			/*List<Map<String,Object>> constraintsList = this.jdbcTemplate.queryForList(constraintsSQL, tableName);
+			//List<Map<String,Object>> indexList = this.jdbcTemplate.queryForList(indexSQL, tableName);
+			for(Map<String,Object> constraints:constraintsList){
+				String constraintType = constraints.get("CONSTRAINT_TYPE").toString();
+				if(constraintType.equals("P")){
+					TablePrimaryKey pk = new TablePrimaryKey();
+					pk.setKeyName(constraints.get("CONSTRAINT_NAME").toString());
+					pk.setTableName(tableName);
+					pk.setSourceColumn(constraints.get("SOURCE_COLUMN").toString());
+					tableInfo.getPrimaryKeyList().add(pk);
+				}else if(constraintType.equals("R")){
+					TableForeignKey fk = new TableForeignKey();
+					fk.setKeyName(constraints.get("CONSTRAINT_NAME").toString());
+					fk.setTableName(tableName);
+					fk.setOnDelete(constraints.get("DELETE_RULE").toString());
+					fk.setSourceColumn(constraints.get("SOURCE_COLUMN").toString());
+					fk.setReferenceColumn(constraints.get("REF_COLUMN").toString());
+					fk.setReferenceTable(constraints.get("REF_TABLE").toString());
+					fk.setOrderType(constraints.get("DELETE_RULE").toString());
+					tableInfo.getForeignKeyList().add(fk);
+				}
+			}
+			for(Map<String,Object> index:indexList){
+				TableIndex idx = new TableIndex();
+				idx.setTableName(tableName);
+				idx.setIndexName(index.get("INDEX_NAME").toString());
+				idx.setColumnName(index.get("SOURCE_COLUMN").toString());
+				idx.setOrderType(index.get("INDEX_TYPE").toString());
+				idx.setUnique(index.get("UNIQUENESS").toString());
+				tableInfo.getTableIndexList().add(idx);
+			}
+			*/
+			tableInfo.setRecordCount((Integer)tableMap.get("COLCOUNT"));
+			tableList.add(tableInfo);
+		}
+		return tableList;
+	}
+	@Override
+	public List<ColumnInfo> getTableColumns(String tableName,String DatabaseName) {
+		List<ColumnInfo> columnList = new ArrayList<ColumnInfo>();
+		String colsql = "select REMARKS,COLNO,COLNAME,TYPENAME,LENGTH,NULLS,SCALE from syscat.columns where TABNAME=?";
+		String pkSql="select A.TABNAME, B.COLNAME  from syscat.tabconst A   ,SYSCAT.KEYCOLUSE B  WHERE A.CONSTNAME = B.CONSTNAME AND   A.TYPE='P' and A.tabname =?";
+   		String uniqueSql="select A.TABNAME, B.COLNAME  from syscat.tabconst A   ,SYSCAT.KEYCOLUSE B  WHERE A.CONSTNAME = B.CONSTNAME AND   A.TYPE='U' and A.tabname=?";
+		List<Map<String,Object>> colList = this.jdbcTemplate.queryForList(colsql,null, tableName.toUpperCase());
+		List<Map<String,Object>> pKList = this.jdbcTemplate.queryForList(pkSql,null, tableName.toUpperCase());
+		List<Map<String,Object>> UniqueList = this.jdbcTemplate.queryForList(uniqueSql,null, tableName.toUpperCase());
+		//通过jdbc再获取一遍，目的是检测出CHARFORBITDATA和VARCHARFORBITDATA类型，因为这两个类型在系统表里面的类型是不一致的，并且在实际使用的是binary类型
+		// binary类型在引擎是不支持做分片控制列的
+		List<ColumnInfo> columnInfos = new ArrayList<>();
+		try {
+			columnInfos = super.getTableColumns(tableName,DatabaseName);
+		} catch (TException e) {
+			e.printStackTrace();
+		}
+		for(Map<String,Object> col: colList){
+			ColumnInfo column = new ColumnInfo();
+			column.setTableName(tableName);
+			column.setComment((String) col.get("REMARKS"));
+			column.setOrderNumber((Integer)col.get("COLNO"));
+			column.setName(col.get("COLNAME").toString());
+			String typeName = col.get("TYPENAME").toString();
+			//CHARFORBITDATA和VARCHARFORBITDATA类型 对应于系统表中的char和varchar
+			if("CHARACTER".equals(typeName.toUpperCase()) || "VARCHAR".equals(typeName.toUpperCase())){
+				if(columnInfos!=null){
+					for(ColumnInfo info : columnInfos){
+						if(info.getName().equals(column.getName())
+								&& ("CHARFORBITDATA".equals(info.getTypeName()) || "VARCHARFORBITDATA".equals(info.getTypeName()))){
+							typeName = info.getTypeName();
+							break;
+						}
+					}
+				}
+			}
+			//在db2中，character类型就是char类型，并且展示的时候也是展示的char类型
+			if("CHARACTER".equals(typeName.toString())){
+				typeName = "char";
+			}
+			//column.setSystemDataType(DataTypeManager.encodeSystemDataType(DataBaseType.ORACLE, typeName));
+			column.setDbBaseDatatype(DbBaseDatatype.parse(typeName));
+			column.setTypeName(typeName);
+			if (column.getDbBaseDatatype().value()==DbBaseDatatype.DECIMAL.value()
+					|| column.getDbBaseDatatype().value() == DbBaseDatatype.DECFLOAT.value()){
+				column.setPrecision(((Integer)col.get("LENGTH")));
+			}else{
+				column.setLength(((Integer)col.get("LENGTH")));
+			}
+			column.setScale(((Integer)col.get("SCALE")));
+			//column.setNullable(Boolean.parseBoolean(col.get("NULLS").toString()));
+			column.setNullable(true);
+			//column.setDefaultValue(col.get("DEFAULT").toString());
+			//设置主键
+			for(Map<String,Object> pk:pKList)
+			{
+				if(column.getName().equals(pk.get("COLNAME").toString()))
+				{
+					column.setPrimary(true);
+					break;
+				}
+			}
+			//设置唯一约束
+			for(Map<String,Object> unique:UniqueList)
+			{
+				if(column.getName().equals(unique.get("COLNAME").toString()))
+				{
+					column.setUniqueness(true);
+					break;
+				}
+			}
+			columnList.add(column);
+		}
+		return columnList;
+	}
+	
+	@Override
+	public void deleteIndex(String tableName, String indexName) {
+		String temp = "DROP INDEX ${indexName}";
+		TemplateParser parser = new TemplateParser();
+		parser.addParam("indexName", indexName);
+		String sql = parser.parseTemplate(temp);
+		this.jdbcTemplate.update(sql);
+	}
+	
+	/**
+	 * 查询索引
+	 * @param tableName
+	 * @author bo.dang
+	 */
+	public void selectIndex(String tableName){
+		String temp = "select name, creator, colnames, uniquerule, colcount, nlevels from sysibm.sysindexes where tbname=?";
+		List<Map<String,Object>> indexColumnList = this.jdbcTemplate.queryForList(temp,null, tableName.toUpperCase());
+	}
+	
+	public static void main(String[] args) {
+		DataAdapterFactory adapterFactory = null;
+		IRelationalDataManager adapter3 = null;
+		try {
+			adapterFactory = DataAdapterFactory.newInstance();
+			adapter3 = adapterFactory.getDataManagerByDbName("test");
+			adapter3.openSession();
+			String sql = "select * from ds_squid ds inner join ds_sql_connection dsc " +
+					" on ds.id=dsc.id where ds.id="+1471; //db2
+			DbSquid db = adapter3.query2Object(true, sql, null, DbSquid.class);
+			if (db!=null){
+				DBConnectionInfo dbs = DBConnectionInfo.fromDBSquid(db);
+				INewDBAdapter adaoterSource = AdapterDataSourceManager.getAdapter(dbs);
+				sql = " INSERT INTO VPHONE_EXTRACT (\"" + Constants.DEFAULT_EXTRACT_COLUMN_NAME + "\", DEPTNAME, DEPTNUMBER, EMPLOYEENUMBER, FIRSTNAME, LASTNAME, MIDDLEINITIAL, PHONENUMBER)" +
+                        " VALUES (?, 'SPIFFY COMPUTER SERVICE DIV.', 'A00', '000010', 'CHRISTINE', 'HAAS', 'I', '3978')";
+				final Timestamp addDate = new Timestamp(new Date().getTime());
+				adaoterSource.executeUpdate(sql, addDate);
+			}
+		} catch (Exception e) {
+			try {
+				adapter3.rollback();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			e.printStackTrace();
+		} finally{
+			adapter3.closeSession();
+		}
+	}
+}

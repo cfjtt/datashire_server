@@ -1,0 +1,445 @@
+package com.eurlanda.datashire.server.service;
+
+import com.alibaba.fastjson.JSONArray;
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.server.dao.*;
+import com.eurlanda.datashire.server.model.Base.SquidModelBase;
+import com.eurlanda.datashire.server.model.*;
+import com.eurlanda.datashire.utility.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+/**
+ * Created by test on 2017/11/24.
+ */
+@Service
+public class PivotSquidService {
+
+    @Autowired
+    private PivotSquidDao pivotSquidDao;
+    @Autowired
+    private ColumnDao columnDao;
+    @Autowired
+    private GetMeatDataService getMeatDataService;
+    @Autowired
+    private SquidLinkDao squidLinkDao;
+    @Autowired
+    private TransformationDao transformationDao;
+    @Autowired
+    private TransformationLinkDao transformationLinkDao;
+    @Autowired
+    private TransformationInputsDao transformationInputsDao;
+    @Autowired
+    private SquidDao squidDao;
+    @Autowired
+    private ReferenceColumnDao referenceColumnDao;
+    @Autowired
+    private ColumnService columnService;
+
+    private static final Logger logger = LoggerFactory.getLogger(PivotSquidService.class);
+
+    public int insertPivotSquid(PivotSquid pivotSquid){
+        pivotSquidDao.insertPivotSquid(pivotSquid);
+        return pivotSquid.getId();
+    }
+    public int updatePivotSquid(PivotSquid pivotSquid){
+        return  pivotSquidDao.updatePivotSquid(pivotSquid);
+    }
+    public PivotSquid selectByPrimaryKey(Integer id) {
+        return pivotSquidDao.selectByPrimaryKey(id);
+    }
+
+
+    public Map<String,Object> generatePivotColumns(PivotSquid pivotSquid) throws Exception{
+        Map<String,Object> map = new HashMap<>();
+
+        //将之前的trans,transLink,transInput,column删除
+        validatePivotDataIsIdentical(pivotSquid);
+        //分组列，value,pivot列不能重复,pivot列值要与pivotColumn类型相兼容
+        Map<String,Object> result = validateGPVisIdentical(pivotSquid);
+        if(!(boolean)result.get("flag")){//验证失败
+            throw new NumberFormatException();
+        }
+        //更新pivotSquid
+        updatePivotSquid(pivotSquid);
+        //1.生成转换后的column,注意类型是value列的类型
+        String pivotValueJson = pivotSquid.getPivotColumnValue();
+        List<String> pivotValue = JSONArray.parseArray(pivotValueJson,String.class);
+        //去重处理
+        HashSet<String> noEqualsValue = new HashSet<>(pivotValue);
+        //用来批量添加的column集合
+        List<Column> columns=new ArrayList<>();
+        //查询右侧的transformation
+        List<Transformation> transformationRightList = new ArrayList<>();
+        //用来批量添加的左边的transformation集合
+        List<Transformation> transformationLeftList = new ArrayList<>();
+        //用来需要的添加的transformation集合
+        List<Transformation> transformations=new ArrayList<>();
+        //用来批量添加的transformationLink集合
+        List<TransformationLink> transformationLinkList=new ArrayList<>();
+        //用来批量添加的referenceColumn集合
+        List<ReferenceColumn> referenceColumns=new ArrayList<>();
+        //获取value列的字段信息
+        Column valueColum = columnDao.selectByPrimaryKey(pivotSquid.getValueColumnId());
+        //查询出上游的SquidLink
+        SquidLink squidLink = squidLinkDao.getSquidLinkListByToSquidId(pivotSquid.getId());
+        int noGroupColumnOrder = 0;
+        for(String pivotColumn : noEqualsValue){
+            int s = 0;
+            Column column = new Column();
+            if(result.get("dataType") != null){
+                column.setData_type((Integer) result.get("dataType"));
+            }else {
+                column.setData_type(valueColum.getData_type());
+            }
+            column.setAggregation_type(valueColum.getAggregation_type());
+            column.setLength(valueColum.getLength());
+            column.setPrecision(valueColum.getPrecision());
+            column.setNullable(valueColum.isNullable());
+            column.setRelative_order(++noGroupColumnOrder);
+            //如果包含中文就转换为自定义名字
+           if(pivotColumn == null){//允许有NULL值行
+               column.setName("col_NULL");
+           }else if(StringUtils.isHavaChinese(pivotColumn)){//判断是否有汉字
+               column.setName("col_"+ s++);
+           }else if(StringUtils.isStartWithNumber(pivotColumn)){ //判断是否以数字开头
+               column.setName("col_"+ pivotColumn);
+           }else if(pivotColumn.equals("")){ //空字符串
+               column.setName("col_emptyStr");
+           }else {
+               column.setName(pivotColumn);
+           }
+            column.setDescription(pivotColumn);
+            column.setSquid_id(pivotSquid.getId());
+
+            columns.add(column);
+        }
+        //非分组列入库
+        columnDao.insert(columns);
+        List<Integer> noGroupByColumnIdList = new ArrayList<>();
+        for(Column noGruopByColumn : columns){
+            noGroupByColumnIdList.add(noGruopByColumn.getId());//保存非分组列columnId
+        }
+
+        //添加分组列
+        //分组列，value,pivot列不能重复
+        String groupColumnIds = pivotSquid.getGroupByColumnIds();
+        //分组列id
+        String[] groupByIds = groupColumnIds.split(",");
+
+        List<Column> groupByColumnList = new ArrayList<>();
+
+        int groupColumnOrder = noEqualsValue.size();
+        for (String columnId : groupByIds){
+
+            if(columnId.equals("") || columnId == null){
+                continue;
+            }
+            Column newColumn = columnDao.selectByPrimaryKey(Integer.parseInt(columnId));
+            newColumn.setSquid_id(pivotSquid.getId());
+            newColumn.setId(null);
+            newColumn.setRelative_order(++groupColumnOrder);
+            newColumn.setIs_groupby(1);
+            groupByColumnList.add(newColumn);
+        }
+        //分组列column入库
+        if(groupByColumnList.size() > 0){
+            columnDao.insert(groupByColumnList);
+        }
+
+
+        List<Integer> groupByColumnIdList = new ArrayList<>();
+        for(Column gruopByColumn : groupByColumnList){
+            groupByColumnIdList.add(gruopByColumn.getId());//保存分组列columnId
+        }
+
+
+        //整合所有的columns传给前台
+        columns.addAll(groupByColumnList);
+        map.put("ColumnList",columns);
+
+        //右侧虚拟transformation
+        List<Integer> linkIds = new ArrayList<>();
+        linkIds.add(squidLink.getId());
+        //pivotSquid只能有一个上游,一个link和一个pivotSquid对应一个上游，对应一组referenceColumn
+        referenceColumns = referenceColumnDao.selectReColumnBySquLinkid(linkIds);
+        for(ReferenceColumn referenceColumn:referenceColumns){
+            transformationRightList.add(getMeatDataService.initTransformation(squidLink.getTo_squid_id(),referenceColumn.getColumn_id(),TransformationTypeEnum.VIRTUAL.value(),referenceColumn.getData_type(),1));
+        }
+
+
+        //添加左侧虚拟transformation
+        for(Column column:columns){
+            transformationLeftList.add(getMeatDataService.initTransformation(squidLink.getTo_squid_id(),column.getId(),TransformationTypeEnum.VIRTUAL.value(),column.getData_type(),1));
+        }
+        transformations.addAll(transformationLeftList);
+        transformations.addAll(transformationRightList);
+        transformationDao.insert(transformations);
+        List<com.eurlanda.datashire.server.model.TransformationInputs> transformationInputsLists=new ArrayList<>();
+        for(Transformation transformation : transformations){
+            List<Map<String,Object>> mapList=SquidLinkService.Inputscache.get(transformation.getTranstype()+"");
+            if(mapList != null && mapList.size() > 0){
+                List<com.eurlanda.datashire.server.model.TransformationInputs> transformationInputsList=new ArrayList<>();
+                for(Map<String,Object> inputsMap:mapList){
+                    com.eurlanda.datashire.server.model.TransformationInputs transformationInputs=new com.eurlanda.datashire.server.model.TransformationInputs();
+                    String description=inputsMap.get("description").toString();
+                    String relative_order=inputsMap.get("inputOrder").toString();
+                    transformationInputs.setRelative_order(Integer.parseInt(relative_order));
+                    transformationInputs.setInput_Data_Type(transformation.getOutput_data_type());
+                    transformationInputs.setDescription(description);
+                    transformationInputs.setSource_transform_id(0);
+                    transformationInputs.setTransformationId(transformation.getId());
+                    transformationInputsList.add(transformationInputs);
+                }
+                transformation.setInputs(transformationInputsList);
+                transformationInputsLists.addAll(transformationInputsList);
+            }
+        }
+        //批量创建transformationInputs
+        transformationInputsDao.insert(transformationInputsLists);
+        map.put("TransformationList",transformations);
+        //初始化transformationLink
+        Integer rightTransformationId = null;
+        for(int i = 0; i < transformationRightList.size(); i++){
+            Integer rigthTransformationColumnId = transformationRightList.get(i).getColumn_id();
+            if((int)valueColum.getId() == (int)rigthTransformationColumnId){
+                rightTransformationId = transformationRightList.get(i).getId();
+            }
+        }
+
+
+        boolean flag2 = false;
+        //pivot列的column与原value列相连
+        for(int i = 0 ;i < transformationLeftList.size();i++){
+            TransformationLink transformationLink = null;
+            boolean flag = false;
+            for(int j = 0; j < noGroupByColumnIdList.size();j++){
+                if((int)transformationLeftList.get(i).getColumn_id() == (int)noGroupByColumnIdList.get(j)){//非分组列与原value列相连
+                    transformationLink = getMeatDataService.mergeTransformationLink(rightTransformationId,transformationLeftList.get(i).getId(),i+1);
+                    transformationLinkList.add(transformationLink);
+                    flag = true;
+                }
+            }
+            if (flag){
+                continue;
+            }
+
+            if(flag2){
+                break;
+            }
+            int num = i;//该循环只需要执行一次
+            for(int j = 0; j < transformationRightList.size();j++){
+                for(int k = 0; k < groupByIds.length; k++){
+                    if(groupByIds[k].equals(transformationRightList.get(j).getColumn_id()+"")){//分组列与原分组列列相连
+                        transformationLink = getMeatDataService.mergeTransformationLink(transformationRightList.get(j).getId(),transformationLeftList.get(num++).getId(),i+1);
+                        transformationLinkList.add(transformationLink);
+                        flag2 = true;
+                    }
+                }
+
+            }
+
+        }
+        //批量添加transformationLink
+        transformationLinkDao.insert(transformationLinkList);
+        map.put("TransformationLinkList",transformationLinkList);
+
+        //根据下游查询下下游  同步下游
+        List<SquidLink> squidLinks = squidLinkDao.getSquidLinkListByFromSquid(pivotSquid.getId());//查询出所有从当前Squid发出的link
+        if(squidLinks != null && squidLinks.size() > 0){
+            //遍历每一条link
+            for(SquidLink squidLink1 : squidLinks){
+                //查出第i条link的第一个下游
+                SquidModelBase squidModelBase = squidDao.selectByPrimaryKey(squidLink1.getTo_squid_id());
+                //递归每一条link的下游，下下游，。。。。
+                getMeatDataService.synchronousInsertColumn(pivotSquid.getId(),squidModelBase.getId(),squidModelBase.getSquid_type(),transformations,columns,referenceColumns);
+            }
+        }
+
+        return map;
+    }
+
+
+    /**
+     * 验证分组列，pivot,value列是否有存在相同
+     */
+    public Map<String,Object> validateGPVisIdentical(PivotSquid vaildatePivotSquid) throws Exception{
+        Map<String,Object> map = new Hashtable<>();
+        //分组列，value,pivot列不能重复
+        String groupColumnIds = vaildatePivotSquid.getGroupByColumnIds();
+        String[] groupByIds;
+        if(groupColumnIds.equals("")){
+            groupByIds = new String[0];//分组列为空
+        }else{
+            groupByIds = groupColumnIds.split(",");
+        }
+        //pivot列
+        String pivotValueJson = vaildatePivotSquid.getPivotColumnValue();
+        List<String> pivotValues = JSONArray.parseArray(pivotValueJson,String.class);
+        if(pivotValues.size() < 1){
+            logger.error("------前台所给pivot列值为空！-----");
+            map.put("flag",false);
+            return map;//前台所给pivot列值为空
+        }
+        //验证pivot列值的类型与pivot列的类型是否一致
+        Integer pivotColumnId = vaildatePivotSquid.getPivotColumnId();//pivot列columnId
+        Column pivotColumn = columnDao.selectByPrimaryKey(pivotColumnId);
+        Column valueColum = columnDao.selectByPrimaryKey(vaildatePivotSquid.getValueColumnId());
+        int pivotColumnDataType =  pivotColumn.getData_type();
+        int valueColumnDataType = valueColum.getData_type();
+
+        int aggreType = vaildatePivotSquid.getAggregationType();
+       //映射数据类型
+        int pivotColumnMapping = dataTypeMapping(pivotColumnDataType);
+        int valueColumnMapping = dataTypeMapping(valueColumnDataType);
+        if(aggreType == 1){//聚合
+            if(valueColumnMapping != 1){
+                logger.error("-----只有数值类型才能求平均值--------");
+                throw new Exception("只有数值类型才能求平均值");
+            }else{
+
+                //逻辑型，二进制类型也不能去平均
+                if(valueColumnDataType == 4 || valueColumnDataType == 11 || valueColumnDataType == 12){
+                    logger.error("-----逻辑型，二进制类型不能取平均值--------");
+                    throw new Exception("逻辑型，二进制类型不能取平均值");
+                }else {//满足avg的条件，将value列的类型修改为double类型
+                    map.put("dataType",6);
+                }
+            }
+
+        }else if(aggreType == 4){//count
+            if(valueColumnMapping != 0 && valueColumnMapping != -1){//cout方式value列变成bigint
+                map.put("dataType",1);
+            }else {
+                throw new Exception("未知类型");
+            }
+        }else if(aggreType == 3){//sum
+            if(valueColumnMapping == 0 || valueColumnMapping == -1){
+                throw new Exception("未知类型");
+            }else if(valueColumnMapping != 1){
+                throw new Exception("sum必须为数值类型");
+            }else{
+                if(valueColumnDataType == 15){
+                    throw new Exception("csv不能做sum");
+                }
+            }
+        }
+        for (String value : pivotValues){
+           if(pivotColumnMapping == 1) {//数值类型只允许出现数字，小数点和null值
+                if(value != null) {
+                    String regex="^[+-]?\\d+(\\.\\d+)?$";
+                    if(!value.matches(regex)){
+                        logger.error("------pivotValue列值与pivotColumn类型不匹配！-----");
+                        map.put("flag",false);
+                        return map;
+                    }
+
+                }
+            }
+        }
+
+
+        //value列
+        Integer valueColumnId = vaildatePivotSquid.getValueColumnId();
+        for (String pivotValueStr : pivotValues){
+            if(pivotValueStr == null){
+                continue;
+            }
+            if(groupByIds.length > 0){
+                for (String groupById : groupByIds){
+                    if(pivotValueStr.equals(groupById) || pivotValueStr.equals(valueColumnId+"") || groupById.equals(valueColumnId+"")){
+                        logger.error("------PVG三列有相同的列-----");
+                        map.put("flag",false);
+                        return map;
+                    }
+                }
+            }else {//分组列为空，只比较value列与pivot列是否相同
+                if(pivotValueStr.equals(valueColumnId+"")){
+                    logger.error("------pivotValue列与value列相同-----");
+                    map.put("flag",false);
+                    return map;
+                }
+            }
+
+        }
+        map.put("flag",true);
+        return map;
+    }
+
+    /**
+     * 判断pivot是否发生变换(暂时生成pivot列之前就删除一次之前的数据)
+     * 待优化
+     */
+    public boolean validatePivotDataIsIdentical(PivotSquid vaildatePivotSquid) throws  Exception{
+
+
+        //同步下游时，删除下游所有分支之前的数据
+        List<Integer> delColumns = columnDao.selectColumnBySquidId(vaildatePivotSquid.getId());
+        if(delColumns.size() > 0){
+            columnService.deleteColumn(delColumns,0);
+        }
+        return true;
+    }
+
+    public Integer dataTypeMapping(int dateType){
+        /**
+         * BIGINT(1),
+         INT(2),
+         TINYINT(3),
+         BIT(4), //逻辑型，可表示true/false Y/N 0/1 M/F on/off
+         DECIMAL(5),//十进制
+         DOUBLE(6),
+         NCHAR(8),
+         NVARCHAR(9),
+         CSN(10),//字符串拼接
+         BINARY(11), // 定长二进制
+         VARBINARY(12), // 变长二进制
+         DATETIME(13),
+         SMALLINT(14),
+         CSV(15),//数组拼接
+         FLOAT(58),
+         DATE(18),
+         OBJECT(21),
+         MAP(1022),
+         ARRAY(86),
+
+         UNKNOWN(0);
+         */
+        switch (dateType){
+            case 1 :
+            case 2 :
+            case 3 :
+            case 4 :
+            case 5 :
+            case 6 :
+            case 11 :
+            case 12 :
+            case 14 :
+            case 58 :
+            case 15 :
+                return 1;//数值类型
+            case 8 :
+            case 9 :
+            case 10 :
+                return 2;//文本
+            case 13 :
+            case 18 :
+                return 3;//时间
+            case 21 :
+            case 1022 :
+            case 86 :
+                return 4;//引用类型
+            case 0 :
+                return 0;//未知类型
+
+        }
+        return  -1;
+    }
+
+
+
+}

@@ -1,0 +1,790 @@
+package com.eurlanda.datashire.sprint7.service.squidflow.subservice;
+
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.ISquidDao;
+import com.eurlanda.datashire.dao.ITransformationInputsDao;
+import com.eurlanda.datashire.dao.impl.SquidDaoImpl;
+import com.eurlanda.datashire.dao.impl.TransformationInputsDaoImpl;
+import com.eurlanda.datashire.entity.Column;
+import com.eurlanda.datashire.entity.DataMiningSquid;
+import com.eurlanda.datashire.entity.ReferenceColumn;
+import com.eurlanda.datashire.entity.ReferenceColumnGroup;
+import com.eurlanda.datashire.entity.SquidLink;
+import com.eurlanda.datashire.entity.Transformation;
+import com.eurlanda.datashire.entity.TransformationInputs;
+import com.eurlanda.datashire.entity.TransformationLink;
+import com.eurlanda.datashire.entity.operation.BeyondSquidException;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.enumeration.datatype.SystemDatatype;
+import com.eurlanda.datashire.sprint7.service.squidflow.AbstractRepositoryService;
+import com.eurlanda.datashire.sprint7.service.squidflow.TransformationService;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public class DataMiningSquidServiceSub extends AbstractRepositoryService {
+    public DataMiningSquidServiceSub(String token) {
+        super(token);
+    }
+
+    public DataMiningSquidServiceSub(IRelationalDataManager adapter) {
+        super(adapter);
+    }
+
+    public DataMiningSquidServiceSub(String token,
+                                     IRelationalDataManager adapter) {
+        super(token, adapter);
+    }
+
+
+    /**
+     * 创建associstionSquid的时候自动创建如下column
+     *
+     * @param dataMiningSquid
+     * @throws Exception
+     * @author dzp
+     * @date 2016年5月11日
+     */
+
+    public Map<String, Object> createAssocistionSquidColumn(
+            IRelationalDataManager adapter,
+            DataMiningSquid dataMiningSquid) throws Exception {
+        ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter);
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        List<Column> columnList = new ArrayList<Column>();
+        Map<String, Integer> columnMap = new HashMap<String, Integer>();
+        LinkedHashMap myMap = new LinkedHashMap();
+        myMap.put("id", SystemDatatype.BIGINT.value());
+        myMap.put("total_dataset", SystemDatatype.INT.value());
+        myMap.put("rule_size", SystemDatatype.INT.value());
+        myMap.put("antecedent", SystemDatatype.CSV.value());
+        myMap.put("consequent", SystemDatatype.CSV.value());
+        myMap.put("antecedent_size", SystemDatatype.INT.value());
+        myMap.put("antecedent_instance_size", SystemDatatype.INT.value());
+        myMap.put("antecedent_support", SystemDatatype.DOUBLE.value());
+        myMap.put("consequent_size", SystemDatatype.INT.value());
+        myMap.put("consequent_instance_size", SystemDatatype.INT.value());
+        myMap.put("consequent_support", SystemDatatype.DOUBLE.value());
+        myMap.put("rule_support", SystemDatatype.DOUBLE.value());
+        myMap.put("confidence", SystemDatatype.DOUBLE.value());
+        myMap.put("lift", SystemDatatype.DOUBLE.value());
+        myMap.put("deployment_capability", SystemDatatype.DOUBLE.value());
+        myMap.put("creation_date", SystemDatatype.DATETIME.value());
+        myMap.put("version", SystemDatatype.INT.value());
+        myMap.put("key", SystemDatatype.NVARCHAR.value());
+        Column column = null;
+        int index = 1;
+        int columnId = 0;
+        TransformationService transformationService = new TransformationService(token);
+        int squidId = dataMiningSquid.getId();
+        Transformation transformation = null;
+        List<Transformation> transformationList = new ArrayList<Transformation>();
+        //将myMap中的元素按照放进去的顺序取出来
+        for (Iterator iter = myMap.entrySet().iterator(); iter.hasNext(); ) {
+            if (index <= myMap.size()) {
+                Map.Entry element = (Map.Entry) iter.next();
+                column = transformationService.initColumn(adapter, index, element, squidId);
+                //先设置长度  再入库
+                //设置 "key" "antecedent" "consequent" 的默认长度
+                if (element.getKey().equals("key")) {
+                    column.setLength(256);
+                } else if (element.getKey().equals("antecedent")) {
+                    column.setLength(256);
+                } else if (element.getKey().equals("consequent")) {
+                    column.setLength(256);
+                }
+                column.setId(adapter.insert2(column));
+                // 创建Transformation
+                columnList.add(column);
+                columnId = column.getId();
+                transformation = transformationService.initTransformation(
+                        adapter, squidId, columnId,
+                        TransformationTypeEnum.VIRTUAL.value(),
+                        column.getData_type(), 1);
+                transformationList.add(transformation);
+            }
+            index++;
+        }
+        // 创建Train
+        Map<String, Object> transDefinition = adapter.query2Object(true,
+                "select * from ds_transformation_type where id="
+                        + TransformationTypeEnum.TRAIN.value(), null);
+        int transTypeId = Integer.valueOf(transDefinition
+                .get("OUTPUT_DATA_TYPE") + "");
+        // 创建新增列对应的虚拟变换
+        Transformation transformationTrain = new Transformation();
+        transformationTrain.setKey(StringUtils.generateGUID());
+        transformationTrain.setName("Train");
+        transformationTrain.setLocation_x(85);
+        transformationTrain.setLocation_y(85);
+        transformationTrain.setSquid_id(squidId);
+        transformationTrain.setTranstype(TransformationTypeEnum.TRAIN.value());
+        transformationTrain.setOutput_data_type(transTypeId);
+        transformationTrain.setOutput_number(1);
+        transformationTrain.setId(adapter.insert2(transformationTrain));
+        transformationTrain.setInputs(transInputsDao.initTransInputs(transformationTrain, 0));
+        //根据需求将关联规则的train trans的input中的input datatype设值为CSV
+        transformationTrain.getInputs().get(0).setInput_Data_Type(SystemDatatype.CSV.value());
+        adapter.update2(transformationTrain.getInputs().get(0));
+
+        // 创建Train的Link
+//        TransformationLink transformationTrainLink = new TransformationLink();
+//        transformationTrainLink.setIn_order(1);
+//        transformationTrainLink.setFrom_transformation_id(transformationTrain.getId());
+//        transformationTrainLink.setTo_transformation_id(transformation.getId());
+//        transformationTrainLink.setKey(StringUtils.generateGUID());
+//        transformationTrainLink.setId(adapter.insert2(transformationTrainLink));
+//        // 更新TransformationInputs
+//       transInputsDao.updTransInputs(transformationTrainLink, transformation);
+        resultMap.put("columnList", columnList);
+        resultMap.put("transformationList", transformationList);
+        resultMap.put("transformationTrain", transformationTrain);
+        resultMap.put("transformationTrainLink", null);
+        return resultMap;
+    }
+
+    /**
+     * 创建dataMiningSquid的时候自动创建如下column
+     *
+     * @param dataMiningSquid
+     * @throws Exception
+     * @author bo.dang
+     * @date 2014年5月19日
+     */
+    public Map<String, Object> createDataMiningSquidColumn(
+            IRelationalDataManager adapter,
+            DataMiningSquid dataMiningSquid) throws Exception {
+
+        ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter);
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        List<Column> columnList = new ArrayList<Column>();
+
+        Map<String, Integer> columnsMap = new LinkedHashMap<>();
+        columnsMap.put("id", SystemDatatype.BIGINT.value());
+        columnsMap.put("total_dataset", SystemDatatype.BIGINT.value());
+
+        columnsMap.put("training_percentage", SystemDatatype.FLOAT.value());
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.RANDOMFORESTCLASSIFIER.value()
+                || dataMiningSquid.getSquid_type() == SquidTypeEnum.RANDOMFORESTREGRESSION.value()
+                || dataMiningSquid.getSquid_type() == SquidTypeEnum.MULTILAYERPERCEPERONCLASSIFIER.value()) {
+            columnsMap.put("uid", SystemDatatype.NVARCHAR.value());
+        }
+        columnsMap.put("model", SystemDatatype.VARBINARY.value());
+        columnsMap.put("precision", SystemDatatype.FLOAT.value());
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.RANDOMFORESTCLASSIFIER.value()) {
+            columnsMap.put("trees", SystemDatatype.VARBINARY.value());
+            columnsMap.put("feature_importances", SystemDatatype.CSN.value());
+            columnsMap.put("num_classes", SystemDatatype.INT.value());
+            columnsMap.put("num_features", SystemDatatype.INT.value());
+            columnsMap.put("tree_weights", SystemDatatype.CSN.value());
+        }
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.RANDOMFORESTREGRESSION.value()) {
+            columnsMap.put("trees", SystemDatatype.VARBINARY.value());
+            columnsMap.put("feature_importances", SystemDatatype.CSN.value());
+            columnsMap.put("num_features", SystemDatatype.INT.value());
+            columnsMap.put("tree_weights", SystemDatatype.CSN.value());
+            columnsMap.put("mse", SystemDatatype.DOUBLE.value());
+            columnsMap.put("rmse", SystemDatatype.DOUBLE.value());
+            columnsMap.put("r2", SystemDatatype.DOUBLE.value());
+            columnsMap.put("mae", SystemDatatype.DOUBLE.value());
+        }
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.MULTILAYERPERCEPERONCLASSIFIER.value()) {
+            columnsMap.put("num_features", SystemDatatype.INT.value());
+            columnsMap.put("layers", SystemDatatype.CSN.value());
+            columnsMap.put("f1", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_precision", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_recall", SystemDatatype.DOUBLE.value());
+        }
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.RANDOMFORESTCLASSIFIER.value()) {
+            columnsMap.put("f1", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_precision", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_recall", SystemDatatype.DOUBLE.value());
+        }
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.LASSO.value()) {
+                columnsMap.put("num_iterations", SystemDatatype.INT.value());
+          //  columnsMap.put("intercept", SystemDatatype.NVARCHAR.value());
+           //     columnsMap.put("coefficients",SystemDatatype.NVARCHAR.value());
+           //     columnsMap.put("residuals", SystemDatatype.CSN.value());
+                columnsMap.put("mse", SystemDatatype.DOUBLE.value());
+                columnsMap.put("rmse", SystemDatatype.DOUBLE.value());
+                columnsMap.put("r2", SystemDatatype.DOUBLE.value());
+                columnsMap.put("mae", SystemDatatype.DOUBLE.value());
+                columnsMap.put("deviance_residuals", SystemDatatype.CSN.value());
+                columnsMap.put("explained_variance", SystemDatatype.DOUBLE.value());
+        }
+        if(dataMiningSquid.getSquid_type() == SquidTypeEnum.PLS.value()){
+            columnsMap.put("mse", SystemDatatype.CSN.value());
+            columnsMap.put("rmse", SystemDatatype.CSN.value());
+            columnsMap.put("r2", SystemDatatype.CSN.value());
+            columnsMap.put("mae", SystemDatatype.CSN.value());
+            columnsMap.put("explained_variance", SystemDatatype.CSN.value());
+        }
+        //岭回归Squid Train列
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.RIDGEREG.value()) {
+            columnsMap.put("num_iterations", SystemDatatype.INT.value());
+            columnsMap.put("Num_Features", SystemDatatype.INT.value());
+            columnsMap.put("mse", SystemDatatype.DOUBLE.value());
+            columnsMap.put("rmse", SystemDatatype.DOUBLE.value());
+            columnsMap.put("mae", SystemDatatype.DOUBLE.value());
+            columnsMap.put("r2", SystemDatatype.DOUBLE.value());
+            columnsMap.put("explained_Variance", SystemDatatype.DOUBLE.value());
+            columnsMap.put("deviance_Residuals", SystemDatatype.CSN.value());
+        }
+        //决策树回归Squid Train列
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.DECISIONTREEREGRESSION.value()) {
+            columnsMap.put("Num_Features", SystemDatatype.INT.value());
+            columnsMap.put("mse", SystemDatatype.DOUBLE.value());
+            columnsMap.put("rmse", SystemDatatype.DOUBLE.value());
+            columnsMap.put("mae", SystemDatatype.DOUBLE.value());
+            columnsMap.put("r2", SystemDatatype.DOUBLE.value());
+        }
+        //决策树分类Squid Train属性
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.DECISIONTREECLASSIFICATION.value()) {
+            columnsMap.put("Num_Features", SystemDatatype.INT.value());
+            columnsMap.put("num_Classes", SystemDatatype.INT.value());
+            columnsMap.put("F1", SystemDatatype.DOUBLE.value());
+            columnsMap.put("Weighted_Precision", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_Recall", SystemDatatype.DOUBLE.value());
+        }
+        //线性回归Squid Train列
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.LINEREG.value()) {
+            columnsMap.put("num_iterations", SystemDatatype.INT.value());
+            columnsMap.put("Num_Features", SystemDatatype.INT.value());
+            columnsMap.put("MSE", SystemDatatype.DOUBLE.value());
+            columnsMap.put("RMSE", SystemDatatype.DOUBLE.value());
+            columnsMap.put("mae", SystemDatatype.DOUBLE.value());
+            columnsMap.put("R2", SystemDatatype.DOUBLE.value());
+            columnsMap.put("explained_Variance", SystemDatatype.DOUBLE.value());
+            columnsMap.put("deviance_Residuals", SystemDatatype.CSN.value());
+        }
+        //逻辑回归Squid Train列
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.LOGREG.value()) {
+            columnsMap.put("total_Iterations", SystemDatatype.INT.value());
+            columnsMap.put("num_Classes", SystemDatatype.INT.value());
+            columnsMap.put("num_features", SystemDatatype.INT.value());
+            columnsMap.put("f1", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_Precision", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_Recall", SystemDatatype.DOUBLE.value());
+
+        }
+        //贝叶斯分类
+        if (dataMiningSquid.getSquid_type() == SquidTypeEnum.NAIVEBAYES.value()) {
+            columnsMap.put("num_classes", SystemDatatype.INT.value());
+            columnsMap.put("num_features", SystemDatatype.INT.value());
+            columnsMap.put("pi", SystemDatatype.CSN.value());
+            columnsMap.put("f1", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_Precision", SystemDatatype.DOUBLE.value());
+            columnsMap.put("weighted_Recall", SystemDatatype.DOUBLE.value());
+
+        }
+        //SVM
+        if(dataMiningSquid.getSquid_type() == SquidTypeEnum.SVM.value()){
+            columnsMap.put("num_bins", SystemDatatype.INT.value());
+            columnsMap.put("area_under_roc", SystemDatatype.DOUBLE.value());
+            columnsMap.put("area_under_pr", SystemDatatype.DOUBLE.value());
+        }
+
+        //二分K均值聚类Squid(BisectingKMeansSquid)
+        if(dataMiningSquid.getSquid_type()==SquidTypeEnum.BISECTINGKMEANSSQUID.value()){
+            columnsMap.put("K",SystemDatatype.INT.value());
+            columnsMap.put("SSE",SystemDatatype.DOUBLE.value());
+            columnsMap.put("cluster_sizes",SystemDatatype.CSN.value());
+            if(columnsMap.containsKey("precision")){
+                columnsMap.remove("precision");
+            }
+        }
+        if(dataMiningSquid.getSquid_type()==SquidTypeEnum.KMEANS.value()){
+            if(columnsMap.containsKey("precision")){
+                columnsMap.remove("precision");
+            }
+            if(columnsMap.containsKey("training_percentage")){
+                columnsMap.remove("training_percentage");
+            }
+            columnsMap.put("K",SystemDatatype.INT.value());
+            columnsMap.put("iteration_number",SystemDatatype.INT.value());
+            columnsMap.put("initialization_mode",SystemDatatype.NVARCHAR.value());
+            columnsMap.put("init_Steps",SystemDatatype.INT.value());
+            columnsMap.put("tolerance",SystemDatatype.DOUBLE.value());
+            columnsMap.put("SSE",SystemDatatype.DOUBLE.value());
+            columnsMap.put("cluster_Sizes",SystemDatatype.CSN.value());
+
+        }
+
+
+        columnsMap.put("creation_date", SystemDatatype.DATETIME.value());
+        columnsMap.put("version", SystemDatatype.INT.value());
+        columnsMap.put("key", SystemDatatype.NVARCHAR.value());
+        Column column = null;
+        int index = 0;
+        int columnId = 0;
+        int modelTransId = 0;
+        TransformationService transformationService = new TransformationService(
+                token);
+        int squidId = dataMiningSquid.getId();
+        Transformation transformation = null;
+        Transformation transformationModel = null;
+        List<Transformation> transformationList = new ArrayList<Transformation>();
+        for (Entry<String, Integer> entry : columnsMap.entrySet()) {
+            //index++;
+                /*if (entry.getKey().toLowerCase().equals("id")) {
+                    index=1;
+                } else if(entry.getKey().toLowerCase().equals("total_dataset")){
+                    index = 2;
+                } else if(entry.getKey().toLowerCase().equals("training_percentage")){
+                    index = 3;
+                } else if(entry.getKey().toLowerCase().equals("model")){
+                    index = 4;
+                } else if(entry.getKey().toLowerCase().equals("precision")){
+                    index = 5;
+                } else if(entry.getKey().toLowerCase().equals("creation_date")){
+                    index = 6;
+                } else if(entry.getKey().toLowerCase().equals("version")){
+                    index = 7;
+                } else if(entry.getKey().toLowerCase().equals("key")){
+                    index = 8;
+                }*/
+            index++;
+            column = transformationService.initColumn(adapter, index,
+                    entry, squidId);
+               /* if(entry.getKey().toLowerCase().equals("version")
+                        ||entry.getKey().toLowerCase().equals("key")){
+                    column.setIsPK(true);
+                    column.setNullable(false);
+                }*/
+//            if (entry.getKey().toLowerCase().equals("key")) {
+//                column.setLength(256);
+//            }
+            if (column.getData_type() == SystemDatatype.CSN.value()) {
+                column.setLength(-1);
+            }
+            if (column.getData_type() == SystemDatatype.NVARCHAR.value()) {
+                column.setLength(256);
+            }
+            column.setId(adapter.insert2(column));
+                /*
+                 * column = new Column();
+                 * column.setKey(StringUtils.generateGUID());
+                 * column.setRelative_order(index);
+                 * column.setSquid_id(dataMiningSquid.getId());
+                 * column.setName(entry.getKey());
+                 * column.setData_type(entry.getValue());
+                 * column.setCollation(0); column.setNullable(false); //
+                 * column.setLength(length); // column.setPrecision(precision);
+                 * // column.setScale(scale);
+                 * column.setId(adapter.insert2(column));
+                 */
+            // 创建Transformation
+            columnList.add(column);
+            columnId = column.getId();
+            transformation = transformationService.initTransformation(
+                    adapter, squidId, columnId,
+                    TransformationTypeEnum.VIRTUAL.value(),
+                    column.getData_type(), 1);
+            transformationList.add(transformation);
+            // createTransformationLeft(column, dataMiningSquid.getId(),
+            // index);
+            if (entry.getKey().toLowerCase().equals("model")) {
+                modelTransId = transformation.getId();
+                transformationModel = transformation;
+            }
+        }
+        // 创建Train
+
+        Map<String, Object> transDefinition = adapter.query2Object(true,
+                "select * from ds_transformation_type where id="
+                        + TransformationTypeEnum.TRAIN.value(), null);
+        int transTypeId = Integer.valueOf(transDefinition
+                .get("OUTPUT_DATA_TYPE") + "");
+
+            /*
+             * Transformation transformationTrain = new Transformation();
+             * //transformationTrain.setColumn_id(0);// TODO
+             * transformationTrain.setKey(StringUtils.generateGUID());
+             * transformationTrain.setLocation_x(0);
+             * transformationTrain.setLocation_y((index + 1) * 25 + 25 / 2);
+             * transformationTrain.setSquid_id(dataMiningSquid.getId());
+             * transformationTrain
+             * .setTranstype(TransformationTypeEnum.TRAIN.value()); // TODO
+             * transformationTrain.setId(adapter.insert2(transformationTrain));
+             */
+/*            Transformation transformationTrain = transformationService
+                    .initTransformation(adapter, squidId, columnId,
+                            TransformationTypeEnum.TRAIN.value(), transTypeId,
+                            1, 1);*/
+        // 创建新增列对应的虚拟变换
+        Transformation transformationTrain = new Transformation();
+        transformationTrain.setKey(StringUtils.generateGUID());
+        transformationTrain.setName("Train");
+        //transformationTrain.setColumn_id(columnId);
+        transformationTrain.setLocation_x(85);
+        transformationTrain.setLocation_y(85);
+        transformationTrain.setSquid_id(squidId);
+        transformationTrain.setTranstype(TransformationTypeEnum.TRAIN.value());
+        transformationTrain.setOutput_data_type(transTypeId);
+        transformationTrain.setOutput_number(1);
+        transformationTrain.setId(adapter.insert2(transformationTrain));
+        //偏最小二乘回归入参有两个要单独添加
+        if(dataMiningSquid.getSquid_type() == SquidTypeEnum.PLS.value()){
+            TransformationInputs transformationInputs=new TransformationInputs();
+            TransformationInputs transformationInput=new TransformationInputs();
+            List<TransformationInputs> transformationInputsList=new ArrayList<TransformationInputs>();
+
+            transformationInputs.setSource_transform_id(0);
+            transformationInputs.setTransformationId(transformationTrain.getId());
+            transformationInputs.setSource_tran_output_index(0);
+            transformationInputs.setRelative_order(0);
+            transformationInputs.setInput_Data_Type(10);
+            transformationInputs.setDescription("训练数据");
+
+            transformationInput.setSource_transform_id(0);
+            transformationInput.setTransformationId(transformationTrain.getId());
+            transformationInput.setSource_tran_output_index(0);
+            transformationInput.setRelative_order(1);
+            transformationInput.setInput_Data_Type(10);
+            transformationInput.setDescription("训练数据");
+            transformationInputs.setId(adapter.insert2(transformationInputs));
+            transformationInput.setId(adapter.insert2(transformationInput));
+            transformationInputsList.add(transformationInputs);
+            transformationTrain.setInputs(transformationInputsList);
+        }else{
+            transformationTrain.setInputs(transInputsDao.initTransInputs(transformationTrain, 0));
+        }
+
+        ISquidDao squidDao = new SquidDaoImpl(adapter);
+        int squidType = squidDao.getSquidTypeById(squidId);
+        //当量化squid时，类型设置为所有
+        List<TransformationInputs> transformationInputsList = transformationTrain.getInputs();
+        if (transformationInputsList != null) {
+            for (TransformationInputs inputs : transformationInputsList) {
+                if (transformationTrain.getTranstype() == TransformationTypeEnum.TRAIN.value()
+                        && squidType == SquidTypeEnum.QUANTIFY.value()) {
+                    //设置类型为nvarchar,nchar,time,datetime(因为目前入参是一个)
+                    inputs.setInput_Data_Type(SystemDatatype.OBJECT.value());
+                    inputs.setRelative_order(0);
+                    adapter.update2(inputs);
+                }
+                if (transformationTrain.getTranstype() == TransformationTypeEnum.TRAIN.value()
+                        && squidType == SquidTypeEnum.DISCRETIZE.value()) {
+                    inputs.setInput_Data_Type(SystemDatatype.FLOAT.value());
+                    adapter.update2(inputs);
+                }
+            }
+        }
+
+        // 创建Train的Link
+        TransformationLink transformationTrainLink = new TransformationLink();
+        transformationTrainLink.setIn_order(1);
+        // transformationLinkTrain.setType();
+        transformationTrainLink
+                .setFrom_transformation_id(transformationTrain.getId());
+        transformationTrainLink.setTo_transformation_id(modelTransId);// TODO
+        transformationTrainLink.setKey(StringUtils.generateGUID());
+        transformationTrainLink.setId(adapter.insert2(transformationTrainLink));
+        // 更新TransformationInputs
+        transInputsDao.updTransInputs(transformationTrainLink, transformationModel);
+        resultMap.put("columnList", columnList);
+        resultMap.put("transformationList", transformationList);
+        resultMap.put("transformationTrain", transformationTrain);
+        resultMap.put("transformationTrainLink", transformationTrainLink);
+        return resultMap;
+    }
+
+    /**
+     * @param dataMiningSquid
+     * @return
+     * @author bo.dang
+     * @date 2014年5月19日
+     */
+    public Map<String, Object> createDataMiningSquid(
+            DataMiningSquid dataMiningSquid,
+            int repositoryId, ReturnValue out) {
+        // 创建DataMiningSquid
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        Map<String, Object> columnAndTransMap = null;
+        int squidType = dataMiningSquid.getSquid_type();
+        SquidTypeEnum stEnum = SquidTypeEnum.parse(squidType);
+        try {
+            adapter.openSession();
+            dataMiningSquid.setId(adapter.insert2(dataMiningSquid));
+            switch (stEnum) {
+                case ASSOCIATION_RULES:
+                    columnAndTransMap = createAssocistionSquidColumn(adapter, dataMiningSquid);
+                    break;
+                default:
+                    columnAndTransMap = createDataMiningSquidColumn(adapter, dataMiningSquid);
+            }
+            // 创建创建模型落地表
+            /*String tableName = HbaseUtil.genTrainModelTableName(repositoryId, dataMiningSquid.getSquidflow_id(), dataMiningSquid.getId());
+            DBConnectionInfo dbs = new DBConnectionInfo();
+            dbs.setHost("e231");
+            dbs.setPort(2181);
+            dbs.setDbType(DataBaseType.HBASE_PHOENIX);
+            con = AdapterDataSourceManager.createConnection(dbs);
+            HbaseUtil.createModelTable(con, tableName);*/
+            // 推送消息泡
+//            CommonConsts.addValidationTask(new SquidValidationTask(token, adapter, MessageBubbleService.setMessageBubble(dataMiningSquid.getId(), dataMiningSquid.getId(), dataMiningSquid.getName(), MessageBubbleCode.WARN_SQUID_NO_LINK.value())));
+            resultMap.put("newSquidId", dataMiningSquid.getId());
+            resultMap.putAll(columnAndTransMap);
+        } catch (BeyondSquidException e) {
+            try {
+                if (adapter != null) adapter.rollback();
+            } catch (SQLException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
+            out.setMessageCode(MessageCode.ERR_SQUID_COUNT_MAX);
+            logger.error("创建DataMiningSquid异常", e);
+        } catch (Exception e) {
+            logger.error("创建DataMiningSquid异常", e);
+            // TODO Auto-generated catch block
+            try {
+                adapter.rollback();
+            } catch (SQLException e1) {
+                // TODO Auto-generated catch block
+                logger.error("创建DataMiningSquid异常", e);
+            }
+            out.setMessageCode(MessageCode.SQL_ERROR);
+        } finally {
+            adapter.closeSession();
+        }
+
+        return resultMap;
+    }
+
+    /**
+     * @author bo.dang
+     * @date 2014年5月19日
+     */
+    public void createSquidLink2StageSquid(DataMiningSquid dataMiningSquid,
+                                           SquidLink squidLink) {
+        // 设置SquidLink
+        // squidLink.setType(SquidTypeEnum.);
+        int toSquidId = squidLink.getTo_squid_id();
+        int fromSquidId = squidLink.getFrom_squid_id();
+        // Transformation面板中的目标列在创建squidLink或者join之后，导入了源squid的所有列，应该为空，由用户根据需要来导入。
+        List<Column> toColumns = new ArrayList<Column>();
+        Column newColumn = null;
+        Map<String, String> paramMap = new HashMap<String, String>();
+
+        try {
+            adapter.openSession();
+            if (squidLink.getId() <= 0) { // 创建link （ extract->stage ）
+                if (StringUtils.isNull(squidLink.getKey())) {
+                    squidLink.setKey(StringUtils.generateGUID());
+                }
+                squidLink.setId(adapter.insert2(squidLink));
+            }
+
+/*            // 创建join
+            SquidJoin join = new SquidJoin();
+            join.setJoined_squid_id(toSquidId);
+            join.setTarget_squid_id(fromSquidId);
+            paramMap.put("joined_squid_id", Integer.toString(toSquidId, 10));
+            List<SquidJoin> joinList = adapter.query2List(true, paramMap,
+                    SquidJoin.class);
+            if (joinList == null || joinList.isEmpty()) {
+                joinList = new ArrayList<SquidJoin>(1);
+                join.setPrior_join_id(1);
+                join.setJoinType(JoinType.BaseTable.value());
+            } else {
+                join.setPrior_join_id(joinList.size() + 1);
+                join.setJoinType(JoinType.InnerJoin.value());
+                join.setJoin_Condition("");
+            }
+            join.setKey(StringUtils.generateGUID());
+            join.setId(adapter.insert2(join));
+            joinList.add(join);*/
+            // stageSquid.setJoins(joinList);
+
+            paramMap.clear();
+            paramMap.put("squid_id", Integer.toString(fromSquidId, 10));
+            List<Column> sourceColumns = adapter.query2List(true, paramMap,
+                    Column.class);
+            if (sourceColumns == null || sourceColumns.isEmpty()) {
+                logger.warn("columns of extract squid is null! sourceSquidId="
+                        + fromSquidId);
+                return;
+            }
+
+            paramMap.clear();
+            paramMap.put("squid_id", Integer.toString(toSquidId, 10));
+            List<Column> columns = adapter.query2List(true, paramMap,
+                    Column.class);
+            int columnSize = 0;
+            if (columns != null && !columns.isEmpty()) {
+                columnSize = columns.size(); // 已存在目标列的个数
+            }
+
+            /*
+             * paramMap.clear(); paramMap.put("reference_squid_id",
+             * Integer.toString(toSquidId, 10)); List<ReferenceColumnGroup> rg =
+             * adapter.query2List(paramMap, ReferenceColumnGroup.class);
+             * ReferenceColumnGroup columnGroup = new ReferenceColumnGroup();
+             * columnGroup.setKey(StringUtils.generateGUID());
+             * columnGroup.setReference_squid_id(toSquidId);
+             * columnGroup.setRelative_order
+             * (rg==null||rg.isEmpty()?1:rg.size()+1);
+             * columnGroup.setId(adapter.insert2(columnGroup));
+             */
+
+            ReferenceColumnGroup columnGroup = createReferenceColumnGroup(toSquidId);
+            int index = 0;
+            for (int i = 0; i < sourceColumns.size(); i++) {
+
+                Column column = sourceColumns.get(i);
+                // new ExceptionSquidProcess(token).initReference(adapter,
+                // column, column.getId(), i++, newSquid, formSquidId,
+                // columnGroup);
+                // 创建引用列
+                ReferenceColumn referenceColumn = createReferenceColumn(column,
+                        columnGroup, toSquidId, index++);
+                // 创建源列的Transformation
+                Transformation transformationRight = createTransformationRight(
+                        referenceColumn, fromSquidId, index);
+                // 创建目标列的Transformation
+                // Transformation transformationLeft =
+                // createTransformationLeft(referenceColumn, toSquidId, index);
+                // 创建TransformationLink
+                // TransformationLink transformationLink =
+                // createTransformationLink(fromSquidId, toSquidId, index);
+            }
+            //
+            // Transformation transformation = new Transformation();
+            // 创建Train
+            Transformation transformationTrain = new Transformation();
+            // transformationTrain.setColumn_id(0);// TODO
+            transformationTrain.setKey(StringUtils.generateGUID());
+            transformationTrain.setLocation_x(0);
+            transformationTrain.setLocation_y((index + 1) * 25 + 25 / 2);
+            transformationTrain.setSquid_id(fromSquidId);
+            transformationTrain.setTranstype(TransformationTypeEnum.TRAIN
+                    .value());
+            // TODO
+            Map<String, Object> transDefinition = adapter.query2Object(true,
+                    "select * from ds_transformation_type where id="
+                            + TransformationTypeEnum.TRAIN.value(), null);
+            transformationTrain.setOutput_data_type(Integer
+                    .valueOf(transDefinition.get("OUTPUT_DATA_TYPE") + ""));
+            transformationTrain.setId(adapter.insert2(transformationTrain));
+            // 创建Train的Link
+            TransformationLink transformationLinkTrain = new TransformationLink();
+            transformationLinkTrain.setIn_order(1);
+            // transformationLinkTrain.setType();
+            transformationLinkTrain
+                    .setFrom_transformation_id(transformationLinkTrain.getId());
+            transformationLinkTrain.setTo_transformation_id(0);// TODO
+            transformationLinkTrain.setKey(StringUtils.generateGUID());
+            transformationLinkTrain.setId(adapter
+                    .insert2(transformationLinkTrain));
+
+        } catch (Exception e) {
+            logger.error("创建stage squid异常", e);
+            try {
+                adapter.rollback();
+            } catch (SQLException e1) { // 数据库回滚失败（程序不能处理该异常）！
+                logger.fatal("rollback err!", e1);
+            }
+        } finally {
+            adapter.closeSession();
+        }
+
+    }
+
+    /**
+     * @param column
+     * @return
+     * @author bo.dang
+     * @date 2014年5月19日
+     */
+    public Transformation createTransformationRight(Column column,
+                                                    int fromSquidId, int index) {
+        // 创建目标 transformation
+        Transformation transformation = new Transformation();
+        transformation.setColumn_id(column.getId());
+        transformation.setKey(StringUtils.generateGUID());
+        transformation.setLocation_x(0);
+        transformation.setLocation_y((index + 1) * 25 + 25 / 2);
+        transformation.setSquid_id(fromSquidId);
+        transformation.setTranstype(TransformationTypeEnum.VIRTUAL.value());
+        // TODO
+        transformation.setOutput_data_type(0);
+        try {
+            transformation.setId(adapter.insert2(transformation));
+        } catch (Exception e) {
+            logger.error("创建Transformation异常", e);
+            try {
+                adapter.rollback();
+            } catch (SQLException e1) { // 数据库回滚失败（程序不能处理该异常）！
+                logger.fatal("rollback err!", e1);
+            }
+        } finally {
+            adapter.closeSession();
+        }
+        return null;
+    }
+
+    /**
+     * @param column
+     * @return
+     * @author bo.dang
+     * @date 2014年5月19日
+     */
+    public Transformation createTransformationLeft(Column column,
+                                                   int toSquidId, int index) {
+        // 创建目标 transformation
+        Transformation transformation = new Transformation();
+        transformation.setColumn_id(column.getId());
+        transformation.setKey(StringUtils.generateGUID());
+        transformation.setLocation_x(0);
+        transformation.setLocation_y((index + 1) * 25 + 25 / 2);
+        transformation.setSquid_id(toSquidId);
+        transformation.setTranstype(TransformationTypeEnum.VIRTUAL.value());
+        // TODO
+        transformation.setOutput_data_type(0);
+        try {
+            transformation.setId(adapter.insert2(transformation));
+        } catch (Exception e) {
+            logger.error("创建Transformation异常", e);
+            try {
+                adapter.rollback();
+            } catch (SQLException e1) { // 数据库回滚失败（程序不能处理该异常）！
+                logger.fatal("rollback err!", e1);
+            }
+        }
+        return transformation;
+    }
+
+    public TransformationLink createTransformationLink(int fromSquidId,
+                                                       int toSquidId, int index) {
+        // 创建Train的Link
+        TransformationLink transformationLinkTrain = new TransformationLink();
+        transformationLinkTrain.setIn_order(index);
+        transformationLinkTrain.setFrom_transformation_id(fromSquidId);
+        transformationLinkTrain.setTo_transformation_id(toSquidId);// TODO
+        transformationLinkTrain.setKey(StringUtils.generateGUID());
+        try {
+            transformationLinkTrain.setId(adapter
+                    .insert2(transformationLinkTrain));
+        } catch (Exception e) {
+            logger.error("创建Transformation异常", e);
+            try {
+                adapter.rollback();
+            } catch (SQLException e1) { // 数据库回滚失败（程序不能处理该异常）！
+                logger.fatal("rollback err!", e1);
+            }
+        } finally {
+            adapter.closeSession();
+        }
+        return transformationLinkTrain;
+    }
+}

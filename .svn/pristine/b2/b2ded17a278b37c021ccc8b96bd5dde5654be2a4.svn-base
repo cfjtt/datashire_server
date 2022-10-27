@@ -1,0 +1,15 @@
+package com.eurlanda.datashire.server.dao;
+
+
+import com.eurlanda.datashire.server.model.DSVariable;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+/**
+ * Created by hanrui on 2018/6/19.
+ */
+@Repository
+public interface VariableDao {
+    List<DSVariable> getVariablesByProjectId(int project_id);
+}

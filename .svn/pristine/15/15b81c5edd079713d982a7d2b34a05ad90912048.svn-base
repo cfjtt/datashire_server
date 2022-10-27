@@ -1,0 +1,309 @@
+package com.eurlanda.datashire.enumeration;
+
+import com.eurlanda.datashire.entity.Column;
+import com.eurlanda.datashire.entity.DSVariable;
+import com.eurlanda.datashire.entity.Project;
+import com.eurlanda.datashire.entity.Squid;
+import com.eurlanda.datashire.entity.SquidFlow;
+import com.eurlanda.datashire.entity.SquidJoin;
+import com.eurlanda.datashire.entity.ThirdPartyParams;
+import com.eurlanda.datashire.entity.Transformation;
+import com.eurlanda.datashire.entity.TransformationInputs;
+import com.eurlanda.datashire.utility.EnumException;
+import com.eurlanda.datashire.utility.StringUtils;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 
+ * 
+ * <p>
+ * Title : 
+ * </p>
+ * <p>
+ * Description: 
+ * </p>
+ * <p>
+ * Author :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * update :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * Department :  JAVA后端研发部
+ * </p>
+ * Copyright : ©2012-2013 悦岚（上海）数据服务有限公司
+ * </p>
+ */
+public enum DSObjectType {
+
+	UNKNOWN(-1),
+	
+	//DBSource类型
+    DBSOURCE(0),
+    //DBDestination类型
+    DBDESTINATION(1),
+    EXTRACT(2),
+    STAGE(3),
+    DIMENSION(4),
+    FACT(5),
+    REPORT(6),
+    DOC_EXTRACT(7),
+    XML_EXTRACT(8),
+    WEBLOGEXTRACT(9),
+    WEBEXTRACT(10),
+    WEIBOEXTRACT(11),
+    FILEFOLDER(12),
+    FTP(13),
+    HDFS(14),
+    WEB(15),
+    //WEBLOG(16),
+    WEIBO(17),
+//    DOC(18),
+//    XML(19),
+	EXCEPTION(20),
+	LOGREG(21),  		//逻辑回归
+	NAIVEBAYES(22),  	//朴素贝叶斯
+	SVM(23),			//支持向量机
+	KMEANS(24),			//聚类
+	ALS(25),			//协作过滤
+	LINEREG(26),		//线性回归
+	RIDGEREG(27),		//里脊回归
+	QUANTIFY(28),       //量化
+	DISCRETIZE(29),     //离散化
+	DECISIONTREE(30),   //抉择树
+	
+	GISMAP(31),         //MAP地图
+	HTTP(32),     //第三方HTTP连接
+	WEBSERVICE(33),//第三方WEBSERVICE连接
+	HTTPEXTRACT(34),      //第三HTTP方抽取
+	WEBSERVICEEXTRACT(35),//第三WEBSERVICE方抽取
+	
+	DESTWS(36), //封装（dataSquid), 开放式的WEBSERVICE
+
+	ANNOTATION(37), //注释squid
+
+	MONGODB(38),     //mongodb的链接squid
+	MONGODBEXTRACT(39),		//mongodb的extractSquid
+	DESTES(40),		// ES 落地squid
+    KAFKA(41),      // KAFKA connection squid
+    KAFKAEXTRACT(42),   // KAFKA抽取 squid
+    HBASE(43),          // HBASE 连接 squid
+    HBASEEXTRACT(44),   // HBASE 抽取 squid
+	STREAM_STAGE(45),	// 流式stage SquidModelBase
+	DEST_HDFS(46),		//HDFS落地
+	DEST_IMPALA(47),	//impala 落地
+	ASSOCIATION_RULES(48),//关联规则
+
+	//新增squid类型
+	SOURCECLOUDFILE(51),
+	CLOUDDB(52),
+	DESTCLOUDFILE(53),
+	GROUPTAGGING(54),
+	HIVE(55),
+	HIVEEXTRACT(56),
+	CASSANDRA(57),
+	CASSANDRA_EXTRACT(58),
+	USERDEFINED(59), //自定义squid
+	DEST_HIVE(60), //hive落地
+	STATISTICS(61), //统计分析
+	DEST_CASSANDRA(62), //cassandra落地
+	LASSO(63),  //lasso回归
+	RANDOMFORESTCLASSIFIER(64),  //随机森林分类
+	RANDOMFORESTREGRESSION(65),  //随机森林回归
+	MULTILAYERPERCEPERONCLASSIFIER(66), //多层感知机分类
+	//偏最小二乘回归
+	PLS(68),
+	//标准化
+	NORMALIZER(67),
+	DATAVIEW(69),
+    //回归系数
+    COEFFICIENT(70),
+    //决策树回归
+    DECISIONTREEREGRESSION(71),
+    //决策树分类
+    DECISIONTREECLASSIFICATION(72),
+	//TrainingDBSquid
+	TRAININGDBSQUID(73),
+	//TrainingFileSquid
+	TRAINNINGFILESQUID(74),
+	BISECTINGKMEANSSQUID(75),
+	//SamplingSquid
+	SAMPLINGSQUID(76),
+    // 其他类型
+    USER(1001),
+	REPOSITORY(1002),
+	PROJECT(1003),
+	SQUID_FLOW(1004),
+	TRANSFORMATION(1005),
+	COLUMN(1006),
+	SQUIDLINK(1007),
+	TRANSFORMATIONLINK(1008),
+	//SOURCE(1009),
+	//DEST(1010),
+	//DBSQUID(1014),
+    TRANSFORMATIONINPUTS(1015),
+	//DOCEXTRACT (1018),
+	//XMLEXTRACT (1019),
+	//WEBLOGEXTRACT (1020),
+	TEAM(1023),
+	SQUIDJOIN(1024),
+	ROLE(1025),
+	GROUP(1026),
+	PRIVILEGE(1027), // 权限关系 配置
+	COLUMNGROUP(1028),
+	COLUMNREFERENCE(1029),
+	//FILESQUID(1030),
+	METADATA(1031),
+	TEMPLATE(1032),//模版数据
+	WEIBO_ERROR(1033), // 微博获取失败
+	WEIBO_USER(1034), // 微博用户信息
+	WEIBO_LIST(1035), // 微博内容列表
+	BROWSE(1036),//打开游览窗体
+	LOCALFILE(1037),//本地
+	//FTPFILE(1038),//ftp
+	SQUID(1041),
+	DATAMINING(1052),//Data Mining
+	SQUIDINDEXS(1053),
+	RUNSQUIDFLOW(1054),
+	JOBSCHEDULE(1055),//任务调度
+	JOBHISTORY(1056),//运行日志
+	WEBURL(1066),//网页列表
+	SOURCETABLE(1067),//sourceTable列表
+	VARIABLE(1068),//变量
+	THIRDPARTYPARAMS(1069),//第三方参数
+	LINCENSE(1070),
+	DATASQUIDBASEMODEL(1071);
+	;//license
+
+	/** 权限设置所涉及到的被操作对象类型id */
+	public final static int[] Entity_Type_ID = {
+			USER.value(),
+			TEAM.value(),
+			GROUP.value(),
+			ROLE.value(),
+			REPOSITORY.value(),
+			SQUID.value(),
+			/*SQUIDLINK.value(),
+			TRANSFORMATION.value(),
+			TRANSFORMATIONLINK.value(),
+			JOIN.value(),
+			COLUMN.value()*/
+			PROJECT.value()
+		};
+	/** 权限设置所涉及到的被操作对象类型name */
+	public final static String[] Entity_Type_Name = {
+			StringUtils.capitalize(USER.name().toLowerCase()),
+			StringUtils.capitalize(TEAM.name().toLowerCase()),
+			StringUtils.capitalize(GROUP.name().toLowerCase()),
+			StringUtils.capitalize(ROLE.name().toLowerCase()),
+			StringUtils.capitalize(REPOSITORY.name().toLowerCase()),
+			StringUtils.capitalize(SQUID.name().toLowerCase()),
+			/*StringUtils.capitalize(SQUIDLINK.name().toLowerCase()),
+			StringUtils.capitalize(TRANSFORMATION.name().toLowerCase()),
+			StringUtils.capitalize(TRANSFORMATIONLINK.name().toLowerCase()),
+			StringUtils.capitalize(JOIN.name().toLowerCase()),
+			StringUtils.capitalize(COLUMN.name().toLowerCase())*/
+			StringUtils.capitalize(PROJECT.name().toLowerCase())
+		};
+	private static Map<Integer, DSObjectType> map;
+	private int _value;
+
+	/**
+	 * 构造方法
+	 * 
+	 * @param value
+	 */
+	private DSObjectType(int value) {
+		_value = value;
+	}
+
+	/**
+	 * 从int到enum的转换函数
+	 *
+	 * @param value
+	 * @return
+	 * @throws Exception
+	 */
+	public static DSObjectType valueOf(int value) throws EnumException {
+		DSObjectType type = null;
+		if (map == null) {
+			map = new HashMap<Integer, DSObjectType>();
+			DSObjectType[] types = DSObjectType.values();
+			for (DSObjectType tmp : types) {
+				map.put(tmp.value(), tmp);
+			}
+		}
+		type = map.get(value);
+		if (type == null) {
+			throw new EnumException();
+		}
+		return type;
+	}
+	
+    public static DSObjectType parse(int t) {
+        for (DSObjectType result : values()) {
+            if (result.value() == t) {
+                return result;
+            }
+        }
+        return null;
+    }
+	
+    public static DSObjectType parse(String name) {
+		return (DSObjectType) Enum.valueOf(DSObjectType.class, name);
+	}
+    
+    /**
+     * 返回查找中的对象类型
+     * @param result
+     * @return
+     */
+    @SuppressWarnings("rawtypes")
+    public static Class getClassForType(DSObjectType result){
+    	if (result==null) return null;
+		Class c = null;
+    	switch (result) {
+			case PROJECT:
+				c = Project.class;
+				break;
+			case SQUID_FLOW:
+				c = SquidFlow.class;
+				break;
+			case SQUID:
+				c = Squid.class;
+				break;
+			case TRANSFORMATION:
+				c = Transformation.class;
+				break;
+			case COLUMN:
+				c = Column.class;
+				break;
+			case VARIABLE:
+				c = DSVariable.class;
+				break;
+			case TRANSFORMATIONINPUTS:
+				c = TransformationInputs.class;
+				break;
+			case SQUIDJOIN:
+				c = SquidJoin.class;
+				break;
+			case THIRDPARTYPARAMS:
+				c = ThirdPartyParams.class;
+				break;
+			default:
+				break;
+		}
+    	return c;
+    }
+    
+	/**
+	 * 得到枚举值
+	 *
+	 * @return
+	 */
+	public int value() {
+		return _value;
+	}
+}

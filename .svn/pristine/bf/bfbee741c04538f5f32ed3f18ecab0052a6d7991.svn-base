@@ -1,0 +1,18 @@
+-- 修改版本号
+update ds_sys_server_parameter set VALUE='2.4.0' where NAME='VERSION';
+
+--Squid 表中添加新的属性 2017-12-25
+ALTER TABLE ds_squid ADD max_extract_numberPerTimes int(11) COMMENT '单次最大抽取数量';
+ALTER TABLE ds_squid ADD  is_union_table char(1) COMMENT '是否合表';
+ALTER TABLE ds_squid ADD table_name_setting_type int(1) COMMENT '表名设置方法 枚举值 0 手动 1sql';
+ALTER TABLE ds_squid ADD table_name_setting LONGTEXT COMMENT '表名设置  手动的时候为json字符串';
+ALTER TABLE ds_squid ADD table_name_setting_sql LONGTEXT COMMENT '表名设置  SQL的时候为SQL字符串';
+
+--添加trans  2017-12-26
+INSERT INTO ds_transformation_type VALUES(103,'DATETOSTRING',9,'将date类型转换为varchar');
+INSERT INTO ds_transformation_type VALUES(104,'NULLPERCENTAGE',58,'用来统计所有输入中空值的占比');
+
+
+--添加transInpts 2017-12-26
+INSERT INTO ds_tran_input_definition VALUES('DATETOSTRING',0,18,'需要转化的时间类型');
+INSERT INTO ds_tran_input_definition VALUES('NULLPERCENTAGE',9999,21,'需要统计的输入值');

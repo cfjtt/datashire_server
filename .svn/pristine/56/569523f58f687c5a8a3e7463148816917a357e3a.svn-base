@@ -1,0 +1,342 @@
+package com.eurlanda.datashire.server.api;
+
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.server.annotation.SocketApi;
+import com.eurlanda.datashire.server.annotation.SocketApiMethod;
+import com.eurlanda.datashire.server.dao.SquidDao;
+import com.eurlanda.datashire.server.exception.ErrorMessageException;
+import com.eurlanda.datashire.server.model.Base.DataSquidBaseModel;
+import com.eurlanda.datashire.server.model.PivotSquid;
+import com.eurlanda.datashire.server.model.SamplingSquid;
+import com.eurlanda.datashire.server.model.TrainingDBSquid;
+import com.eurlanda.datashire.server.model.TrainingFileSquid;
+import com.eurlanda.datashire.server.service.*;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by Eurlanda - Java、 on 2017/6/29.
+ */
+@Service
+@SocketApi("2008")
+public class SquidApi {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SquidApi.class);
+    @Autowired
+    private SquidLinkService squidLinkService;
+    @Autowired
+    private SquidService squidService;
+    @Autowired
+    private SquidDao squidDao;
+    @Autowired
+    private TrainingSquidService trainingSquidService;
+    @Autowired
+    private SamplingSquidService samplingSquidService;
+    @Autowired
+    private PivotSquidService pivotSquidService;
+
+    /**
+     * 批量删除SquidLink  返回受影响的Squid
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0001")
+    public String deleteSquidLink(String info){
+        List<DataSquidBaseModel> squidModelBaseList =null;
+        ReturnValue out=new ReturnValue();
+        Map<String,Object> returnMap=new HashMap<String,Object>();
+        List<Integer> squidLinkIds = JsonUtil.toGsonList(JsonUtil.toHashMap(info).get("ListSquidLinkId") + "", Integer.class);
+        if(squidLinkIds!=null && squidLinkIds.size()>0){
+            try{
+                //封装给客户端的受影响的Squid
+                List<Map<String,Object>> returnList=new ArrayList<Map<String,Object>>();
+                squidModelBaseList =squidLinkService.deleteSquidLinkIds(squidLinkIds);
+                Map<String,Object> map= null;
+                List<com.eurlanda.datashire.entity.SquidJoin> squidJoins=null;
+                //对返回的squid集合进行封装，返回给客户端。
+                for(DataSquidBaseModel dataSquid:squidModelBaseList){
+                    map=new HashMap<String,Object>();
+                    //根据squId 查询join  用的是老的实体类squidJoin
+                    squidJoins= squidDao.selectJoinBySquid(dataSquid.getId());
+                    map.put("squidId",dataSquid.getId());
+                    map.put("columnList",dataSquid.getColumns());
+                    map.put("referenceColumnList",dataSquid.getSourceColumns());
+                    map.put("transformationList",dataSquid.getTransformations());
+                    map.put("transLinkList",dataSquid.getTransformationLinks());
+                    map.put("squidJoinList",squidJoins);
+                    if(dataSquid.getSquid_type()== SquidTypeEnum.EXCEPTION.value()
+                            || dataSquid.getSquid_type()== SquidTypeEnum.DATAVIEW.value()
+                            || dataSquid.getSquid_type()== SquidTypeEnum.COEFFICIENT.value()){
+                        map.put("design_status",dataSquid.getDesign_status());
+                    }
+                    returnList.add(map);
+                }
+                returnMap.put("DownStreamSquidInfo",returnList);
+            }catch (ErrorMessageException e){
+                out.setMessageCode(MessageCode.valueOf(e.getErrorCode() + ""));
+            }catch (Exception e){
+                e.printStackTrace();
+                out.setMessageCode(MessageCode.ERR_DELETE);
+                LOGGER.error("删除Transformation异常", e);
+            }
+        }
+        return JsonUtil.toJsonString(returnMap,null,out.getMessageCode());
+    }
+
+    /**
+     * 批量删除squid
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0002")
+    public String deleteSquid(String info){
+        Map<String, Object> resultMap = new HashMap<String, Object>();
+        ReturnValue out=new ReturnValue();
+        List<Integer> squidList = JsonUtil.toGsonList(JsonUtil.toHashMap(info).get("ListSquidId") + "",Integer.class);
+        try {
+            resultMap.put("DeleteCount",squidService.deleteSquidBySquidId(squidList));
+        }catch (ErrorMessageException e){
+            out.setMessageCode(MessageCode.valueOf(e.getErrorCode() + ""));
+        }catch (Exception e){
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.ERR_DELETE);
+            LOGGER.error("删除squid异常");
+        }
+        return JsonUtil.toJsonString(resultMap, DSObjectType.SQUID, out.getMessageCode());
+    }
+
+    /**
+     * 删除Squid面板的对象
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0003")
+    public String deleteSquidPanelObject(String info){
+        HashMap<String, String> infoMap = JsonUtil.toHashMap(info);
+        ReturnValue out = new ReturnValue();
+        Map<String,Object> resultMap= new HashMap<String,Object>();
+
+        List<Integer> squidIds = JsonUtil.toList(infoMap.get("ListSquidId"), Integer.class);
+        List<Integer> linkIds = JsonUtil.toList(infoMap.get("ListSquidLinkId"), Integer.class);
+
+        try{
+            List<Map<String,Object>> result = squidService.deleteSquidPanelObj(squidIds, linkIds); //调用Service层删除
+            resultMap.put("DownStreamSquidInfo", result);
+        } catch (ErrorMessageException e){
+            out.setMessageCode(MessageCode.parse(e.getErrorCode()));
+            LOGGER.error(e.toString());
+        } catch (Exception e){
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.ERR_DELETE);
+            LOGGER.error("删除Squid面板对象异常");
+        }
+        return JsonUtil.toJsonString(resultMap, DSObjectType.SQUID, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0004")
+    public String createTrainingDBSquid(String info){
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = new HashMap<>();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            TrainingDBSquid dbSquid = JsonUtil.toGsonBean(data.get("Squid").toString(),TrainingDBSquid.class);
+            if (null != dbSquid) {
+                int id = trainingSquidService.insertTrainDBSquid(dbSquid);
+                map.put("SquidId", id);
+            } else { // 反序列化失败
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        } catch (Exception e) {
+            out.setMessageCode(MessageCode.INSERT_ERROR);
+        }
+        return JsonUtil.toJsonString(map, DSObjectType.TRAININGDBSQUID, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0005")
+    public String updateTrainingDBSquid(String info){
+        ReturnValue out = new ReturnValue();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            TrainingDBSquid dbSquid = JsonUtil.toGsonBean(data.get("Squid").toString(),TrainingDBSquid.class);
+            if (null != dbSquid) {
+                int id = trainingSquidService.updateTrainDBSquid(dbSquid);
+            } else { // 反序列化失败
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        } catch (Exception e) {
+
+            out.setMessageCode(MessageCode.UPDATE_ERROR);
+        }
+        return JsonUtil.toJsonString(new HashMap<>(), DSObjectType.TRAININGDBSQUID, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0006")
+    public String createTrainingFileSquid(String info){
+        ReturnValue out = new ReturnValue();
+        Map<String, Object> map = new HashMap<>();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            TrainingFileSquid fileSquid = JsonUtil.toGsonBean(data.get("Squid").toString(),TrainingFileSquid.class);
+            if (null != fileSquid) {
+                int id = trainingSquidService.insertTrainFileSquid(fileSquid);
+                map.put("SquidId", id);
+            } else { // 反序列化失败
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        } catch (Exception e) {
+            out.setMessageCode(MessageCode.INSERT_ERROR);
+        }
+        return JsonUtil.toJsonString(map, DSObjectType.TRAINNINGFILESQUID, out.getMessageCode());
+    }
+
+    @SocketApiMethod(commandId = "0007")
+    public String updateTrainingFileSquid(String info){
+        ReturnValue out = new ReturnValue();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            TrainingFileSquid fileSquid = JsonUtil.toGsonBean(data.get("Squid").toString(),TrainingFileSquid.class);
+            if (null != fileSquid) {
+                trainingSquidService.updateTrainFileSquid(fileSquid);
+            } else { // 反序列化失败
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        } catch (Exception e) {
+            out.setMessageCode(MessageCode.UPDATE_ERROR);
+        }
+        return JsonUtil.toJsonString(new HashMap<>(), DSObjectType.TRAINNINGFILESQUID, out.getMessageCode());
+    }
+
+    /**
+     * 创建SamplingSquid
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0008")
+    public String CreateSamplingSquid(String info){
+        ReturnValue out = new ReturnValue();
+        Map<String,Object> map=new HashMap<>();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            SamplingSquid samplingSquid = JsonUtil.toGsonBean(data.get("SamplingSquid").toString(),SamplingSquid.class);
+            if(samplingSquid!=null){
+               int squidId= samplingSquidService.insertSamplingSquid(samplingSquid);
+               map.put("SquidId",squidId);
+            }else{
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.INSERT_ERROR);
+        }
+        return JsonUtil.toJsonString(map, DSObjectType.SAMPLINGSQUID, out.getMessageCode());
+    }
+
+    /**
+     * 修改SamplingSquid
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0009")
+    public String UpdateSamplingSquid(String info){
+        ReturnValue out = new ReturnValue();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            SamplingSquid samplingSquid = JsonUtil.toGsonBean(data.get("SamplingSquid").toString(),SamplingSquid.class);
+            if(samplingSquid!=null){
+                samplingSquidService.updateSamplingSquid(samplingSquid);
+            }else{
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.UPDATE_ERROR);
+        }
+        return JsonUtil.toJsonString(new HashMap<>(), DSObjectType.SAMPLINGSQUID, out.getMessageCode());
+    }
+
+    /**
+     * 创建PivotSquid
+     */
+    @SocketApiMethod(commandId = "0010")
+    public String createPivotSquid(String info){
+        ReturnValue out = new ReturnValue();
+        Map<String,Object> map=new HashMap<>();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            PivotSquid pivotSquid = JsonUtil.toGsonBean(data.get("PivotSquid").toString(),PivotSquid.class);
+            if(pivotSquid!=null){
+                int squidId= pivotSquidService.insertPivotSquid(pivotSquid);
+                map.put("SquidId",squidId);
+            }else{
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.INSERT_ERROR);
+        }
+        return JsonUtil.toJsonString(map, DSObjectType.PIVOTSQUID, out.getMessageCode());
+    }
+
+    /**
+     * 修改PivotSquid
+     * @param info
+     * @return
+     */
+    @SocketApiMethod(commandId = "0011")
+    public String updatePivotSquid(String info){
+        ReturnValue out = new ReturnValue();
+        try {
+            Map<String, Object> data=JsonUtil.toHashMap(info);
+            PivotSquid pivotSquid = JsonUtil.toGsonBean(data.get("PivotSquid").toString(),PivotSquid.class);
+            if(pivotSquid!=null){
+                pivotSquidService.updatePivotSquid(pivotSquid);
+            }else{
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.UPDATE_ERROR);
+        }
+        return JsonUtil.toJsonString(new HashMap<>(), DSObjectType.PIVOTSQUID, out.getMessageCode());
+    }
+
+    /**
+     * 生成pivot列
+     */
+    @SocketApiMethod(commandId = "0012")
+    public String generatePivotColumns(String info){
+        ReturnValue out = new ReturnValue();
+        Map<String,Object> map=new HashMap<>();
+        try {
+            Map<String, Object> data = JsonUtil.toHashMap(info);
+            PivotSquid pivotSquid = JsonUtil.toGsonBean(data.get("PivotSquid").toString(),PivotSquid.class);
+            if(pivotSquid!=null){
+                map = pivotSquidService.generatePivotColumns(pivotSquid);
+            }else{
+                out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+            }
+        }catch (Exception e){
+            if(e instanceof NumberFormatException){
+                out.setMessageCode(MessageCode.ERR_DATA_CONVERSION);
+            }
+            e.printStackTrace();
+            out.setMessageCode(MessageCode.ERR_DATA_CONVERSION);
+        }
+        return JsonUtil.toJsonString(map, DSObjectType.PIVOTSQUID, out.getMessageCode());
+    }
+
+
+
+
+
+}

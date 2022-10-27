@@ -1,0 +1,598 @@
+package com.eurlanda.datashire.entity;
+
+import com.eurlanda.datashire.annotation.ColumnMpping;
+import com.eurlanda.datashire.annotation.MultitableMapping;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+
+import java.sql.Types;
+import java.util.List;
+
+/***
+ * DataSquid
+ * <p/>
+ * <p>
+ * Title :
+ * </p>
+ * <p>
+ * Description:  从数据库抽取SQUID
+ * </p>
+ * <p>
+ * Author :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * update :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * Department : JAVA后端研发部
+ * </p>
+ * Copyright : ©2012-2013 悦岚（上海）数据服务有限公司 </p>
+ */
+@MultitableMapping(name = {"DS_SQUID"}, pk = "ID", desc = "")
+public class DataSquid extends Squid {
+
+    {
+        this.setType(DSObjectType.SQUID.value());
+    }
+
+    @ColumnMpping(name = "is_incremental", desc = "是否增量抽取", nullable = true, precision = 1, type = Types.VARCHAR, valueReg = "")
+    private boolean is_incremental;
+    @ColumnMpping(name = "incremental_expression", desc = "增量抽取条件", nullable = true, precision = 200, type = Types.VARCHAR, valueReg = "")
+    private String incremental_expression;
+    private boolean is_history;
+    @ColumnMpping(name = "is_indexed", desc = "", nullable = true, precision = 1, type = Types.VARCHAR, valueReg = "")
+    private boolean is_indexed;
+    @ColumnMpping(name = "is_persisted", desc = "是否设置落地", nullable = true, precision = 1, type = Types.VARCHAR, valueReg = "")
+    private boolean is_persisted;
+    @ColumnMpping(name = "destination_squid_id", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int destination_squid_id;
+    @ColumnMpping(name = "top_n", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int top_n;
+    @ColumnMpping(name = "truncate_existing_data_flag", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int truncate_existing_data_flag;
+
+    // enum: "incremental", "full" (增量(0)，全量(1))
+    @ColumnMpping(name = "process_mode", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int process_mode;
+    @ColumnMpping(name = "log_format", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int log_format;
+
+    // 抽取之后的动作Delete，Move，DoNothing
+    @ColumnMpping(name = "post_process", desc = "", nullable = true, precision = 0, type = Types.OTHER, valueReg = "")
+    private int post_process;
+
+    // enum:"SCD0","SCD1","SCD2","SCD3","SCD4","SCD6"(落地：1,3,4,5)
+    @ColumnMpping(name = "cdc", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int cdc;
+
+    @ColumnMpping(name = "exception_handling_flag", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int exception_handling_flag;
+
+    @ColumnMpping(name = "source_table_id", desc = "", nullable = false, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int source_table_id;
+
+    @ColumnMpping(name = "union_all_flag", desc = "", nullable = true, precision = 1, type = Types.INTEGER, valueReg = "")
+    private int union_all_flag;
+
+    @ColumnMpping(name = "xsd_dtd_file", desc = "", nullable = true, precision = 100, type = Types.VARCHAR, valueReg = "")
+    private String xsd_dtd_file;
+
+    @ColumnMpping(name = "xsd_dtd_path", desc = "", nullable = true, precision = 200, type = Types.VARCHAR, valueReg = "")
+    private String xsd_dtd_path;
+
+    @ColumnMpping(name = "is_distinct", desc = "", nullable = true, precision = 1, type = Types.INTEGER, valueReg = "")
+    private int is_distinct;
+
+    //addr yi.zhou
+    @ColumnMpping(name = "ref_squid_id", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int ref_squid_id;
+
+    // add zdb
+    @ColumnMpping(name = "split_col", desc = "", nullable = true, precision = 128, type = Types.VARCHAR, valueReg = "")
+    private String split_col;
+    @ColumnMpping(name = "split_num", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int split_num;
+    // add dzp
+    @ColumnMpping(name = "persist_sql", desc = "", nullable = true, precision = 500, type = Types.VARCHAR, valueReg = "")
+    private String persist_sql;
+    @ColumnMpping(name = "group_column", desc = "", nullable = true, precision = 0, type = Types.LONGVARCHAR, valueReg = "")
+    private String GroupColumnIds;
+    @ColumnMpping(name = "sort_column", desc = "", nullable = true, precision = 0, type = Types.LONGVARCHAR, valueReg = "")
+    private String SortingColumnIds;
+    @ColumnMpping(name = "tagging_column", desc = "", nullable = true, precision = 0, type = Types.LONGVARCHAR, valueReg = "")
+    private String TaggingColumnIds;
+    @ColumnMpping(name = "incremental_mode", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int incremental_mode;
+    @ColumnMpping(name = "check_column_id", desc = "", nullable = true, precision = 0, type = Types.INTEGER, valueReg = "")
+    private int check_column_id;
+    @ColumnMpping(name = "last_value", desc = "", nullable = true, precision = 0, type = Types.LONGNVARCHAR, valueReg = "")
+    private String last_value;
+    @ColumnMpping(name="max_extract_numberPerTimes", desc="单次最大抽取数量", nullable=true, precision=0, type=Types.INTEGER, valueReg="")
+    private int maxExtractNumberPerTimes;
+    @ColumnMpping(name="is_union_table", desc="是否合表", nullable=true, precision=1, type=Types.VARCHAR, valueReg="")
+    private boolean isUnionTable;
+    @ColumnMpping(name="table_name_setting_type", desc="表名设置方法 枚举值 0 手动 1sql", nullable=true, precision=0, type=Types.INTEGER, valueReg="")
+    private Integer  tableNameSettingType;
+    @ColumnMpping(name="table_name_setting", desc="表名设置  手动的时候为json字符串", nullable=true, precision=0, type=Types.LONGNVARCHAR, valueReg="")
+    private String tableNameSetting;
+    @ColumnMpping(name="table_name_setting_sql", desc="表名设置  SQL的时候为SQL字符串", nullable=true, precision=0, type=Types.LONGNVARCHAR, valueReg="")
+    private String TableNameSettingSql;
+
+    public String getTableNameSettingSql() {
+        return TableNameSettingSql;
+    }
+
+    public void setTableNameSettingSql(String tableNameSettingSql) {
+        TableNameSettingSql = tableNameSettingSql;
+    }
+
+    public int getMaxExtractNumberPerTimes() {
+        return maxExtractNumberPerTimes;
+    }
+
+    public void setMaxExtractNumberPerTimes(int maxExtractNumberPerTimes) {
+        this.maxExtractNumberPerTimes = maxExtractNumberPerTimes;
+    }
+
+    public boolean getIsUnionTable() {
+        return isUnionTable;
+    }
+
+    public void setIsUnionTable(boolean isUnionTable) {
+        this.isUnionTable = isUnionTable;
+    }
+
+    public Integer getTableNameSettingType() {
+        return tableNameSettingType;
+    }
+
+    public void setTableNameSettingType(Integer tableNameSettingType) {
+        this.tableNameSettingType = tableNameSettingType;
+    }
+
+    public String getTableNameSetting() {
+        return tableNameSetting;
+    }
+
+    public void setTableNameSetting(String tableNameSetting) {
+        this.tableNameSetting = tableNameSetting;
+    }
+
+    public DataSquid() {
+    }
+
+    public DataSquid(Squid s) {
+        if (s != null && s.getId() > 0) {
+            this.setId(s.getId());
+            this.setKey(s.getKey());
+            this.setCreation_date(s.getCreation_date());
+            this.setName(s.getName());
+            this.setLocation_x(s.getLocation_x());
+            this.setLocation_y(s.getLocation_y());
+            this.setSquid_width(s.getSquid_width());
+            this.setSquid_height(s.getSquid_height());
+            this.setSquid_type(s.getSquid_type());
+            this.setSquidflow_id(s.getSquidflow_id());
+            this.setIs_show_all(s.isIs_show_all());
+            this.setSource_is_show_all(s.isSource_is_show_all());
+            this.setSource_transformation_group_x(s.getSource_transformation_group_x());
+            this.setSource_transformation_group_y(s.getSource_transformation_group_y());
+            this.setTransformation_group_x(s.getTransformation_group_x());
+            this.setTransformation_group_y(s.getTransformation_group_y());
+            this.setTable_name(s.getTable_name());
+            this.setFilter(s.getFilter());
+            this.setEncoding(s.getEncoding());
+            this.setDescription(s.getDescription());
+        }
+    }
+
+    private List<Column> columns;
+    /*private List<Integer> GroupColumnIds;
+    private List<Integer> SortingColumnIds;
+    private List<Integer> TaggingColumnIds;*/
+    // 索引index
+    private List<SquidIndexes> squidIndexesList;
+
+    // private List<ReferenceColumnGroup> sourceColumns;
+    private List<ReferenceColumn> sourceColumns;
+
+    private List<TransformationLink> transformationLinks;
+    private List<Transformation> transformations;
+    private List<Transformation> fromTransformations;// get by
+    // transformationLink ->
+    // from_transformation_id
+    private List<Transformation> toTransformations;// get by transformationLink
+    // -> to_transformation_id
+
+    public List<Column> getColumns() {
+        return columns;
+    }
+
+    public void setColumns(List<Column> columns) {
+        this.columns = columns;
+    }
+
+    /**
+     * @return the is_incremental
+     */
+    public boolean isIs_incremental() {
+        return this.is_incremental;
+    }
+
+    /**
+     * @param is_incremental the is_incremental to set
+     */
+    public void setIs_incremental(boolean is_incremental) {
+        this.is_incremental = is_incremental;
+    }
+
+    /**
+     * @return the incremental_expression
+     */
+    public String getIncremental_expression() {
+        return incremental_expression;
+    }
+
+    /**
+     * @param incremental_expression the incremental_expression to set
+     */
+    public void setIncremental_expression(String incremental_expression) {
+        this.incremental_expression = incremental_expression;
+    }
+
+    /**
+     * @return the is_history
+     */
+    public boolean isIs_history() {
+        return is_history;
+    }
+
+    /**
+     * @param is_history the is_history to set
+     */
+    public void setIs_history(boolean is_history) {
+        this.is_history = is_history;
+    }
+
+    /**
+     * @return the destination_squid_id
+     */
+    public int getDestination_squid_id() {
+        return destination_squid_id;
+    }
+
+    /**
+     * @param destination_squid_id the destination_squid_id to set
+     */
+    public void setDestination_squid_id(int destination_squid_id) {
+        this.destination_squid_id = destination_squid_id;
+    }
+
+    /**
+     * @return the top_n
+     */
+    public int getTop_n() {
+        return top_n;
+    }
+
+    /**
+     * @param top_n the top_n to set
+     */
+    public void setTop_n(int top_n) {
+        this.top_n = top_n;
+    }
+
+    /**
+     * @return the truncate_existing_data_flag
+     */
+    public int isTruncate_existing_data_flag() {
+        return truncate_existing_data_flag;
+    }
+
+    /**
+     * @param truncate_existing_data_flag the truncate_existing_data_flag to set
+     */
+    public void setTruncate_existing_data_flag(int truncate_existing_data_flag) {
+        this.truncate_existing_data_flag = truncate_existing_data_flag;
+    }
+
+    /**
+     * @return the process_mode
+     */
+    public int getProcess_mode() {
+        return process_mode;
+    }
+
+    /**
+     * @param process_mode the process_mode to set
+     */
+    public void setProcess_mode(int process_mode) {
+        this.process_mode = process_mode;
+    }
+
+    /**
+     * @return the log_format
+     */
+    public int getLog_format() {
+        return log_format;
+    }
+
+    /**
+     * @param log_format the log_format to set
+     */
+    public void setLog_format(int log_format) {
+        this.log_format = log_format;
+    }
+
+    /**
+     * @return the post_process
+     */
+    public int getPost_process() {
+        return post_process;
+    }
+
+    /**
+     * @param post_process the post_process to set
+     */
+    public void setPost_process(int post_process) {
+        this.post_process = post_process;
+    }
+
+    /**
+     * @return the cdc
+     */
+    public int getCdc() {
+        return cdc;
+    }
+
+    /**
+     * @param cdc the cdc to set
+     */
+    public void setCdc(int cdc) {
+        this.cdc = cdc;
+    }
+
+    /**
+     * @return the sourceColumns
+     */
+    public List<ReferenceColumn> getSourceColumns() {
+        return sourceColumns;
+    }
+
+    /**
+     * @param sourceColumns the sourceColumns to set
+     */
+    public void setSourceColumns(List<ReferenceColumn> sourceColumns) {
+        this.sourceColumns = sourceColumns;
+    }
+
+    /**
+     * @return the transformationLinks
+     */
+    public List<TransformationLink> getTransformationLinks() {
+        return transformationLinks;
+    }
+
+    /**
+     * @param transformationLinks the transformationLinks to set
+     */
+    public void setTransformationLinks(
+            List<TransformationLink> transformationLinks) {
+        this.transformationLinks = transformationLinks;
+    }
+
+    /**
+     * @return the transformations
+     */
+    public List<Transformation> getTransformations() {
+        return transformations;
+    }
+
+    /**
+     * @param transformations the transformations to set
+     */
+    public void setTransformations(List<Transformation> transformations) {
+        this.transformations = transformations;
+    }
+
+    /**
+     * @return the is_indexed
+     */
+    public boolean isIs_indexed() {
+        return is_indexed;
+    }
+
+    /**
+     * @param is_indexed the is_indexed to set
+     */
+    public void setIs_indexed(boolean is_indexed) {
+        this.is_indexed = is_indexed;
+    }
+
+    /**
+     * @return the is_persisted
+     */
+    public boolean isIs_persisted() {
+        return is_persisted;
+    }
+
+    /**
+     * @param is_persisted the is_persisted to set
+     */
+    public void setIs_persisted(boolean is_persisted) {
+        this.is_persisted = is_persisted;
+    }
+
+    /**
+     * @return the exception_handling_flag
+     */
+    public int isException_handling_flag() {
+        return exception_handling_flag;
+    }
+
+    /**
+     * @param exception_handling_flag the exception_handling_flag to set
+     */
+    public void setException_handling_flag(int exception_handling_flag) {
+        this.exception_handling_flag = exception_handling_flag;
+    }
+
+    public List<Transformation> getFromTransformations() {
+        return fromTransformations;
+    }
+
+    public void setFromTransformations(List<Transformation> fromTransformations) {
+        this.fromTransformations = fromTransformations;
+    }
+
+    public List<Transformation> getToTransformations() {
+        return toTransformations;
+    }
+
+    public void setToTransformations(List<Transformation> toTransformations) {
+        this.toTransformations = toTransformations;
+    }
+
+    public int getSource_table_id() {
+        return source_table_id;
+    }
+
+    public void setSource_table_id(int source_table_id) {
+        this.source_table_id = source_table_id;
+    }
+
+    public int getUnion_all_flag() {
+        return union_all_flag;
+    }
+
+    public void setUnion_all_flag(int union_all_flag) {
+        this.union_all_flag = union_all_flag;
+    }
+
+    public String getXsd_dtd_file() {
+        return xsd_dtd_file;
+    }
+
+    public void setXsd_dtd_file(String xsd_dtd_file) {
+        this.xsd_dtd_file = xsd_dtd_file;
+    }
+
+    public String getXsd_dtd_path() {
+        return xsd_dtd_path;
+    }
+
+    public void setXsd_dtd_path(String xsd_dtd_path) {
+        this.xsd_dtd_path = xsd_dtd_path;
+    }
+
+    public int getIs_distinct() {
+        return is_distinct;
+    }
+
+    public void setIs_distinct(int is_distinct) {
+        this.is_distinct = is_distinct;
+    }
+
+    public List<SquidIndexes> getSquidIndexesList() {
+        return squidIndexesList;
+    }
+
+    public void setSquidIndexesList(List<SquidIndexes> squidIndexesList) {
+        this.squidIndexesList = squidIndexesList;
+    }
+
+    public int getRef_squid_id() {
+        return ref_squid_id;
+    }
+
+    public String getSplit_col() {
+        return split_col;
+    }
+
+    public void setSplit_col(String split_col) {
+        this.split_col = split_col;
+    }
+
+    public int getSplit_num() {
+        return split_num;
+    }
+
+    public void setSplit_num(int split_num) {
+        this.split_num = split_num;
+    }
+
+    public void setRef_squid_id(int ref_squid_id) {
+        this.ref_squid_id = ref_squid_id;
+    }
+
+    public String getPersist_sql() {
+        return persist_sql;
+    }
+
+    public void setPersist_sql(String persist_sql) {
+        this.persist_sql = persist_sql;
+    }
+
+    public boolean is_incremental() {
+        return is_incremental;
+    }
+
+    public boolean is_history() {
+        return is_history;
+    }
+
+    public boolean is_indexed() {
+        return is_indexed;
+    }
+
+    public boolean is_persisted() {
+        return is_persisted;
+    }
+
+    public String getGroupColumnIds() {
+        return GroupColumnIds;
+    }
+
+    public void setGroupColumnIds(String groupColumnIds) {
+        GroupColumnIds = groupColumnIds;
+    }
+
+    public String getSortingColumnIds() {
+        return SortingColumnIds;
+    }
+
+    public void setSortingColumnIds(String sortingColumnIds) {
+        SortingColumnIds = sortingColumnIds;
+    }
+
+    public String getTaggingColumnIds() {
+        return TaggingColumnIds;
+    }
+
+    public void setTaggingColumnIds(String taggingColumnIds) {
+        TaggingColumnIds = taggingColumnIds;
+    }
+
+    public int getIncremental_mode() {
+        return incremental_mode;
+    }
+
+    public void setIncremental_mode(int incremental_mode) {
+        this.incremental_mode = incremental_mode;
+    }
+
+    public int getCheck_column_id() {
+        return check_column_id;
+    }
+
+    public void setCheck_column_id(int check_column_id) {
+        this.check_column_id = check_column_id;
+    }
+
+    public String getLast_value() {
+        return last_value;
+    }
+
+    public void setLast_value(String last_value) {
+        this.last_value = last_value;
+    }
+}

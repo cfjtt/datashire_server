@@ -1,0 +1,269 @@
+package com.eurlanda.datashire.adapter;
+
+import com.eurlanda.datashire.entity.DbSquid;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.server.model.User;
+import com.eurlanda.datashire.server.utils.SocketUtil;
+import com.eurlanda.datashire.sprint7.socket.SocketRequestContext;
+import com.eurlanda.datashire.utility.CommonConsts;
+import org.apache.log4j.Logger;
+
+import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 用户外部访问的AdapterFactory
+ * 
+ * @author eurlanda
+ * @version 1.0
+ * @created 16-八月-2013 21:38:02
+ */
+public class DataAdapterFactory {
+	private static final Logger logger = Logger.getLogger(DataAdapterFactory.class);
+	/**
+	 * DataAdapterFactory类型，但其实是其某一个子类的对象，用于调用真实的实现方法。
+	 */
+	private static DataAdapterFactory dataAdapterFactory = new DataAdapterFactory();
+	
+	/**
+	 * 存放数据库池对象 token>>Adapter
+	 */
+	private static Map<String, IDBAdapter> tokenAdapterMap;
+	
+	/**
+	 * 存放数据库池对象 Repository>>Adapter
+	 */
+	private static Map<String, IDBAdapter> repositoryAdapterMap;
+	
+	/** 系统默认数据库管理类（HyperSQLDB）全局唯一 */
+	private static final IRelationalDataManager dataManager;
+	
+	static{
+		DbSquid dataSource = new DbSquid();
+		dataSource.setDb_type(DataBaseType.MYSQL.value());
+		dataSource.setDb_name(CommonConsts.HSQL_SYS_DB_NAME);
+		dataSource.setHost(CommonConsts.HSQL_HOST);
+		dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+		dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+		dataManager = new HyperSQLManager(dataSource);
+	}
+	
+	/**
+	 * 初始化DataAdapterFactory
+	 * 
+	 */
+	public DataAdapterFactory() { // TODO it will be private indeed
+		tokenAdapterMap= new HashMap<String, IDBAdapter>();
+		repositoryAdapterMap= new HashMap<String, IDBAdapter>();
+	}
+
+	/**
+	 * 根据connection 的 type实例化一个具体的IDataAdapter 对象，并保存到adapter
+	 */
+	public IDBAdapter makeAdapter(DbSquid dataSoure) {
+		logger.info(MessageFormat.format("[外部数据源adapter] Type: {0}, Connection:{1}:{2}, userName:{3}", 
+				DataBaseType.parse(dataSoure.getDb_type()), dataSoure.getHost(), dataSoure.getPort(), dataSoure.getUser_name()));
+		switch (DataBaseType.parse(dataSoure.getDb_type())) {
+			case SQLSERVER:
+				return new SqlServerAdapter(dataSoure);
+			case MYSQL:
+				return new HsqlDbAdapter(dataSoure);
+		}
+		return null;
+	}
+	
+	/**
+	 * 单例方法
+	 */
+	public static DataAdapterFactory newInstance() {
+		return dataAdapterFactory;
+	}
+	
+	/**
+	 * 系统默认数据库管理类（HyperSQLDB）
+	 * 	 权限表：DS_SYS_*
+	 * @return
+	 
+	public static IRelationalDataManager getDefaultDataManager(){
+		DbSquid dataSource = new DbSquid();
+		dataSource.setDb_type(DataBaseType.HSQLDB.value());
+		dataSource.setDb_name(CommonConsts.HSQL_SYS_DB_NAME);
+		dataSource.setHost(CommonConsts.HSQL_HOST);
+		dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+		dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+		return new HyperSQLManager(dataSource);
+	}*/
+	
+	/**
+	 * 系统默认数据库管理类（HyperSQLDB）
+	 * 	 权限表：DS_SYS_*
+	 * @return
+	 */
+	public static IRelationalDataManager getDefaultDataManager(){
+		DbSquid dataSource = new DbSquid();
+		dataSource.setDb_type(CommonConsts.HSQL_SYS_DB_TYPE);
+		dataSource.setDb_name(CommonConsts.HSQL_SYS_DB_NAME);
+		if (dataSource.getDb_type()==DataBaseType.MYSQL.value()){
+			dataSource.setHost(CommonConsts.HSQL_HOST);
+		}else{
+			dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS);
+		}
+		dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+		dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+		return new HyperSQLManager(dataSource);
+	}
+	
+	public IRelationalDataManager getDataManagerByToken(String token){
+        if(token == null) {
+            return null;
+        }
+        User user = SocketUtil.SESSION.get(token);
+		if (SocketRequestContext.getCurrentRequestContext()!=null){
+			token = SocketRequestContext.getCurrentRequestContext().getToken();
+		}
+		if(user!=null
+//                && user.getRepository()!=null
+//				&& StringUtils.isNotNull(user.getRepository().getRepository_db_name())
+                ){
+			DbSquid dataSource = new DbSquid();
+			dataSource.setDb_type(CommonConsts.HSQL_SYS_DB_TYPE);
+			dataSource.setDb_name(CommonConsts.HSQL_SYS_DB_NAME);
+			//dataSource.setHost("jdbc:hsqldb:file:"+CommonConsts.HSQL_DB_PATH+user.getRepository().getRepository_db_name()+"/");
+//			dataSource.setHost("jdbc:hsqldb:hsql://192.168.137.2:9092/" + user.getRepository().getRepository_db_name());
+			if (dataSource.getDb_type()==DataBaseType.MYSQL.value()){
+				dataSource.setHost(CommonConsts.HSQL_HOST);
+			}else{
+				dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS);
+			}
+			dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+			dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+			//添加
+            /**   key adapter 映射关系，不需要
+			IDBAdapter adapter = makeAdapter(dataSource);
+			addTokenAdapter(token, adapter);
+             */
+			return new HyperSQLManager(dataSource);
+		}else{
+			logger.warn("[获取adapter失败] "+token+"\r\n"+SocketUtil.SESSION.size());
+		}
+		return null;
+	}
+	
+	public IDBAdapter getDefaultAdapter(){
+		DbSquid dataSource = new DbSquid();
+		dataSource.setDb_type(CommonConsts.HSQL_SYS_DB_TYPE);
+		dataSource.setDb_name(CommonConsts.HSQL_SYS_DB_NAME);
+		if (dataSource.getDb_type()==DataBaseType.MYSQL.value()){
+			dataSource.setHost(CommonConsts.HSQL_HOST);
+		}else{
+			dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS);
+		}
+		dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+		dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+		IDBAdapter adapter = makeAdapter(dataSource);
+		return adapter;
+	}
+	
+	public IDBAdapter getAdapter(String dbName){
+		DbSquid dataSource = new DbSquid();
+		dataSource.setDb_type(CommonConsts.HSQL_SYS_DB_TYPE);
+		dataSource.setDb_name(dbName);
+		//dataSource.setHost("jdbc:hsqldb:file:"+CommonConsts.HSQL_DB_PATH+dbName+"/");
+//		dataSource.setHost("jdbc:hsqldb:hsql://192.168.137.2:9092/" + dbName);
+		if (dataSource.getDb_type()==DataBaseType.MYSQL.value()){
+			dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS + dbName + "/");
+		}else{
+			dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS);
+		}
+		dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+		dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+		return makeAdapter(dataSource);
+	}
+	
+	public IRelationalDataManager getDataManagerByDbName(String dbName){
+		DbSquid dataSource = new DbSquid();
+		dataSource.setDb_type(CommonConsts.HSQL_SYS_DB_TYPE);
+		//dataSource.setHost("jdbc:hsqldb:file:"+CommonConsts.HSQL_DB_PATH+dbName+"/");
+//		dataSource.setHost("jdbc:hsqldb:hsql://192.168.137.2:9092/" + dbName);
+		if (dataSource.getDb_type()==DataBaseType.MYSQL.value()){
+			dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS + dbName + "/");
+		}else{
+			dataSource.setHost(CommonConsts.HSQL_HOST_ADDRESS);
+		}
+		dataSource.setUser_name(CommonConsts.HSQL_USER_NAME);
+		dataSource.setPassword(CommonConsts.HSQL_PASSWORD);
+		return new HyperSQLManager(dataSource);
+	}
+	
+	
+	/**
+	 * 添加token与adapter关系
+	 * @param token
+	 * @return
+	 */
+	public void addTokenAdapter(String token, IDBAdapter dataAdapterBase){
+		tokenAdapterMap.put(token, dataAdapterBase);
+	}
+	
+	/**
+	 * <p>
+	 * 作用描述：获取一个adapter
+	 * </p>
+	 * <p>
+	 * 修改说明：
+	 * </p>
+	 *@param token
+	 *@return
+	 */
+	public IDBAdapter getTokenAdapter(String token){
+		IDBAdapter adapterBase=tokenAdapterMap.get(token);
+		 if(adapterBase!=null){
+			 adapterBase.resetAdapter();
+		 }
+		 logger.trace("[adapter map]\ttoken="+token+", adapter="+adapterBase+"\r\n"+tokenAdapterMap);
+		 return adapterBase;
+	}
+
+	/**
+	 * <p>
+	 * 作用描述：删除一个adapter
+	 * </p>
+	 * <p>
+	 * 修改说明：
+	 * </p>
+	 *@param token
+	 */
+	public void removeTokenAdapter(String token){
+		if(tokenAdapterMap.containsKey(token)){
+			tokenAdapterMap.remove(token);
+		}
+	}
+	
+	/**
+	 * 添加token与adapter关系
+	 * @param repository
+	 * @return
+	 */
+	public void addRepositoryAdapter(String repository, IDBAdapter dataAdapterBase){
+		if(!repositoryAdapterMap.containsKey(repository)){
+			repositoryAdapterMap.put(repository, dataAdapterBase);
+		}
+	}
+	
+	
+	/**
+	 * <p>
+	 * 作用描述：删除一个adapter
+	 * </p>
+	 * <p>
+	 * 修改说明：
+	 * </p>
+	 */
+	public void removeRepositoryAdapter(String repository){
+		if(repositoryAdapterMap.containsKey(repository)){
+			repositoryAdapterMap.remove(repository);
+		}
+	}
+	
+}

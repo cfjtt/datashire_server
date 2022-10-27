@@ -1,0 +1,75 @@
+package com.eurlanda.datashire.server.dao;
+
+import com.eurlanda.datashire.server.model.Transformation;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Map;
+
+@Repository
+public interface TransformationDao {
+    int deleteByPrimaryKey(Integer id);
+
+    int insert(List<Transformation> list);
+
+    int insertSelective(Transformation record);
+
+    Transformation selectByPrimaryKey(Integer id);
+
+    int updateByPrimaryKeySelective(Transformation record);
+
+    int updateByPrimaryKey(Transformation record);
+    //批量删除Transformations
+    int deleteTransformations(List<Integer> list);
+    //删除虚拟Transformations
+    int deleteVirtualTransformations(List<Integer> list);
+
+    List<Transformation> selectTransformationByLinkIds(List<Integer> transLinkIds);
+
+    //批量修改 Transformation中output_data_type 和 inputDataType
+    int updateTransOutAndInputByIds(List<Integer> transIds);
+
+
+    int updateTransOutDataType(Map<String,Object> typeAndIdsMap);
+
+    List<Transformation> selectTransAndInputsByLinkIds(List<Integer> transLinkIds);
+
+
+    List<Transformation> selectTransAndInputsByIds(List<Integer> transIds);
+
+
+    List<Integer> selectFromTransIdsByLinkIds(List<Integer> transLinkIds);
+
+
+    List<Integer> selectByColumnIdAndSquId(Map<String,Object> map);
+
+    List<Map<String, Object>> findTransformationType(Map<String,Object> map);
+
+    int deleteTransformationBySquidId(List<Integer> list);
+
+    //根据transId获取trans的最大链接数
+    Map<String, Object> getTransParamsByTransId(int transId);
+
+
+    List<Integer> selectTransByCoIdAndSquIds(Map<String,Object> map);
+
+    List<Integer> selectByColumnIdAndSquLinkId(Map<String,Object> map);
+
+
+    List<Integer> selectToTransIdsByLinkIds(List<Integer> transLinkIds);
+
+    List<Transformation> selectTransByIds(List<Integer> transIds);
+
+    int updateBySelectiveList(List<Transformation> transformations);
+
+    /**
+     * 通过squidId查询transformation
+     */
+    List<Transformation> selectTransformationBySquidId(Integer squidId);
+
+    /**
+     * 通过squidId查询transformation的数量
+     */
+    Integer selectTransBySquidId(Integer squidId);
+
+}

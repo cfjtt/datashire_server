@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.SquidFlowStatusDao">
+    <resultMap type="com.eurlanda.datashire.server.model.SquidFlowStatus" id="objMap">
+        <id property="id" column="ID" />
+        <result property="team_id" column="TEAM_ID" />
+        <result property="repository_id" column="REPOSITORY_ID" />
+        <result property="project_id" column="PROJECT_ID" />
+        <result property="squid_flow_id" column="SQUID_FLOW_ID" />
+        <result property="squid_flow_status" column="STATUS" />
+        <result property="owner_client_token" column="OWNER_CLIENT__TOKEN" />
+    </resultMap>
+    <select id="getSquidFlowStatus" resultMap="objMap" parameterType="java.util.Map" >
+        select * from ds_sys_squid_flow_status where project_id=#{project_id} and repository_id=#{repository_id}
+    </select>
+</mapper>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.eurlanda.datashire.server.dao.SquidFlowDao">
+    <resultMap type="com.eurlanda.datashire.server.model.SquidFlow" id="objMap">
+        <id property="id" column="ID" />
+        <result property="key" column="KEY" />
+        <result property="name" column="NAME" />
+        <result property="project_id" column="PROJECT_ID" />
+        <result property="compilation_status" column="COMPILATION_STATUS" />
+        <result property="squidflow_type" column="SQUIDFLOW_TYPE" />
+        <result property="dataShireFieldType" column="FIELD_TYPE" />
+        <result property="description" column="DESCRIPTION" />
+        <result property="modification_date" column="MODIFICATION_DATE" jdbcType="TIMESTAMP" javaType="java.lang.String"/>
+        <result property="creator" column="CREATOR"/>
+    </resultMap>
+    <select id="getSquidFlowsByProjectId" resultMap="objMap" parameterType="java.lang.Integer" >
+        select * from ds_squid_flow where project_id=#{projectId}
+    </select>
+</mapper>

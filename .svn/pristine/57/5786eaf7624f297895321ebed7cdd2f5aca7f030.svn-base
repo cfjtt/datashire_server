@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.JobHistoryDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.JobHistory" >
+    <id column="TASK_ID" property="taskId" jdbcType="VARCHAR" />
+    <result column="REPOSITORY_ID" property="repositoryId" jdbcType="INTEGER" />
+    <result column="SQUID_FLOW_ID" property="SquidFlowId" jdbcType="INTEGER" />
+    <result column="JOB_ID" property="jobId" jdbcType="INTEGER" />
+    <result column="STATUS" property="status" jdbcType="INTEGER" />
+    <result column="DEBUG_SQUIDS" property="debugSquids" jdbcType="VARCHAR" />
+    <result column="DESTINATION_SQUIDS" property="destinationSquids" jdbcType="VARCHAR" />
+    <result column="CALLER" property="caller" jdbcType="VARCHAR" />
+    <result column="CREATE_TIME" property="createTime" jdbcType="TIMESTAMP" />
+    <result column="UPDATE_TIME" property="updateTime" jdbcType="TIMESTAMP" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    TASK_ID, REPOSITORY_ID, SQUID_FLOW_ID, JOB_ID, STATUS, DEBUG_SQUIDS, DESTINATION_SQUIDS, 
+    CALLER, CREATE_TIME, UPDATE_TIME
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.String" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_sys_sf_job_history
+    where TASK_ID = #{taskId,jdbcType=VARCHAR}
+  </select>
+
+  <select id="selectJobHistoryPaged" resultMap="BaseResultMap" parameterType="java.lang.Integer">
+    select
+    <include refid="Base_Column_List" />
+    from ds_sys_sf_job_history
+    WHERE JOB_ID = #{jobId,jdbcType=INTEGER}
+    ORDER BY CREATE_TIME desc
+    LIMIT #{homePage,jdbcType=INTEGER},#{pageSize,jdbcType=INTEGER}
+
+  </select>
+
+  <select id="selectJobHistoryCoutByJobId" resultType="java.lang.Integer">
+    SELECT
+      COUNT(1) FROM ds_sys_sf_job_history
+    WHERE
+      JOB_ID = #{jobId,jdbcType=INTEGER}
+
+  </select>
+
+
+
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String" >
+    delete from ds_sys_sf_job_history
+    where TASK_ID = #{taskId,jdbcType=VARCHAR}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.JobHistory" >
+    <selectKey resultType="java.lang.String" keyProperty="taskId" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_sys_sf_job_history (REPOSITORY_ID, SQUID_FLOW_ID, JOB_ID, 
+      STATUS, DEBUG_SQUIDS, DESTINATION_SQUIDS, 
+      CALLER, CREATE_TIME, UPDATE_TIME
+      )
+    values (#{repositoryId,jdbcType=INTEGER}, #{SquidFlowId,jdbcType=INTEGER}, #{jobId,jdbcType=INTEGER},
+      #{status,jdbcType=INTEGER}, #{debugSquids,jdbcType=VARCHAR}, #{destinationSquids,jdbcType=VARCHAR}, 
+      #{caller,jdbcType=VARCHAR}, #{createTime,jdbcType=DATE}, #{updateTime,jdbcType=DATE}
+      )
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.JobHistory" >
+    <selectKey resultType="java.lang.String" keyProperty="taskId" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_sys_sf_job_history
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="repositoryId != null" >
+        REPOSITORY_ID,
+      </if>
+      <if test="SquidFlowId != null" >
+        SQUID_FLOW_ID,
+      </if>
+      <if test="jobId != null" >
+        JOB_ID,
+      </if>
+      <if test="status != null" >
+        STATUS,
+      </if>
+      <if test="debugSquids != null" >
+        DEBUG_SQUIDS,
+      </if>
+      <if test="destinationSquids != null" >
+        DESTINATION_SQUIDS,
+      </if>
+      <if test="caller != null" >
+        CALLER,
+      </if>
+      <if test="createTime != null" >
+        CREATE_TIME,
+      </if>
+      <if test="updateTime != null" >
+        UPDATE_TIME,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="repositoryId != null" >
+        #{repositoryId,jdbcType=INTEGER},
+      </if>
+      <if test="SquidFlowId != null" >
+        #{SquidFlowId,jdbcType=INTEGER},
+      </if>
+      <if test="jobId != null" >
+        #{jobId,jdbcType=INTEGER},
+      </if>
+      <if test="status != null" >
+        #{status,jdbcType=INTEGER},
+      </if>
+      <if test="debugSquids != null" >
+        #{debugSquids,jdbcType=VARCHAR},
+      </if>
+      <if test="destinationSquids != null" >
+        #{destinationSquids,jdbcType=VARCHAR},
+      </if>
+      <if test="caller != null" >
+        #{caller,jdbcType=VARCHAR},
+      </if>
+      <if test="createTime != null" >
+        #{createTime,jdbcType=DATE},
+      </if>
+      <if test="updateTime != null" >
+        #{updateTime,jdbcType=DATE},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.JobHistory" >
+    update ds_sys_sf_job_history
+    <set >
+      <if test="repositoryId != null" >
+        REPOSITORY_ID = #{repositoryId,jdbcType=INTEGER},
+      </if>
+      <if test="SquidFlowId != null" >
+        SQUID_FLOW_ID = #{SquidFlowId,jdbcType=INTEGER},
+      </if>
+      <if test="jobId != null" >
+        JOB_ID = #{jobId,jdbcType=INTEGER},
+      </if>
+      <if test="status != null" >
+        STATUS = #{status,jdbcType=INTEGER},
+      </if>
+      <if test="debugSquids != null" >
+        DEBUG_SQUIDS = #{debugSquids,jdbcType=VARCHAR},
+      </if>
+      <if test="destinationSquids != null" >
+        DESTINATION_SQUIDS = #{destinationSquids,jdbcType=VARCHAR},
+      </if>
+      <if test="caller != null" >
+        CALLER = #{caller,jdbcType=VARCHAR},
+      </if>
+      <if test="createTime != null" >
+        CREATE_TIME = #{createTime,jdbcType=DATE},
+      </if>
+      <if test="updateTime != null" >
+        UPDATE_TIME = #{updateTime,jdbcType=DATE},
+      </if>
+    </set>
+    where TASK_ID = #{taskId,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.JobHistory" >
+    update ds_sys_sf_job_history
+    set REPOSITORY_ID = #{repositoryId,jdbcType=INTEGER},
+      SQUID_FLOW_ID = #{SquidFlowId,jdbcType=INTEGER},
+      JOB_ID = #{jobId,jdbcType=INTEGER},
+      STATUS = #{status,jdbcType=INTEGER},
+      DEBUG_SQUIDS = #{debugSquids,jdbcType=VARCHAR},
+      DESTINATION_SQUIDS = #{destinationSquids,jdbcType=VARCHAR},
+      CALLER = #{caller,jdbcType=VARCHAR},
+      CREATE_TIME = #{createTime,jdbcType=DATE},
+      UPDATE_TIME = #{updateTime,jdbcType=DATE}
+    where TASK_ID = #{taskId,jdbcType=VARCHAR}
+  </update>
+</mapper>

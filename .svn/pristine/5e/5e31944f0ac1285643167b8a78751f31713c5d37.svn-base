@@ -1,0 +1,9 @@
+-- 修改版本号
+update ds_sys_server_parameter set VALUE='2.4.0' where NAME='VERSION';
+
+--Squid 表中添加新的属性
+ALTER TABLE ds_squid ADD max_extract_numberPerTimes int(11) COMMENT '单次最大抽取数量';
+ALTER TABLE ds_squid ADD  is_union_table char(1) COMMENT '是否合表';
+ALTER TABLE ds_squid ADD table_name_setting_type int(1) COMMENT '表名设置方法 枚举值 0 手动 1sql';
+ALTER TABLE ds_squid ADD table_name_setting varchar(500) COMMENT '表名设置  手动的时候为json字符串';
+ALTER TABLE ds_squid ADD table_name_setting_sql varchar(500) COMMENT '表名设置  SQL的时候为SQL字符串';

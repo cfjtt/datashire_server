@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.EsColumnDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.EsColumn" >
+    <id column="ID" property="id" jdbcType="INTEGER" />
+    <result column="COLUMN_ID" property="column_id" jdbcType="INTEGER" />
+    <result column="SQUID_ID" property="squid_id" jdbcType="INTEGER" />
+    <result column="IS_MAPPING_ID" property="is_mapping_id" jdbcType="INTEGER" />
+    <result column="FIELD_NAME" property="field_name" jdbcType="VARCHAR" />
+    <result column="IS_PERSIST" property="is_persist" jdbcType="INTEGER" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    ID, COLUMN_ID, SQUID_ID, IS_MAPPING_ID, FIELD_NAME, IS_PERSIST
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_es_column
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_es_column
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.EsColumn" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_es_column (COLUMN_ID, SQUID_ID, IS_MAPPING_ID, 
+      FIELD_NAME, IS_PERSIST)
+    values (#{column_id,jdbcType=INTEGER}, #{squid_id,jdbcType=INTEGER}, #{is_mapping_id,jdbcType=INTEGER}, 
+      #{field_name,jdbcType=VARCHAR}, #{is_persist,jdbcType=INTEGER})
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.EsColumn" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_es_column
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="column_id != null" >
+        COLUMN_ID,
+      </if>
+      <if test="squid_id != null" >
+        SQUID_ID,
+      </if>
+      <if test="is_mapping_id != null" >
+        IS_MAPPING_ID,
+      </if>
+      <if test="field_name != null" >
+        FIELD_NAME,
+      </if>
+      <if test="is_persist != null" >
+        IS_PERSIST,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="column_id != null" >
+        #{column_id,jdbcType=INTEGER},
+      </if>
+      <if test="squid_id != null" >
+        #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="is_mapping_id != null" >
+        #{is_mapping_id,jdbcType=INTEGER},
+      </if>
+      <if test="field_name != null" >
+        #{field_name,jdbcType=VARCHAR},
+      </if>
+      <if test="is_persist != null" >
+        #{is_persist,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.EsColumn" >
+    update ds_es_column
+    <set >
+      <if test="column_id != null" >
+        COLUMN_ID = #{column_id,jdbcType=INTEGER},
+      </if>
+      <if test="squid_id != null" >
+        SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      </if>
+      <if test="is_mapping_id != null" >
+        IS_MAPPING_ID = #{is_mapping_id,jdbcType=INTEGER},
+      </if>
+      <if test="field_name != null" >
+        FIELD_NAME = #{field_name,jdbcType=VARCHAR},
+      </if>
+      <if test="is_persist != null" >
+        IS_PERSIST = #{is_persist,jdbcType=INTEGER},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.EsColumn" >
+    update ds_es_column
+    set COLUMN_ID = #{column_id,jdbcType=INTEGER},
+      SQUID_ID = #{squid_id,jdbcType=INTEGER},
+      IS_MAPPING_ID = #{is_mapping_id,jdbcType=INTEGER},
+      FIELD_NAME = #{field_name,jdbcType=VARCHAR},
+      IS_PERSIST = #{is_persist,jdbcType=INTEGER}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+
+  <delete id="deleteEsColumnBySquId" parameterType="java.lang.Integer">
+    delete from ds_es_column where squid_id in
+    <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+
+  </delete>
+
+  <insert id="insertBatch" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List">
+    insert into ds_es_column (COLUMN_ID, SQUID_ID, IS_MAPPING_ID,
+    FIELD_NAME, IS_PERSIST)
+    values
+    <foreach collection="list" item="item" index="index" separator=",">
+      (#{item.column_id,jdbcType=INTEGER}, #{item.squid_id,jdbcType=INTEGER}, #{item.is_mapping_id,jdbcType=INTEGER},
+      #{item.field_name,jdbcType=VARCHAR}, #{item.is_persist,jdbcType=INTEGER})
+    </foreach>
+  </insert>
+</mapper>

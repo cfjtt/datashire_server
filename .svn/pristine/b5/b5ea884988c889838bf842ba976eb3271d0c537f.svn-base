@@ -1,0 +1,180 @@
+package com.eurlanda.datashire.dao.impl;
+
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.ITransformationDao;
+import com.eurlanda.datashire.entity.Transformation;
+import com.eurlanda.datashire.enumeration.TransformationTypeEnum;
+import com.eurlanda.datashire.enumeration.datatype.SystemDatatype;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class TransformationDaoImpl extends BaseDaoImpl implements ITransformationDao {
+	
+	public TransformationDaoImpl(){
+	}
+	
+	public TransformationDaoImpl(IRelationalDataManager adapter){
+		this.adapter = adapter;
+	}
+
+
+	@Override
+	public Transformation getTransformationByKey(String key) {
+		String sql = "select * from DS_TRANSFORMATION where key = ?";
+		List<String> params = new ArrayList<>();
+		params.add(key);
+		List<Transformation> list = adapter.query2List(true,sql, params, Transformation.class);
+		if(list != null && list.size() == 1) {
+			return list.get(0);
+		}
+		return null;
+	}
+
+	@Override
+	public Transformation getTransformationById(int squidId, int columnId) {
+		Map<String, Object> paramMap = new HashMap<String, Object>();
+		paramMap.put("squid_id", squidId);
+		paramMap.put("column_id", columnId);
+		Transformation trans = adapter.query2Object(true, paramMap, Transformation.class);
+		return trans;
+	}
+
+	@Override
+	public List<Transformation> getTransListBySquidId(int squidId) throws SQLException {
+		Map<String, Object> paramMap = new HashMap<String, Object>();
+		paramMap.put("squid_id", squidId);
+		List<Transformation> transList = adapter.query2List2(true, paramMap, Transformation.class);
+		if (transList!=null&&transList.size()>0){
+			for (Transformation transformation : transList) {
+				initTransformationInputDataType(transformation);
+			}
+		}
+		return transList;
+	}
+	
+	@Override
+	public void initTransformationInputDataType(Transformation transformation) throws SQLException{
+		if (transformation.getTranstype()==TransformationTypeEnum.PREDICT.value()){
+			if (transformation.getModel_squid_id()>0){
+				Map<String, Object> rs = this.getModelTransForSquidId(transformation.getModel_squid_id());
+				if (rs!=null&&rs.containsKey("INPUT_DATA_TYPE")){
+					transformation.setInputDataType((int)rs.get("INPUT_DATA_TYPE"));
+					if (transformation.getInputs() != null)
+						transformation.getInputs().get(0).setInput_Data_Type((int)rs.get("INPUT_DATA_TYPE")); /* 为量化DM SquidModelBase 返回特定的入参类型 */
+					transformation.setSquidModelType((int)rs.get("SQUID_TYPE_ID"));
+				}
+			}
+		} else if(transformation.getTranstype()==TransformationTypeEnum.INVERSEQUANTIFY.value()){
+			if (transformation.getModel_squid_id()>0){
+				Map<String, Object> rs = this.getModelTransForSquidId(transformation.getModel_squid_id());
+				if (rs!=null&&rs.containsKey("INPUT_DATA_TYPE")){
+					transformation.setOutput_data_type((int)rs.get("INPUT_DATA_TYPE"));
+					transformation.setSquidModelType((int)rs.get("SQUID_TYPE_ID"));
+				}
+			}
+		} else if ((transformation.getTranstype()==TransformationTypeEnum.CHOICE.value() || transformation.getTranstype()==TransformationTypeEnum.NVL.value())
+				&&transformation.getOutput_data_type()==SystemDatatype.OBJECT.value()){
+			transformation.setInputDataType(99);
+		}else if (transformation.getTranstype()==TransformationTypeEnum.CONCATENATE.value()){
+			transformation.setInputDataType(SystemDatatype.NVARCHAR.value());
+		}else if (transformation.getTranstype()==TransformationTypeEnum.NUMASSEMBLE.value()){
+			transformation.setInputDataType(SystemDatatype.FLOAT.value());
+		}else if (transformation.getTranstype()==TransformationTypeEnum.ROWNUMBER.value()){
+			transformation.setInputDataType(SystemDatatype.OBJECT.value());
+		}
+	}
+
+	@Override
+	public Transformation getVTransformationByColumnId(int columnId, int squidId) {
+		String sql = "select dr.* from ds_column dc inner join ds_transformation dr on dc.id=dr.column_id " + " and dr.squid_id=" + squidId + " where dc.id=" + columnId;
+		List<Transformation> list = adapter.query2List(true,sql, null, Transformation.class);
+		if(list != null && list.size() == 1) {
+			return list.get(0);
+		}
+		return null;
+	}
+
+	@Override
+	public Transformation getVTransformationByReferenceColumnId(int refColumnId, int squidId) {
+		String sql = "select dr.* from ds_reference_column dc inner join ds_transformation dr on dc.column_id=dr.column_id  and dc.reference_squid_id=" + squidId + "  and dc.column_id=" + refColumnId + " and dr.squid_id=" + squidId;
+		List<Transformation> list = adapter.query2List(true, sql, null, Transformation.class);
+		if(list != null && list.size() == 1) {
+			return list.get(0);
+		}
+		return null;
+	}
+
+	/**
+	 * 根据modelid获取当前transformation的信息
+	 * @param model_squid_id
+	 * @return
+	 * @throws SQLException
+	 */
+	private Map<String, Object> getModelTransForSquidId(int model_squid_id) throws SQLException{
+		StringBuffer sql = new StringBuffer();
+		sql.append("select inputs.input_data_type input_data_type,ds.squid_type_id from ds_squid ds ");
+		//sql.append("(select output_data_type from ds_transformation where id=dtl.from_transformation_id) inputdatatype,ds.squid_type_id from ds_squid ds ");
+		sql.append("inner join ds_transformation dt on ds.id=dt.squid_id and dt.transformation_type_id=70 ");
+		sql.append("inner join ds_transformation_link dtl on dt.id=dtl.to_transformation_id ");
+		sql.append("inner join ds_tran_inputs inputs on inputs.transformation_id = dt.id ");
+		sql.append("where ds.id="+model_squid_id);
+		Map<String, Object> result = adapter.query2Object(true, sql.toString(), null);
+		return result;
+	}
+	
+	public Integer getOutputDataTypeByTransType(int transType) throws SQLException{
+		int output = -1;
+		Map<String, Object> transDefinition = adapter.query2Object(true, "select * from ds_transformation_type where id="+transType, null);
+		if (transDefinition!=null&&transDefinition.containsKey("OUTPUT_DATA_TYPE")){
+			output = Integer.parseInt(transDefinition.get("OUTPUT_DATA_TYPE")+"");
+		}
+		return output;
+	}
+
+	@Override
+	public Map<String, Object> getTransParamsByTransId(int transId) throws SQLException {
+		StringBuffer sql = new StringBuffer();
+		sql.append("select max(dtid.input_order) as CNT,max(dtid.input_data_type) as input_data_type from ds_tran_input_definition dtid ");
+		sql.append("inner join ds_transformation_type dtt on dtid.code=dtt.code ");
+		sql.append("inner join ds_transformation dt on dtt.id=dt.transformation_type_id ");
+		sql.append(" where dtid.input_order not in (-1) and dt.id="+ transId);
+		Map<String, Object> map = adapter.query2Object(true, 
+				sql.toString() , null);
+		return  map;
+	}
+
+	@Override
+	public List<Transformation> getVTransBySquidId(int groupId, int squidId)
+			throws SQLException {
+		String sql = "select dt.* from ds_transformation dt " +
+				"inner join ds_reference_column drc " +
+				"on dt.column_id=drc.column_id and drc.reference_squid_id=dt.squid_id and drc.group_id=" + groupId +
+				" where dt.squid_id="+squidId;
+		return adapter.query2List(true, sql, null, Transformation.class);
+	}
+	
+	@Override
+	public List<Transformation> getEntityTransBySquidId(int squidId){
+		String sql = "select * from ds_transformation " +
+				"where squid_id="+squidId+" and (column_id is null or column_id = 0)";
+		return adapter.query2List(true, sql, null, Transformation.class);
+	}
+	
+	@Override
+	public void modifyRefSquidForTransId(int transId, int squidId, int type) throws SQLException{
+		String sql = "";
+		if (type==0){
+			sql = "update ds_transformation set dictionary_squid_id=? where id=? ";
+		}else{
+			sql = "update ds_transformation set model_squid_id=? where id=?";
+		}
+		List<Object> params = new ArrayList<Object>();
+		params.add(squidId);
+		params.add(transId);
+		adapter.execute(sql, params);
+	}
+}

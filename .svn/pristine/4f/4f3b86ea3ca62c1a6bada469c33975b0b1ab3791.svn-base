@@ -1,0 +1,331 @@
+package com.eurlanda.datashire.sprint7.service.squidflow;
+
+import cn.com.jsoft.jframe.utils.ValidateUtils;
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.IProjectDao;
+import com.eurlanda.datashire.dao.ISquidFlowDao;
+import com.eurlanda.datashire.dao.IVariableDao;
+import com.eurlanda.datashire.dao.impl.ProjectDaoImpl;
+import com.eurlanda.datashire.dao.impl.SquidFlowDaoImpl;
+import com.eurlanda.datashire.dao.impl.VariableDaoImpl;
+import com.eurlanda.datashire.entity.DSVariable;
+import com.eurlanda.datashire.entity.Project;
+import com.eurlanda.datashire.entity.SquidFlow;
+import com.eurlanda.datashire.entity.SquidFlowStatus;
+import com.eurlanda.datashire.enumeration.SquidFlowType;
+import com.eurlanda.datashire.sprint7.packet.InfoPacket;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import org.apache.log4j.Logger;
+
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+
+/**
+ * SquidFlowProcess预处理类
+ * SquidFlowProcess预处理类：对数据进行验证验证数据的完整性和正确性；并调用下层业务处理方法
+ * Title :
+ * Description:
+ * Author :赵春花 2013-8-23
+ * update :赵春花2013-8-23
+ * Department : JAVA后端研发部
+ * Copyright : ©2012-2013 悦岚（上海）数据服务有限公司 </p>
+ */
+public class SquidFlowProcess implements ISquidFlowProcess{
+	static Logger logger = Logger.getLogger(SquidFlowProcess.class);// 记录日志
+	private SquidFlowService squidFlowService;
+	private String token;
+	public SquidFlowProcess(String token) {
+		squidFlowService = new SquidFlowService(token);
+		this.token = token;
+	}
+	
+	/**
+	 * 创建SquidFlow集合对象处理类
+	 * 作用描述：
+	 * 1、将Json对象序列化成SquidFlow对象集合
+	 * 2、调用DataShirBusiness业务处理类新增squidFlow 对象集合并查询新增ID封装返回Infopacket对象集合
+	 * 验证：
+	 * 1、判断序列化的数据是否有值
+	 * 2、判断SquidFlow的必要字段的值是否正确
+	 * 修改说明：
+	 *@param info
+	 *@param out
+	 *@return
+	 */
+	public Map<String, Object> createSquidFlows(String info, ReturnValue out){
+		logger.debug(String.format("createSquidLinks-info=%s", info));
+		Map<String, Object> outputMap = new HashMap<String, Object>();
+		DataAdapterFactory adapterFactory = null;
+		IRelationalDataManager adapter3 = null;
+		try {
+			//序列化JSONArray
+			Map<String, Object> param = JsonUtil.toHashMap(info);
+			int projectId =  Integer.parseInt(param.get("ProjectId")+"");
+			String projectName = param.get("ProjectName")+"";
+			SquidFlowType squidFlowType = SquidFlowType.valueOf(Integer.valueOf(param.get("SquidFlowType")+""));
+			int fieldType=Integer.parseInt(param.get("DataShireFieldType")+"");
+			logger.debug("fieldType:"+fieldType);
+			//序列化JSONArray
+			adapterFactory = DataAdapterFactory.newInstance();
+			adapter3 = DataAdapterFactory.getDefaultDataManager();
+			adapter3.openSession();
+
+			/*IProjectDao projectDao=new ProjectDaoImpl(adapter3);
+			Project project=projectDao.getObjectById(projectId, Project.class);
+			if(project==null){
+				String sql="select id from ds_sys_repository where name='Cloud' and repository_db_name ='Cloud'";
+				Map<String,Object> repostoryMap = adapter3.query2Object(sql,null);
+				int repositoryId = Integer.parseInt(repostoryMap.get("ID")+"");
+				//创建一个project
+				//创建project，id和数列云的id一样
+				sql="insert into ds_project(id,name,repository_id,MODIFICATION_DATE) value (?,?,?,?)";
+				List<Object> params = new ArrayList<>();
+				params.add(projectId);
+				params.add(projectName);
+				params.add(repositoryId);
+				params.add(new Date());
+				adapter3.execute(sql,params);
+			}*/
+
+			Map<String, Object> map = adapter3.query2Object(true, 
+					"select count(id) as id from DS_SQUID_FLOW WHERE PROJECT_ID="+projectId, null);
+			int temp = 0;
+			if (map!=null){
+				String mid = map.containsKey("ID")+"";
+				if (ValidateUtils.isNumeric(mid)){
+					temp = Integer.parseInt(map.get("ID")+"");
+				}
+			}
+			//验证SquidFlow集合对象
+			/*if(squidFlows==null||squidFlows.size()==0){
+				//SquidFlow对象集合不能为空size不能等于0
+				out.setMessageCode(MessageCode.ERR_SQUIDFLOW_NULL);
+				logger.debug(String.format("createSquidFlows-result-=%s", false));
+				return infoPackets;
+			}else{
+				for (SquidFlow squidFlow : squidFlows) {
+					if(squidFlow.getProject_id() == 0 || squidFlow.getKey() == null){
+						out.setMessageCode(MessageCode.ERR_SQUIDFLOW_DATA_INCOMPLETE);
+						return infoPackets;
+					}
+				}
+				infoPackets= squidFlowService.createSquidFLows(squidFlows, out);
+				logger.debug(String.format("createSquidFlows-return=%s", infoPackets));
+				return infoPackets;
+			}*/
+			SquidFlow squidFlow = null;
+			if (projectId>0){
+				squidFlow = new SquidFlow();
+				squidFlow.setKey(StringUtils.generateGUID());
+				squidFlow.setProject_id(projectId);
+				squidFlow.setDataShireFieldType(fieldType);
+				SimpleDateFormat dateFm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); //格式化当前系统日期
+				String dateTime = dateFm.format(new java.sql.Date(System.currentTimeMillis()));
+				squidFlow.setCreation_date(dateTime);
+				squidFlow.setModification_date(dateTime);
+				squidFlow.setSquidflow_type(squidFlowType.value()); //设置SquidFlow 的类型
+				squidFlow.setSquid_flow_status(0);
+				String squidFlowName = "SquidFlow"; //根据不同类型的SquidFlow进行变换
+				if (squidFlowType == SquidFlowType.FLOW)
+					squidFlowName = "SquidFlow_FC";
+				squidFlow.setName(getSquidFlowNameForCreate(adapter3, squidFlowName, projectId, temp)); //这个方法里面查询数据库
+				logger.debug("squidflow入库");
+				squidFlow.setId(adapter3.insert2(squidFlow)); //先入库
+			}else{
+				out.setMessageCode(MessageCode.NODATA);
+			}
+			outputMap.put("SquidFlow", squidFlow);
+			return outputMap;
+		} catch (Exception e) {
+			try {
+				adapter3.rollback();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			out.setMessageCode(MessageCode.DESERIALIZATION_FAILED);
+		} finally{
+			adapter3.closeSession();
+		}
+		return null;
+	}
+
+	/**
+	 * 修改SquidFlow对象集合
+	 * 作用描述：
+	 * 根据SquidFlow对象集合里SquidFlow的ID进行修改
+	 * 验证：
+	 * 	1、序列化数据是否正确
+	 *  2、SquidFlow的必要字段值是否正确
+	 * 修改说明：
+	 *@param info
+	 *@param out
+	 *@return
+	 */
+	public List<InfoPacket> updateSquidFlows(String info,ReturnValue out){
+		logger.debug(String.format("updateSquidFlows-info=%s", info));
+		List<InfoPacket> infoPackets = new ArrayList<InfoPacket>();
+		//Json序列化
+		List<SquidFlow> squidFlows = JsonUtil.toGsonList(info, SquidFlow.class);
+		if(squidFlows == null || squidFlows.size() == 0){
+			out.setMessageCode(MessageCode.ERR_SQUIDFLOW_NULL);
+			return infoPackets;
+		}else{
+			for (SquidFlow squidFlow : squidFlows) {
+				if(squidFlow.getProject_id() == 0 ||squidFlow.getId() == 0 || squidFlow.getKey() == null){
+					out.setMessageCode(MessageCode.ERR_SQUIDFLOW_DATA_INCOMPLETE);
+					return infoPackets;
+				}
+			}
+			infoPackets = squidFlowService.updateSquidFlows(squidFlows, out);
+			logger.debug(String.format("updateSquidFlows-return=%s", out.getMessageCode()));
+		}
+		
+		return infoPackets;
+		
+	}
+	/**
+	 * 根据ProjectId查询SquidFlows对象
+	 * 作用描述：
+	 * 修改说明：
+	 *@param info json字符串
+	 *@param out 异常处理
+	 *@return
+	 */
+    public Map<String, Object> queryAllSquidFlows(String info, ReturnValue out) {
+        Map<String, Object> outputMap = new HashMap<String, Object>();
+		IRelationalDataManager adapter = DataAdapterFactory.getDefaultDataManager();
+		try {
+			Map<String, Object> map = JsonUtil.toHashMap(info);
+			int projectId = Integer.parseInt(map.get("ProjectId").toString());
+			String projectName = map.get("ProjectName")+"";
+			adapter.openSession();
+			ISquidFlowDao squidFlowDao = new SquidFlowDaoImpl(adapter);
+			IVariableDao variableDao = new VariableDaoImpl(adapter);
+			List<SquidFlow> squidFlows = squidFlowDao.getAllSquidFlows(projectId);
+			IProjectDao projectDao=new ProjectDaoImpl(adapter);
+			Project project=projectDao.getObjectById(projectId, Project.class);
+
+            if(project==null){
+				String sql="select id from ds_sys_repository where name='Cloud' and repository_db_name ='Cloud'";
+				Map<String,Object> repostoryMap = adapter.query2Object(sql,null);
+				int repositoryId = Integer.parseInt(repostoryMap.get("ID")+"");
+				//创建一个project
+				//创建project，id和数列云的id一样
+				sql="insert into ds_project(id,name,repository_id,MODIFICATION_DATE) value (?,?,?,?)";
+				List<Object> params = new ArrayList<>();
+				params.add(projectId);
+				params.add(projectName);
+				params.add(repositoryId);
+				params.add(new Date());
+ 				adapter.execute(sql,params);
+			} else {
+				//获取所有squidflow的状态
+				LockSquidFlowProcess lockSquidFlowProcess = new LockSquidFlowProcess();
+				List<SquidFlowStatus> squidFlowStatus = lockSquidFlowProcess.getSquidFlowStatus(project.getRepository_id(),projectId,out,adapter);
+				if(squidFlowStatus!=null) {
+					//根据squidflow的id匹配得到状态
+					for (int i = 0; i < squidFlows.size(); i++) {
+						//SquidFlow squidFlow =  squidFlows.get(i);
+						//squidFlows.get(i).setName(squidFlow.getName()+"_"+squidFlow.getId());
+						for (int j = 0; j < squidFlowStatus.size(); j++) {
+							if (squidFlows.get(i).getId() == squidFlowStatus.get(j).getSquid_flow_id()) {
+								squidFlows.get(i).setSquid_flow_status(squidFlowStatus.get(j).getSquid_flow_status());
+								break;
+							}
+						}
+					}
+				}
+			}
+			if(squidFlows==null){
+				squidFlows = new ArrayList<>();
+			}
+			outputMap.put("SquidFlows", squidFlows);
+			List<DSVariable> variables = null;
+			if(project!=null) {
+				//查询变量集合
+				variables = variableDao.getDSVariableByScope(0,projectId);
+				if (variables == null) {
+					variables = new ArrayList<DSVariable>();
+				}
+			} else {
+				variables = new ArrayList<>();
+			}
+			outputMap.put("Variables", variables);
+		} catch (Exception e) {
+			// TODO: handle exception
+			try {
+				adapter.rollback();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			out.setMessageCode(MessageCode.ERR_OPEN_PROJECT);
+			logger.error("获取所有的squidflow异常", e);
+		} finally {
+			adapter.closeSession();
+		}
+		return outputMap;
+	}
+	
+	
+	
+	/**
+	 * 设置重复名称后自动创建序号
+	 * @param adapter3
+	 * @param squidFlowName
+	 * @param projectId
+	 * @param temp
+	 * @return
+	 */
+	public synchronized String getSquidFlowNameForCopy(IRelationalDataManager adapter3, String squidFlowName, int projectId, int temp){
+		Map<String, Object> params = new HashMap<String, Object>();
+		int cnt = temp;
+		String tempName = squidFlowName;
+		while (true) {
+			params.put("name", tempName);
+			params.put("project_id", projectId);
+			SquidFlow squidFlow = adapter3.query2Object(true, params, SquidFlow.class);
+			if (squidFlow==null){
+				return tempName;
+			}
+			tempName = squidFlowName + "_" + cnt;
+			cnt++;
+		}
+	}
+	
+	/**
+	 * 设置重复名称后自动创建序号
+	 * @param adapter3
+	 * @param squidFlowName
+	 * @param projectId
+	 * @param temp
+	 * @return
+	 */
+	public String getSquidFlowNameForCreate(IRelationalDataManager adapter3, String squidFlowName, int projectId, int temp){
+		Map<String, Object> params = new HashMap<String, Object>();
+		int cnt = temp;
+		String tempName = squidFlowName;
+		while (true) {
+			params.put("name", tempName);
+			params.put("project_id", projectId);
+			SquidFlow squidFlow = adapter3.query2Object(true, params, SquidFlow.class);
+			if (squidFlow==null){
+				return tempName;
+			}
+			tempName = squidFlowName + cnt;
+			cnt++;
+		}
+	}
+	
+	public static void main(String[] args) {
+		SimpleDateFormat dateFm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:ms"); //格式化当前系统日期
+		String dateTime = dateFm.format(new java.sql.Date(System.currentTimeMillis()));
+		System.out.println(dateTime);
+	}
+}

@@ -1,0 +1,631 @@
+package com.eurlanda.datashire.enumeration;
+
+import com.eurlanda.datashire.entity.dest.DestCassandraSquid;
+import com.eurlanda.datashire.entity.dest.DestHiveSquid;
+import com.eurlanda.datashire.entity.*;
+import com.eurlanda.datashire.entity.dest.DestESSquid;
+import com.eurlanda.datashire.entity.dest.DestHDFSSquid;
+import com.eurlanda.datashire.entity.dest.DestImpalaSquid;
+import com.eurlanda.datashire.entity.dest.DestWSSquid;
+import com.eurlanda.datashire.entity.StatisticsSquid;
+import com.eurlanda.datashire.entity.UserDefinedSquid;
+import com.eurlanda.datashire.server.model.PivotSquid;
+import com.eurlanda.datashire.server.model.SamplingSquid;
+import com.eurlanda.datashire.utility.EnumException;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * <p>
+ * Title :
+ * </p>
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Author :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * update :赵春花 2013-9-5
+ * </p>
+ * <p>
+ * Department :  JAVA后端研发部
+ * </p>
+ * Copyright : ©2012-2013 悦岚（上海）数据服务有限公司
+ * </p>
+ */
+public enum SquidTypeEnum {
+    UNKNOWN(-1),
+
+    //DBSource类型
+    DBSOURCE(0),
+    //DBDestination类型
+    DBDESTINATION(1),
+    EXTRACT(2),
+    STAGE(3),
+    DIMENSION(4),
+    FACT(5),
+    REPORT(6),
+    DOC_EXTRACT(7),
+    XML_EXTRACT(8),
+
+    WEBLOGEXTRACT(9),
+    WEBEXTRACT(10),
+    WEIBOEXTRACT(11),
+    FILEFOLDER(12),
+    FTP(13),
+    HDFS(14),
+    WEB(15),
+    WEIBO(17),
+    //    DOC(18),
+//    XML(19),
+    EXCEPTION(20),
+    LOGREG(21),        //逻辑回归
+    NAIVEBAYES(22),    //朴素贝叶斯
+    SVM(23),            //支持向量机
+    KMEANS(24),            //聚类
+    ALS(25),            //协作过滤
+    LINEREG(26),        //线性回归
+    RIDGEREG(27),        //里脊回归
+    QUANTIFY(28),       //量化
+    DISCRETIZE(29),     //离散化
+    DECISIONTREE(30),   //抉择树
+
+    GISMAP(31),         //MAP地图
+    HTTP(32),     //第三方HTTP连接
+    WEBSERVICE(33),//第三方WEBSERVICE连接
+    HTTPEXTRACT(34),      //第三HTTP方抽取
+    WEBSERVICEEXTRACT(35),//第三WEBSERVICE方抽取
+    DESTWS(36),
+    ANNOTATION(37),            //注释squid
+    MONGODB(38),     //mongodb的链接squid
+    MONGODBEXTRACT(39),        //mongodb的extractSquid
+    DESTES(40), // ES 落地squid
+    KAFKA(41), //KAFKA CONNECTION SQUID
+    KAFKAEXTRACT(42), //KAFKA抽取Squid
+    HBASE(43), //Hbase 连接
+    HBASEEXTRACT(44), //Hbase抽取
+    STREAM_STAGE(45), // 流式stage SquidModelBase
+    DEST_HDFS(46), //HDFS落地
+    DEST_IMPALA(47), //Impala 落地
+    ASSOCIATION_RULES(48), //关联规则
+    //SQUIDINDEXES(30);
+
+    //新增squid类型
+    SOURCECLOUDFILE(51),
+    CLOUDDB(52),
+    DESTCLOUDFILE(53),
+    GROUPTAGGING(54),
+    HIVE(55),
+    HIVEEXTRACT(56),
+    CASSANDRA(57),
+    CASSANDRA_EXTRACT(58),
+    USERDEFINED(59),
+    DEST_HIVE(60),
+    STATISTICS(61),
+    DEST_CASSANDRA(62),
+
+    //新增dataming
+    LASSO(63),
+    //随机森林分类
+    RANDOMFORESTCLASSIFIER(64),
+    //随机森林回归
+    RANDOMFORESTREGRESSION(65),
+    //多层感知机分类
+    MULTILAYERPERCEPERONCLASSIFIER(66),
+    //标准化
+    NORMALIZER(67),
+    //偏最小二乘回归
+    PLS(68),
+    DATAVIEW(69),
+    //回归系数
+    COEFFICIENT(70),
+    //决策树回归
+    DECISIONTREEREGRESSION(71),
+    //决策树分类
+    DECISIONTREECLASSIFICATION(72),
+    //TrainingDBSquid
+    TRAININGDBSQUID(73),
+    //TrainingFileSquid
+    TRAINNINGFILESQUID(74),
+    //二分K均值聚类Squid(BisectingKMeansSquid)
+    BISECTINGKMEANSSQUID(75),
+    //SamplingSquid
+    SAMPLINGSQUID(76),
+    //PivotSquid
+    PIVOTSQUID(77);
+
+
+    private static Map<Integer, SquidTypeEnum> map;
+    private int _value;
+
+    /**
+     * 构造方法
+     *
+     * @param value
+     */
+    private SquidTypeEnum(int value) {
+        _value = value;
+    }
+
+    /**
+     * 从int到enum的转换函数
+     *
+     * @param value
+     * @return
+     * @throws Exception
+     */
+    public static SquidTypeEnum valueOf(int value) throws EnumException {
+        SquidTypeEnum type = null;
+        if (map == null) {
+            map = new HashMap<>();
+            SquidTypeEnum[] types = SquidTypeEnum.values();
+            for (SquidTypeEnum tmp : types) {
+                map.put(tmp.value(), tmp);
+            }
+        }
+        type = map.get(value);
+        if (type == null) {
+            throw new EnumException();
+        }
+        return type;
+    }
+
+    public static SquidTypeEnum parse(int t) {
+        for (SquidTypeEnum result : values()) {
+            if (result.value() == t) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 获取所有的squidType 映射类
+     *
+     * @param t
+     * @return
+     */
+    public static Class classOfValue(int t) {
+        Class c = null;
+        switch (SquidTypeEnum.parse(t)) {
+            case HTTP:
+                c = HttpSquid.class;
+                break;
+            case WEBSERVICE:
+                c = WebserviceSquid.class;
+                break;
+            case HTTPEXTRACT:
+                c = HttpExtractSquid.class;
+                break;
+            case WEBSERVICEEXTRACT:
+                c = WebserviceExtractSquid.class;
+                break;
+            case DBSOURCE:
+            case CLOUDDB:
+            case TRAININGDBSQUID:
+                c = DbSquid.class;
+                break;
+            case DBDESTINATION:
+                c = DBDestinationSquid.class;
+                break;
+            case DOC_EXTRACT:
+                c = DocExtractSquid.class;
+                break;
+            case EXTRACT:
+            case XML_EXTRACT:
+            case WEBLOGEXTRACT:
+            case WEBEXTRACT:
+            case WEIBOEXTRACT:
+            case MONGODBEXTRACT:
+                c = DataSquid.class;
+                break;
+            case STAGE:
+                c = StageSquid.class;
+                break;
+            case GROUPTAGGING:
+                c = GroupTaggingSquid.class;
+                break;
+            case STREAM_STAGE:
+                c = StreamStageSquid.class;
+                break;
+            case REPORT:
+                c = ReportSquid.class;
+                break;
+            case GISMAP:
+                c = GISMapSquid.class;
+                break;
+            case FILEFOLDER:
+                c = FileFolderSquid.class;
+                break;
+            case FTP:
+                c = FtpSquid.class;
+                break;
+            case HDFS:
+            case SOURCECLOUDFILE:
+            case TRAINNINGFILESQUID:
+                c = HdfsSquid.class;
+                break;
+            case WEB:
+                c = WebSquid.class;
+                break;
+            case WEIBO:
+                c = WeiboSquid.class;
+                break;
+            case EXCEPTION:
+                c = ExceptionSquid.class;
+                break;
+            case LOGREG:
+            case NAIVEBAYES:
+            case SVM:
+            case KMEANS:
+            case ALS:
+            case LINEREG:
+            case RIDGEREG:
+            case QUANTIFY:
+            case DISCRETIZE:
+            case DECISIONTREE:
+            case ASSOCIATION_RULES:
+            case LASSO:
+            case RANDOMFORESTCLASSIFIER:
+            case RANDOMFORESTREGRESSION:
+            case MULTILAYERPERCEPERONCLASSIFIER:
+            case PLS:
+            case NORMALIZER:
+            case DECISIONTREEREGRESSION:
+            case DECISIONTREECLASSIFICATION:
+            case BISECTINGKMEANSSQUID:
+                c = DataMiningSquid.class;
+                break;
+            case DIMENSION:
+            case FACT:
+                c = Squid.class;
+                break;
+            case DESTWS:
+                c = DestWSSquid.class;
+                break;
+            case ANNOTATION:
+                c = AnnotationSquid.class;
+                break;
+            case MONGODB:
+                c = NOSQLConnectionSquid.class;
+                break;
+            case DESTES:
+                c = DestESSquid.class;
+                break;
+            case DEST_HDFS:
+            case DESTCLOUDFILE:
+                c = DestHDFSSquid.class;
+                break;
+            case DEST_IMPALA:
+                c = DestImpalaSquid.class;
+                break;
+            case KAFKA:
+                c = KafkaSquid.class;
+                break;
+            case KAFKAEXTRACT:
+                c = KafkaExtractSquid.class;
+                break;
+            case HBASE:
+                c = HBaseConnectionSquid.class;
+                break;
+            case HBASEEXTRACT:
+                c = HBaseExtractSquid.class;
+                break;
+            case HIVE:
+                c = SystemHiveConnectionSquid.class;
+                break;
+            case HIVEEXTRACT:
+                c = SystemHiveExtractSquid.class;
+                break;
+            case CASSANDRA:
+                c = CassandraConnectionSquid.class;
+                break;
+            case CASSANDRA_EXTRACT:
+                c = CassandraExtractSquid.class;
+                break;
+            case USERDEFINED:
+                c = UserDefinedSquid.class;
+                break;
+            case DEST_HIVE:
+                c = DestHiveSquid.class;
+                break;
+            case STATISTICS:
+                c = StatisticsSquid.class;
+                break;
+            case DEST_CASSANDRA:
+                c = DestCassandraSquid.class;
+                break;
+            case SAMPLINGSQUID:
+                c= SamplingSquid.class;
+                break;
+            case PIVOTSQUID:
+                c= PivotSquid.class;
+                break;
+            default:
+                c = Squid.class;
+                break;
+        }
+        return c;
+    }
+
+    /**
+     * 判断是否是ExtractSquid
+     *
+     * @param t
+     * @return
+     */
+    public static boolean isExtractBySquidType(int t) {
+        boolean flag = false;
+        switch (SquidTypeEnum.parse(t)) {
+            case EXTRACT:
+            case XML_EXTRACT:
+            case WEBLOGEXTRACT:
+            case WEBEXTRACT:
+            case WEIBOEXTRACT:
+            case DOC_EXTRACT:
+            case HTTPEXTRACT:
+            case WEBSERVICEEXTRACT:
+            case MONGODBEXTRACT:
+            case KAFKAEXTRACT:
+            case HBASEEXTRACT:
+            case HIVEEXTRACT:
+            case CASSANDRA_EXTRACT:
+                flag = true;
+                break;
+            default:
+                break;
+        }
+        return flag;
+    }
+
+    public static List<Integer> extractTypeList() {
+        List<Integer> list = new ArrayList<>();
+        list.add(SquidTypeEnum.EXTRACT.value());
+        list.add(SquidTypeEnum.XML_EXTRACT.value());
+        list.add(SquidTypeEnum.WEBLOGEXTRACT.value());
+        list.add(SquidTypeEnum.WEBEXTRACT.value());
+        list.add(SquidTypeEnum.WEIBOEXTRACT.value());
+        list.add(SquidTypeEnum.DOC_EXTRACT.value());
+        list.add(SquidTypeEnum.HTTPEXTRACT.value());
+        list.add(SquidTypeEnum.WEBSERVICEEXTRACT.value());
+        list.add(SquidTypeEnum.MONGODBEXTRACT.value());
+        list.add(SquidTypeEnum.KAFKAEXTRACT.value());
+        list.add(SquidTypeEnum.HBASEEXTRACT.value());
+        list.add(SquidTypeEnum.HIVEEXTRACT.value());
+        list.add(SquidTypeEnum.CASSANDRA_EXTRACT.value());
+        return list;
+    }
+
+    /**
+     * 公有数猎场可以使用的squid
+     */
+    public static boolean isPublicSpaceSquid(int t) {
+        boolean flag = false;
+        switch (SquidTypeEnum.parse(t)) {
+            case SOURCECLOUDFILE:
+            case CLOUDDB:
+            case TRAININGDBSQUID:
+            case TRAINNINGFILESQUID:
+            case STAGE:
+            case GROUPTAGGING:
+            case DECISIONTREE:
+            case ANNOTATION:
+            case LOGREG:
+            case NAIVEBAYES:
+            case SVM:
+            case KMEANS:
+            case ALS:
+            case LINEREG:
+            case RIDGEREG:
+            case QUANTIFY:
+            case DISCRETIZE:
+            case ASSOCIATION_RULES:
+            case LASSO:
+            case RANDOMFORESTCLASSIFIER:
+            case RANDOMFORESTREGRESSION:
+            case MULTILAYERPERCEPERONCLASSIFIER:
+            case EXTRACT:
+            case DOC_EXTRACT:
+            case XML_EXTRACT:
+            case WEBLOGEXTRACT:
+            case BISECTINGKMEANSSQUID:
+                flag = true;
+                break;
+            default:
+                break;
+        }
+        return flag;
+    }
+
+    /**
+     * 检查本地数猎场squid是否合法
+     */
+    public static boolean isLocalSquidValid(int t) {
+        boolean flag = true;
+        switch (SquidTypeEnum.parse(t)) {
+            case SOURCECLOUDFILE:
+            case CLOUDDB:
+            case DESTCLOUDFILE:
+            case TRAININGDBSQUID:
+            case TRAINNINGFILESQUID:
+                flag = false;
+                break;
+            default:
+                break;
+        }
+        return flag;
+    }
+
+    public static boolean isCloudValidSquid(int t){
+        boolean flag = true;
+        switch (SquidTypeEnum.parse(t)){
+            case MONGODB:
+            case MONGODBEXTRACT:
+            case HDFS:
+            case FTP:
+            case FILEFOLDER:
+            case HBASE:
+            case HBASEEXTRACT:
+            case HIVE:
+            case HIVEEXTRACT:
+            case CASSANDRA:
+            case CASSANDRA_EXTRACT:
+            case KAFKAEXTRACT:
+            case KAFKA:
+            case TRAININGDBSQUID:
+            case TRAINNINGFILESQUID:
+            case STREAM_STAGE:
+            case USERDEFINED:
+            case DESTES:
+            case DEST_HDFS:
+            case DEST_IMPALA:
+            case DEST_HIVE:
+            case DEST_CASSANDRA:
+                flag = false;
+                break;
+            default:
+                    break;
+
+        }
+        return flag;
+    }
+
+    public static boolean isDeepValidSquid(int t){
+        boolean flag = true;
+        switch (SquidTypeEnum.parse(t)){
+            case MONGODB:
+            case MONGODBEXTRACT:
+            case HDFS:
+            case FTP:
+            case FILEFOLDER:
+            case HBASE:
+            case HBASEEXTRACT:
+            case HIVE:
+            case HIVEEXTRACT:
+            case CASSANDRA:
+            case CASSANDRA_EXTRACT:
+            case KAFKAEXTRACT:
+            case KAFKA:
+            case STREAM_STAGE:
+            case USERDEFINED:
+            case DESTES:
+            case DEST_HDFS:
+            case DEST_IMPALA:
+            case DEST_HIVE:
+            case DEST_CASSANDRA:
+            case DBSOURCE:
+                flag = false;
+                break;
+            default:
+                break;
+
+        }
+        return flag;
+    }
+
+    /**
+     * 判断是否是落地squid
+     */
+    public static boolean isDestSquid(int t) {
+        boolean flag = false;
+        switch (SquidTypeEnum.parse(t)) {
+            case DEST_HDFS:
+            case DEST_IMPALA:
+            case DESTES:
+            case DESTCLOUDFILE:
+            case DEST_HIVE:
+            case DEST_CASSANDRA:
+                flag = true;
+                break;
+            default:
+                break;
+        }
+        return flag;
+    }
+    /**
+     * 判断是否是dbsource
+     */
+    public static boolean isDBSourceBySquidType(int t) {
+        boolean flag = false;
+        switch (SquidTypeEnum.parse(t)) {
+            case DBSOURCE:
+            case HTTP:
+            case WEBSERVICE:
+            case DBDESTINATION:
+            case FILEFOLDER:
+            case FTP:
+            case HDFS:
+            case WEB:
+            case WEIBO:
+            case MONGODB:
+            case KAFKA:
+            case HBASE:
+            case CLOUDDB:
+            case SOURCECLOUDFILE:
+            case TRAININGDBSQUID:
+            case TRAINNINGFILESQUID:
+            case HIVE:
+            case CASSANDRA:
+                flag = true;
+                break;
+            default:
+                flag = false;
+                break;
+        }
+        return flag;
+    }
+
+    /**
+     * 判断是否是dataMingSquid
+     *
+     * @param t
+     * @return
+     */
+    public static boolean isDataMingSquid(int t) {
+        boolean flag = false;
+        switch (SquidTypeEnum.parse(t)) {
+            case LOGREG:
+            case NAIVEBAYES:
+            case SVM:
+            case KMEANS:
+            case ALS:
+            case LINEREG:
+            case RIDGEREG:
+            case QUANTIFY:
+            case DISCRETIZE:
+            case DECISIONTREE:
+            case ASSOCIATION_RULES:
+            case LASSO:
+            case RANDOMFORESTCLASSIFIER:
+            case RANDOMFORESTREGRESSION:
+            case MULTILAYERPERCEPERONCLASSIFIER:
+            case PLS:
+            case NORMALIZER:
+            case DATAVIEW:
+            case COEFFICIENT:
+            case DECISIONTREEREGRESSION:
+            case DECISIONTREECLASSIFICATION:
+            case BISECTINGKMEANSSQUID:
+                flag = true;
+                break;
+            default:
+                flag = false;
+                break;
+        }
+        return flag;
+    }
+
+    /**
+     * 得到枚举值
+     *
+     * @return
+     */
+    public int value() {
+        return _value;
+    }
+
+}

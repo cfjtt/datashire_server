@@ -1,0 +1,351 @@
+package com.eurlanda.datashire.enumeration;
+
+import com.eurlanda.datashire.utility.EnumException;
+
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * TransformationType
+ * <p/>
+ * <p>
+ * Title :
+ * </p>
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Author :赵春花 2013-8-26
+ * </p>
+ * <p>
+ * update :赵春花2013-8-26
+ * </p>
+ * <p>
+ * Department : JAVA后端研发部
+ * </p>
+ * Copyright : ©2012-2013 悦岚（上海）数据服务有限公司 </p>
+ * should mapping with TransformationTypeAdaptor comment by Juntao.Zhang
+ */
+public enum TransformationTypeEnum implements Serializable {
+    // / <summary>
+    // / 未知
+    // / </summary>
+    UNKNOWN(-1),
+    // / <summary>
+    // / 起始列  客户端使用
+    // / </summary>
+    SOURCECOLUMN(-2),
+    // / <summary>
+    // / 终止列  客户端使用
+    // / </summary>
+    TARGETCOLUMN(-3),
+    // / <summary>
+    // / 虚拟
+    // / </summary>
+    VIRTUAL(0),
+    // / <summary>
+    // / 大写
+    // / </summary>
+    UPPER(1),
+    // / <summary>
+    // / 串连
+    // / </summary>
+    CONCATENATE(2),
+    // / <summary>
+    // / 小写
+    // / </summary>
+    LOWER(3),
+    //常量
+    CONSTANT(4),
+    //多选一
+    CHOICE(5),
+    //字符串模式搜索，返回匹配子串
+    TERMEXTRACT(7),
+    //字符串分割
+    SPLIT(8),
+    //取ASCII代码
+    ASCII(9),
+    //取UNICODE代码
+    UNICODE(10),
+    //字符串相似度
+    SIMILARITY(11),
+    //ASCII转字符
+    CHAR(12),
+    //字符串模式搜索，返回位置
+    PATTERNINDEX(13),
+    //多次复制字符串
+    REPLICATE(14),
+    //数值转字符串
+    NUMERICTOSTRING(15),
+    //字符串转数值
+    STRINGTONUMERIC(16),
+    //字符串替换
+    REPLACE(17),
+    //从左边取子字符串
+    LEFT(18),
+    //从右边取字符串
+    RIGHT(19),
+    //取子字符串
+    SUBSTRING(21),
+    //字符串长度
+    LENGTH(22),
+    //反转字符串
+    REVERSE(23),
+    //字符串去左边空字符
+    LEFTTRIM(24),
+    //字符串去右边空字符
+    RIGHTTRIM(25),
+    //字符串去两边空字符
+    TRIM(26),
+    //ROWNUMBER
+    ROWNUMBER(27),
+    //系统日期时间
+    SYSTEMDATETIME(28),
+    //字符串转日期时间
+    STRINGTODATETIME(29),
+    //日期时间转字符串
+    DATETIMETOSTRING(30),
+    //取日期的年
+    YEAR(31),
+    //取日期的月
+    MONTH(32),
+    //取日期的天
+    DAY(33),
+    //求两个日期的差
+    DATEDIFF(34),
+    //格式化日期
+    FORMATDATE(35),
+    //绝对值
+    ABS(36),
+    //随机数
+    RANDOM(37),
+    //反余弦
+    ACOS(38),
+    //以e为底的指数值
+    EXP(39),
+    //数值舍入
+    ROUND(40),
+    //反正弦
+    ASIN(41),
+    //最大整数舍入
+    FLOOR(42),
+    //取数值的符号
+    SIGN(43),
+    //反正切
+    ATAN(44),
+    //自然对数
+    LOG(45),
+    //三角正弦
+    SIN(46),
+    //常用对数
+    LOG10(47),
+    //平方根
+    SQRT(48),
+    //最小整数舍入
+    CEILING(49),
+    //圆周率
+    PI(50),
+    //求平方
+    SQUARE(51),
+    //三角余弦
+    COS(52),
+    //求N次幂
+    POWER(53),
+    //正切
+    TAN(54),
+    //三角余切
+    COT(55),
+    //度数转弧度
+    RADIANS(56),
+    //四则运算
+    CALCULATION(57),
+    //整数取模
+    MOD(58),
+    //Project的ID
+    PROJECTID(59),
+    //Project的Name
+    PROJECTNAME(60),
+    //SquidFlow的ID
+    SQUIDFLOWID(61),
+    //SquidFlow的NAME
+    SQUIDFLOWNAME(62),
+    //Job的ID
+    JOBID(63),
+    // 分词，生成特征值  
+    // 文档中的名字是：TOKENIZATION
+    TOKENIZATION(64),
+    // 根据模型预测
+    PREDICT(65),
+    // 量化：把分类数据转换为数值型数据
+    //QUANTIFY(66),
+    // 离散化：把连续数值型数据转化为离散数值型数据
+    //DISCRETIZE(67),
+    // 数值组装：把多个浮点值输入组装为一个CSN格式的字符串
+    NUMASSEMBLE(68),
+    // 字符串组装：把多个字符串输入组装为一个CSS格式的字符串
+    //STRASSEMBLE(69),
+    // 模型训练：根据该组件所归属的数据挖据squid，使用训练数据得出特定模型。要求标签在输入CSN的第1个位置
+    TRAIN(70),
+    // 组装
+    ASSEMBLE(72),
+    // 将csn 转化为 labledpoint
+    CONVERT_LABLEDPOINT(73),
+    // 将csn 转化为 rating
+    CONVERT_RATING(74),
+    // 数值精度转换
+    NUMERICCAST(75),
+    // 反向量化
+    INVERSEQUANTIFY(76),
+    //CSN转换字符串
+    CSNTOSTRING(77),
+
+    COUNTRY(78),
+    PROVINCE(79),
+    CITY(80),
+    DISTRICT(81),
+    STREET(82),
+
+    //yi.zhou 2015-04-01
+    DATEPART(83),
+    DATETOUNIXTIME(84),
+    UNIXTIMETODATE(85),
+    DATEINC(86),
+    TASKID(87),
+
+    //yi.zhou 2015_05_15
+    MAPPUT(88),
+    MAPGET(89),
+    MAPREMOVE(90),
+    //yi.zhou 2015-05-28
+    ARRAYPUT(91),
+    ARRAYGET(92),
+    ARRAYREMOVE(93),
+    // 将时间类型转换为字符串 zdb 2015-07-01
+    DATEFORMAT(94),
+    SPLIT2ARRAY(95),
+    TERMEXTRACT2ARRAY(96),
+    CSVASSEMBLE(97),
+    RULESQUERY(98),
+    //将二进制序列转换成字符串
+    BINARYTOSTRING(99),
+    CST(100),
+    INVERSENORMALIZER(101),
+    NVL(102),
+    DATETOSTRING(103),
+    NULLPERCENTAGE(104),
+    // uuid
+    //UUID(105),
+
+    /**
+     * engine 使用 ####################################################################
+     */
+    // 自增列
+    AUTO_INCREMENT(10000),
+/** engine 使用 ####################################################################  */
+
+    // 字段复制 传递
+//	VIRTUAL_COPY(99)
+    ; // 变换引擎翻译过程中保留类型（填补变换序列中虚拟-虚拟空白）
+
+    private int _value;
+
+    private static Map<Integer, TransformationTypeEnum> map;
+
+    /**
+     * 构造方法
+     *
+     * @param value
+     */
+    private TransformationTypeEnum(int value) {
+        _value = value;
+    }
+
+    public boolean isCommon(SquidTypeEnum squidTypeEnum) {
+        // 分词，自增，ALS预测
+        if (this != TOKENIZATION
+                && this != AUTO_INCREMENT
+                && !(this == PREDICT && squidTypeEnum == SquidTypeEnum.ALS)
+                && !(this == INVERSENORMALIZER)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean isCommon(SquidTypeEnum squidTypeEnum, int inkeySize) {
+        // 分词，自增，ALS预测
+        if (this != TOKENIZATION
+                && this != AUTO_INCREMENT
+                && !(this == PREDICT && squidTypeEnum == SquidTypeEnum.ALS)
+                && !(this == PREDICT && inkeySize == 2)
+                && !(this == INVERSENORMALIZER && inkeySize == 2)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * 得到枚举值
+     *
+     * @return
+     */
+    public int value() {
+        return _value;
+    }
+
+    public static TransformationTypeEnum parse(int t) {
+        for (TransformationTypeEnum result : values()) {
+            if (result.value() == t) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 从int到enum的转换函数
+     *
+     * @param value
+     * @return
+     * @throws Exception
+     */
+    public static TransformationTypeEnum valueOf(int value)
+            throws EnumException {
+        TransformationTypeEnum type = null;
+        if (map == null) {
+            map = new HashMap<Integer, TransformationTypeEnum>();
+            TransformationTypeEnum[] types = TransformationTypeEnum.values();
+            for (TransformationTypeEnum tmp : types) {
+                map.put(tmp.value(), tmp);
+            }
+        }
+        type = map.get(value);
+        if (type == null) {
+            throw new EnumException();
+        }
+        return type;
+    }
+
+    public static boolean isNotTransInputs(int transType){
+        switch (TransformationTypeEnum.parse(transType)){
+            case CONCATENATE:
+            case CHOICE:
+            case CSVASSEMBLE:
+            case NUMASSEMBLE:
+            case CONSTANT:
+            case SYSTEMDATETIME:
+            case RANDOM:
+            case PI:
+            case PROJECTID:
+            case PROJECTNAME:
+            case SQUIDFLOWID:
+            case SQUIDFLOWNAME:
+            case JOBID:
+                return false;
+                default:return true;
+        }
+    }
+
+}

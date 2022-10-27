@@ -1,0 +1,3 @@
+启动cloud的项目时,需要添加-Dspring.profiles.active=cloud参数
+
+私有部署不需要添加该参数

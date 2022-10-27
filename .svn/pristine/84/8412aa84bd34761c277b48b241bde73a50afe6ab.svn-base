@@ -1,0 +1,681 @@
+package com.eurlanda.datashire.sprint7.service.metadata;
+
+import com.eurlanda.datashire.adapter.DataAdapterFactory;
+import com.eurlanda.datashire.adapter.IRelationalDataManager;
+import com.eurlanda.datashire.dao.*;
+import com.eurlanda.datashire.dao.impl.*;
+import com.eurlanda.datashire.entity.dest.DestCassandraColumn;
+import com.eurlanda.datashire.entity.dest.DestHiveColumn;
+import com.eurlanda.datashire.entity.*;
+import com.eurlanda.datashire.entity.dest.DestHDFSColumn;
+import com.eurlanda.datashire.entity.dest.DestImpalaColumn;
+import com.eurlanda.datashire.entity.dest.EsColumn;
+import com.eurlanda.datashire.entity.operation.ExportModelInfo;
+import com.eurlanda.datashire.entity.operation.FlowUnit;
+import com.eurlanda.datashire.entity.operation.MetaModuleInfo;
+import com.eurlanda.datashire.entity.operation.SquidFlowModuleInfo;
+import com.eurlanda.datashire.entity.operation.SquidModuleInfo;
+import com.eurlanda.datashire.enumeration.DSObjectType;
+import com.eurlanda.datashire.enumeration.SquidTypeEnum;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.packet.PushMessagePacket;
+import com.eurlanda.datashire.entity.StatisticsDataMapColumn;
+import com.eurlanda.datashire.entity.StatisticsParameterColumn;
+import com.eurlanda.datashire.entity.UserDefinedMappingColumn;
+import com.eurlanda.datashire.entity.UserDefinedParameterColumn;
+import com.eurlanda.datashire.utility.AnnotationHelper;
+import com.eurlanda.datashire.utility.CommonConsts;
+import com.eurlanda.datashire.utility.DesUtils;
+import com.eurlanda.datashire.utility.JsonUtil;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import com.eurlanda.datashire.utility.SysConf;
+import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.converters.reflection.ObjectAccessException;
+import com.thoughtworks.xstream.io.xml.DomDriver;
+import org.apache.log4j.Logger;
+import org.springframework.jdbc.core.JdbcTemplate;
+import util.ZipStrUtil;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.UUID;
+
+public class RepositoryExportProcess {
+	/**
+	 * 对RepositoryExportProcess的日志进行记录
+	 */
+	static Logger logger = Logger.getLogger(RepositoryExportProcess.class);
+	
+	private String token;
+
+	private String key;
+	
+	public RepositoryExportProcess(){
+	}
+	
+	public RepositoryExportProcess(String token, String key){
+		this.token = token;
+		this.key = key;
+	}
+	
+	public static void main(String[] args) {
+		List<IOFlow> list = new ArrayList<IOFlow>();
+		IOFlow flow = new IOFlow();
+		flow.setId(3);
+		flow.setName("SquidFlow");
+		flow.setAllSquids(true);
+		flow.setAllVariables(true);
+		list.add(flow);
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("IOFlows", list);
+		String info = JsonUtil.object2Json(map);
+		ReturnValue out = new ReturnValue();
+		RepositoryExportProcess process = new RepositoryExportProcess();
+		Map<String, Object> outputMap = process.exportSquidFlows(info, out);
+		//System.out.println(outputMap);
+	}
+	
+	/**
+	 * 导出squidFlows
+	 * @param info
+	 * @return
+	 */
+	public Map<String, Object> exportSquidFlows(String info, ReturnValue out){
+		Map<String, Object> outputMap = new HashMap<String, Object>();
+		IRelationalDataManager adapter=DataAdapterFactory.getDefaultDataManager();
+		Timer timer = new Timer();
+		final Map<String,Object> returnMap = new HashMap<>();
+		returnMap.put("1", 1);
+		key = TokenUtil.getKey();
+		token = TokenUtil.getToken();
+		try {
+			//定时器，防止导出大数据量的squid的时候，超时
+			timer.schedule(new TimerTask() {
+				@Override
+				public void run() {
+					PushMessagePacket.pushMap(returnMap, DSObjectType.SQUID_FLOW, "1022", "0001",
+							key, token,MessageCode.BATCH_CODE.value());
+				}
+			},25*1000,25 * 1000);
+			// 判断license
+			// 查询出所有的repository
+			adapter.openSession();
+			Map<String, Object> parasMap = JsonUtil.toHashMap(info);
+			//int dataShireFieldType = Integer.parseInt(parasMap.get("DataShireFieldType")+"");
+			List<IOFlow> ioFlows = JsonUtil.toGsonList(parasMap.get("IOFlows")+"", IOFlow.class);
+			List<SquidFlowModuleInfo> squidFlowModuleInfos = new ArrayList<SquidFlowModuleInfo>();
+			if(ioFlows!=null&&ioFlows.size()>0){
+				for (IOFlow flow : ioFlows) {
+					SquidFlowModuleInfo flowInfo = this.exportSquidFlowForId(adapter, flow.getId(), flow);
+					squidFlowModuleInfos.add(flowInfo);
+				}
+				MetaModuleInfo meta = new MetaModuleInfo();
+				meta.setVersion(CommonConsts.VERSION);
+				//存储格式
+				ExportModelInfo export = new ExportModelInfo();
+				export.setMeta(meta);
+				export.setIoflowList(ioFlows);
+				export.setSquidflowList(squidFlowModuleInfos);
+
+				XStream xStream = new XStream(new DomDriver());//
+		        //xStream.autodetectAnnotations(true);
+				xStream.alias("SquidFlowModuleInfo", SquidFlowModuleInfo.class);
+				xStream.alias("SquidModuleInfo", SquidModuleInfo.class);
+				xStream.alias("DSVariable", DSVariable.class);
+				xStream.alias("SquidLink", SquidLink.class);
+				xStream.alias("SquidJoin", SquidJoin.class);
+				xStream.alias("DBSourceTable", DBSourceTable.class);
+				xStream.alias("SourceColumn", SourceColumn.class);
+				xStream.alias("Transformation", Transformation.class);
+				xStream.alias("TransformationInputs", TransformationInputs.class);
+				xStream.alias("TransformationLink", TransformationLink.class);
+				xStream.alias("Column", Column.class);
+				xStream.alias("ReferenceColumn", ReferenceColumn.class);
+				xStream.alias("ReferenceColumnGroup", ReferenceColumnGroup.class);
+				xStream.alias("SquidLink", SquidLink.class);
+				xStream.alias("ThirdPartyParams", ThirdPartyParams.class);
+				xStream.alias("ExportModelInfo", ExportModelInfo.class);
+				xStream.alias("MetaModuleInfo", MetaModuleInfo.class);
+				xStream.alias("IOFlow", IOFlow.class);
+				xStream.alias("SquidIndexes", SquidIndexes.class);
+				xStream.alias("SquidUrl", Url.class);
+				xStream.alias("EsColumn", EsColumn.class);
+				xStream.alias("DestHDFSColumn",DestHDFSColumn.class);
+				xStream.alias("DestImpalaColumn",DestImpalaColumn.class);
+				xStream.alias("UserDefinedParameterColumn",UserDefinedParameterColumn.class);
+				xStream.alias("UserDefinedMappingColumn",UserDefinedMappingColumn.class);
+				xStream.alias("DestHiveColumn", DestHiveColumn.class);
+				xStream.alias("StatisticsDataMapColumn",StatisticsDataMapColumn.class);
+				xStream.alias("StatisticsParameterColumn",StatisticsParameterColumn.class);
+				xStream.alias("DestCassandraColumn",DestCassandraColumn.class);
+				String xmlStr = xStream.toXML(export);
+
+				/*FileOutputStream fos = new FileOutputStream("d:/app/xStram.xml");
+				xStream.toXML(export, fos);
+				fos.close();*/
+
+				byte[] data = xmlStr.getBytes("utf-8");
+				byte[] strs = ZipStrUtil.compress(data);
+				int cutSize = Integer.parseInt(SysConf.getValue("export_cutting_size"));
+				if (strs.length>cutSize){
+					int cnt = strs.length/cutSize;
+					if (strs.length>(cnt*cutSize)){
+						cnt = cnt+1;
+					}
+					for (int i = 0; i < cnt; i++) {
+						FlowUnit flowUnit = new FlowUnit();
+						flowUnit.setCount(cnt);
+						flowUnit.setIndex(i);
+						if (i==cnt){
+							flowUnit.setData(StringUtils.copyOfRange(strs, i*cutSize, strs.length));
+						}else{
+							flowUnit.setData(StringUtils.copyOfRange(strs, i*cutSize, (i*cutSize)+cutSize));
+						}
+						outputMap.put("FlowUnit", flowUnit);
+						PushMessagePacket.pushMap(outputMap, DSObjectType.SQUID_FLOW, "1022", "0001",
+								TokenUtil.getKey(), TokenUtil.getToken(), out.getMessageCode().value());
+					}
+					return null;
+				}else{
+					FlowUnit flowUnit = new FlowUnit();
+					flowUnit.setCount(1);
+					flowUnit.setIndex(0);
+					flowUnit.setData(strs);
+					outputMap.put("FlowUnit", flowUnit);
+					PushMessagePacket.pushMap(outputMap, DSObjectType.SQUID_FLOW, "1022", "0001",
+							TokenUtil.getKey(), TokenUtil.getToken(), out.getMessageCode().value());
+					return null;
+				}
+			} else {
+				out.setMessageCode(MessageCode.NODATA);
+			}
+		} catch (ObjectAccessException e){
+			timer.cancel();
+			timer.purge();
+			out.setMessageCode(MessageCode.ERR_EXPORT_DATA);
+			try {
+				adapter.rollback();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			logger.error("exportSquidFlows err : ", e);
+		} catch (Exception e) {
+			timer.cancel();
+			timer.purge();
+			// TODO: handle exception
+			out.setMessageCode(MessageCode.SQL_ERROR);
+			try {
+				adapter.rollback();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			logger.error("exportSquidFlows err : ", e);
+		} finally {
+			timer.cancel();
+			timer.purge();
+			adapter.closeSession();
+		}
+		outputMap.put("error", "");
+		PushMessagePacket.pushMap(outputMap, DSObjectType.SQUID_FLOW, "1022", "0001",
+				TokenUtil.getKey(), TokenUtil.getToken(), out.getMessageCode().value());
+		return null;
+	}
+	
+	@SuppressWarnings("unused")
+	private SquidFlowModuleInfo exportSquidFlowForId(IRelationalDataManager adapter,
+			int squidFlowId, IOFlow ioFlow) throws Exception{
+		SquidFlowModuleInfo flowModuleinfo = new SquidFlowModuleInfo();
+		List<SquidModuleInfo> moduleInfos = new ArrayList<SquidModuleInfo>();
+		ISquidFlowDao squidFlowDao = new SquidFlowDaoImpl(adapter);
+		ISquidDao squidDao = new SquidDaoImpl(adapter);
+		ISquidLinkDao squidLinkDao = new SquidLinkDaoImpl(adapter);
+		IVariableDao variableDao = new VariableDaoImpl(adapter);
+		SquidFlow squidFlow = squidFlowDao.getObjectById(squidFlowId, SquidFlow.class);
+		if (squidFlow!=null){
+			//给属性赋值
+			flowModuleinfo.setId(squidFlow.getId());
+			flowModuleinfo.setKey(squidFlow.getKey());
+			flowModuleinfo.setSquidFlow_type(squidFlow.getSquidflow_type());
+			flowModuleinfo.setCompilation_status(squidFlow.getCompilation_status());
+			flowModuleinfo.setModification_date(squidFlow.getModification_date());
+			flowModuleinfo.setName(squidFlow.getName());
+			flowModuleinfo.setProject_id(squidFlow.getProject_id());
+			//根据projectId查找出当前所属的repositoryId的套餐id
+			String sql="select dsr.packageId as packageId from ds_project dp,ds_sys_repository dsr where dp.REPOSITORY_ID=dsr.id and dp.id="+squidFlow.getProject_id();
+			Map<String,Object> rspMap = adapter.query2Object(true,sql,null);
+			//int packStep = rspMap.get("PACKAGEID") == null ? 0 : Integer.parseInt(rspMap.get("PACKAGEID")+"");
+			int packStep=0;
+			if(rspMap.get("PACKAGEID")==null || Integer.parseInt(rspMap.get("PACKAGEID")+"")==0){
+				//本地场
+				packStep=-1; //套餐等级为-1
+			} else {
+				//查找套餐的step
+				int packId = (Integer) rspMap.get("PACKAGEID");
+				JdbcTemplate cloudTemplate = (JdbcTemplate)Constants.context.getBean("cloudTemplate");
+				Map<String,Object> map = cloudTemplate.queryForMap("select step from packages where id="+packId);
+				if(map!=null){
+					packStep=Integer.parseInt(map.get("step")+"");
+				}
+			}
+			flowModuleinfo.setDatashireFieldType(DesUtils.encryptBasedDes(UUID.randomUUID().toString()+packStep+UUID.randomUUID().toString()));
+			//如果勾选了squid
+			if (ioFlow.isAllSquids()){
+				List<Squid> squidList = squidDao.getSquidListForParams(-1, squidFlowId, "", Squid.class);
+				if (squidList!=null&&squidList.size()>0){
+					for (Squid squid : squidList) {
+						SquidModuleInfo squidInfo = new SquidModuleInfo();
+						this.fullSquidModelInfo(adapter, squidInfo, squid);
+						moduleInfos.add(squidInfo);
+					}
+				}
+				flowModuleinfo.setSquidList(moduleInfos);
+				List<SquidLink> squidLinkList = squidLinkDao.getSquidLinkListBySquidFlow(squidFlowId);
+				if (squidLinkList!=null&&squidLinkList.size()>0){
+					flowModuleinfo.setSquidLinkList(squidLinkList);
+				}
+			}
+			//如果勾选了变量
+			if (ioFlow.isAllVariables()){
+				List<DSVariable> variableList = variableDao.getDSVariableByScope(1, squidFlowId);
+				flowModuleinfo.setVariableList(variableList);
+			}
+			return flowModuleinfo;
+		}
+		return null;
+	}
+	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public void fullSquidModelInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,
+			Squid squid) throws Exception{
+		ISquidDao squidDao = new SquidDaoImpl(adapter);
+		IVariableDao variableDao = new VariableDaoImpl(adapter);
+		Class c = SquidTypeEnum.classOfValue(squid.getSquid_type());
+		Map<String, Object> attributeMap = squidDao.getMapForCond(squid.getId(), c);
+		switch (SquidTypeEnum.parse(squid.getSquid_type())) {
+			case HTTP:
+	        case WEBSERVICE:
+	        case DBSOURCE:
+	        case FILEFOLDER:
+			case FTP:
+			case HDFS:
+			case WEB:
+			case WEIBO:
+			case MONGODB:
+			case KAFKA:
+			case HBASE:
+			case CLOUDDB:
+			case TRAININGDBSQUID:
+			case SOURCECLOUDFILE:
+			case TRAINNINGFILESQUID:
+			case HIVE:
+			case CASSANDRA:
+				this.fullSourceTableInfo(adapter, squidInfo, squid);
+				break;
+	        case HTTPEXTRACT:
+	        case WEBSERVICEEXTRACT:
+	        	this.fullThirdPartyParamsInfo(adapter, squidInfo, squid);
+	        	this.fullStageInfo(adapter, squidInfo, squid);
+	        	break;
+			case DESTES:
+			case DEST_HDFS:
+			case DEST_IMPALA:
+			case DEST_HIVE:
+			case DEST_CASSANDRA:
+			case DESTCLOUDFILE:
+				this.fullDsEsColumnInfo(adapter, squidInfo, squid);
+				break;
+	        case MONGODBEXTRACT:
+			case DOC_EXTRACT:
+			case EXTRACT:
+			case XML_EXTRACT:
+			case WEBLOGEXTRACT:
+			case WEBEXTRACT:
+			case WEIBOEXTRACT:
+			case STAGE:
+			case EXCEPTION:
+			case LOGREG:
+			case NAIVEBAYES:
+			case SVM:
+			case KMEANS:
+			case ALS:
+			case LINEREG:
+			case RIDGEREG:
+			case QUANTIFY:
+			case DISCRETIZE:
+			case DECISIONTREE:
+			case KAFKAEXTRACT:
+			case HBASEEXTRACT:
+			case STREAM_STAGE:
+			case ASSOCIATION_RULES:
+			case GROUPTAGGING:
+			case SAMPLINGSQUID:
+			case PIVOTSQUID:
+			case HIVEEXTRACT:
+			case CASSANDRA_EXTRACT:
+			case LASSO:
+			case RANDOMFORESTCLASSIFIER:
+			case RANDOMFORESTREGRESSION:
+			case MULTILAYERPERCEPERONCLASSIFIER:
+			case PLS:
+			case NORMALIZER:
+			case DATAVIEW:
+            case COEFFICIENT:
+            case DECISIONTREEREGRESSION:
+            case DECISIONTREECLASSIFICATION:
+			case BISECTINGKMEANSSQUID:
+                this.fullStageInfo(adapter, squidInfo, squid);
+                break;
+			case REPORT:
+				ReportSquid report = AnnotationHelper.result2Object(attributeMap, ReportSquid.class);
+				if (report!=null&&!StringUtils.isEmpty(report.getReport_template())){
+					byte[] strs = ZipStrUtil.compress(report.getReport_template().getBytes());
+					attributeMap.put("REPORT_TEMPLATE", strs);
+				}
+				break;
+			case GISMAP:
+				GISMapSquid gisMap = AnnotationHelper.result2Object(attributeMap, GISMapSquid.class);
+				if (gisMap!=null&&!StringUtils.isEmpty(gisMap.getMap_template())){
+					byte[] strs = ZipStrUtil.compress(gisMap.getMap_template().getBytes());
+					attributeMap.put("MAP_TEMPLATE", strs);
+				}
+				break;
+			case USERDEFINED:
+				this.fullUserDefinedSquidInfo(adapter,squidInfo,squid);
+				break;
+			case STATISTICS:
+				this.fulcStatisticSquidInfo(adapter,squidInfo,squid);
+				break;
+			case DIMENSION:
+			case FACT:
+			default:
+				break;
+		}
+		squidInfo.setAttributes(attributeMap);
+		//填充变量
+		List<DSVariable> variableList = variableDao.getDSVariableByScope(2, squid.getId());
+		squidInfo.setVariableList(variableList);
+	}
+
+	/**
+	 * 填充自定义squid信息
+	 * @param adapter
+	 * @param squidInfo
+	 * @param squid
+     */
+	public void fullUserDefinedSquidInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,
+										 Squid squid) throws Exception{
+		IColumnDao columnDao = new ColumnDaoImpl(adapter);
+		IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter);
+		ITransformationDao transDao = new TransformationDaoImpl(adapter);
+		ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter);
+		ITransformationLinkDao transLinkDao = new TransformationLinkDaoImpl(adapter);
+		//Coulumn
+		List<Column> columns = columnDao.getColumnListBySquidId(squid.getId());
+		if (columns!=null&&columns.size()>0){
+			squidInfo.setColumnList(columns);
+		}
+		//ReferenceColumn
+		List<ReferenceColumnGroup> group = refColumnDao.getRefColumnGroupListBySquidId(squid.getId());
+		if (group!=null&&group.size()>0){
+			for (ReferenceColumnGroup referenceColumnGroup : group) {
+				List<ReferenceColumn> referColumns =
+						refColumnDao.getRefColumnListByGroupId(referenceColumnGroup.getId());
+				if (referColumns!=null&&referColumns.size()>0){
+					referenceColumnGroup.setReferenceColumnList(referColumns);
+				}
+			}
+			squidInfo.setColumnGroupList(group);
+		}
+		//dataMapColumn
+		Map<String,Object> paramMap = new HashMap<>();
+		paramMap.put("squid_id",squid.getId());
+		List<UserDefinedMappingColumn> mappingColumns = adapter.query2List2(true,paramMap, UserDefinedMappingColumn.class);
+		squidInfo.setUserDefinedMappingColumns(mappingColumns);
+		//parapeterMap
+		List<UserDefinedParameterColumn> parameterColumns = adapter.query2List2(true,paramMap, UserDefinedParameterColumn.class);
+		squidInfo.setUserDefinedParameterColumns(parameterColumns);
+		//transformation
+		List<Transformation> transformations = transDao.getTransListBySquidId(squid.getId());
+		if(transformations!=null && !transformations.isEmpty()){
+			Map<Integer, List<TransformationInputs>> rsMap = transInputsDao.getTransInputsBySquidId(squid.getId());
+			for(int i=0; i<transformations.size(); i++){
+				int trans_id = transformations.get(i).getId();
+				if(rsMap!=null&&rsMap.containsKey(trans_id)){
+					transformations.get(i).setInputs(rsMap.get(trans_id));
+				}
+			}
+			squidInfo.setTransList(transformations);
+		}
+		List<TransformationLink> transLinks = transLinkDao.getTransLinkListBySquidId(squid.getId());
+		if (transLinks!=null&&transLinks.size()>0){
+			squidInfo.setTransLinkList(transLinks);
+		}
+
+	}
+
+	/**
+	 * 填充statisticsSquid信息
+	 * @param adapter
+	 * @param squidInfo
+	 * @param squid
+	 * @throws Exception
+     */
+	public void fulcStatisticSquidInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,
+									   Squid squid) throws Exception {
+		IColumnDao columnDao = new ColumnDaoImpl(adapter);
+		IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter);
+		ITransformationDao transDao = new TransformationDaoImpl(adapter);
+		ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter);
+		ITransformationLinkDao transLinkDao = new TransformationLinkDaoImpl(adapter);
+		//Coulumn
+		List<Column> columns = columnDao.getColumnListBySquidId(squid.getId());
+		if (columns!=null&&columns.size()>0){
+			squidInfo.setColumnList(columns);
+		}
+		//ReferenceColumn
+		List<ReferenceColumnGroup> group = refColumnDao.getRefColumnGroupListBySquidId(squid.getId());
+		if (group!=null&&group.size()>0){
+			for (ReferenceColumnGroup referenceColumnGroup : group) {
+				List<ReferenceColumn> referColumns =
+						refColumnDao.getRefColumnListByGroupId(referenceColumnGroup.getId());
+				if (referColumns!=null&&referColumns.size()>0){
+					referenceColumnGroup.setReferenceColumnList(referColumns);
+				}
+			}
+			squidInfo.setColumnGroupList(group);
+		}
+		//dataMapColumn
+		Map<String,Object> paramMap = new HashMap<>();
+		paramMap.put("squid_id",squid.getId());
+		List<StatisticsDataMapColumn> mappingColumns = adapter.query2List2(true,paramMap, StatisticsDataMapColumn.class);
+		squidInfo.setStatisticsDataMapColumns(mappingColumns);
+		//parapeterMap
+		List<StatisticsParameterColumn> parameterColumns = adapter.query2List2(true,paramMap, StatisticsParameterColumn.class);
+		squidInfo.setStatisticsParameterColumns(parameterColumns);
+		//transformation
+		List<Transformation> transformations = transDao.getTransListBySquidId(squid.getId());
+		if(transformations!=null && !transformations.isEmpty()){
+			Map<Integer, List<TransformationInputs>> rsMap = transInputsDao.getTransInputsBySquidId(squid.getId());
+			for(int i=0; i<transformations.size(); i++){
+				int trans_id = transformations.get(i).getId();
+				if(rsMap!=null&&rsMap.containsKey(trans_id)){
+					transformations.get(i).setInputs(rsMap.get(trans_id));
+				}
+			}
+			squidInfo.setTransList(transformations);
+		}
+		List<TransformationLink> transLinks = transLinkDao.getTransLinkListBySquidId(squid.getId());
+		if (transLinks!=null&&transLinks.size()>0){
+			squidInfo.setTransLinkList(transLinks);
+		}
+
+	}
+	/**
+	 * 填充sourceTable
+	 * @param adapter
+	 * @param squidInfo
+	 * @param squid
+	 */
+	public void fullSourceTableInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,
+			Squid squid){
+		ISquidDao squidDao = new SquidDaoImpl(adapter);
+		ISourceTableDao sourceTableDao = new SourceTableDaoImpl(adapter);
+		ISourceColumnDao sourceColumnDao = new SourceColumnDaoImpl(adapter);
+		List<DBSourceTable> dsTables = sourceTableDao.getDbSourceTableBySquidId(squid.getId());
+		if (dsTables!=null){
+			for (DBSourceTable dbSourceTable : dsTables) {
+				List<SourceColumn> sourceColumns = sourceColumnDao.getSourceColumnByTableId(dbSourceTable.getId());
+				dbSourceTable.setSourceColumns(sourceColumns);
+			}
+			squidInfo.setSourceTableList(dsTables);
+		}
+
+		//复制抓取信息
+		List<Url> urls = squidDao.getDSUrlsBySquidId(squid.getId());
+		if (urls!=null&&urls.size()>0){
+			squidInfo.setSquidUrls(urls);
+		}
+	}
+	
+	/**
+	 * 填充stage属性面板中的信息
+	 * @param adapter
+	 * @param squidInfo
+	 * @param squid
+	 * @throws Exception
+	 */
+	public void fullStageInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,
+			Squid squid) throws Exception{
+		IColumnDao columnDao = new ColumnDaoImpl(adapter);
+		IReferenceColumnDao refColumnDao = new ReferenceColumnDaoImpl(adapter);
+		ITransformationDao transDao = new TransformationDaoImpl(adapter);
+		ITransformationInputsDao transInputsDao = new TransformationInputsDaoImpl(adapter);
+        ITransformationLinkDao  transLinkDao = new TransformationLinkDaoImpl(adapter);
+        ISquidJoinDao squidJoinDao = new SquidJoinDaoImpl(adapter);
+        ISquidIndexesDao squidIndexesDao = new SquidIndexesDaoImpl(adapter);
+
+        //Coulumn
+		List<Column> columns = columnDao.getColumnListBySquidId(squid.getId());
+		if (columns!=null&&columns.size()>0){
+			squidInfo.setColumnList(columns);
+		}
+		//ReferenceColumn
+		List<ReferenceColumnGroup> group = refColumnDao.getRefColumnGroupListBySquidId(squid.getId());
+		if (group!=null&&group.size()>0){
+			for (ReferenceColumnGroup referenceColumnGroup : group) {
+				List<ReferenceColumn> referColumns =
+						refColumnDao.getRefColumnListByGroupId(referenceColumnGroup.getId());
+				if (referColumns!=null&&referColumns.size()>0){
+					referenceColumnGroup.setReferenceColumnList(referColumns);
+				}
+			}
+			squidInfo.setColumnGroupList(group);
+		}
+		//Transformation
+		List<Transformation> transformations = transDao.getTransListBySquidId(squid.getId());
+        if(transformations!=null && !transformations.isEmpty()){
+			Map<Integer, List<TransformationInputs>> rsMap = transInputsDao.getTransInputsBySquidId(squid.getId());
+			for(int i=0; i<transformations.size(); i++){
+				int trans_id = transformations.get(i).getId();
+				if(rsMap!=null&&rsMap.containsKey(trans_id)){
+					transformations.get(i).setInputs(rsMap.get(trans_id));
+				}
+			}
+			squidInfo.setTransList(transformations);
+		}
+        List<TransformationLink> transLinks = transLinkDao.getTransLinkListBySquidId(squid.getId());
+        if (transLinks!=null&&transLinks.size()>0){
+        	squidInfo.setTransLinkList(transLinks);
+        }
+        //SquidJoin
+        List<SquidJoin> joins = squidJoinDao.getSquidJoinListByJoinedId(squid.getId());
+        if (joins!=null&&joins.size()>0){
+        	squidInfo.setSquidJoinList(joins);
+        }
+
+        //squidIndexes
+        List<SquidIndexes> squidIndexes = squidIndexesDao.getSquidIndexesBySquidId(squid.getId());
+        if (squidIndexes!=null&&squidIndexes.size()>0){
+        	squidInfo.setSquidIndexesList(squidIndexes);
+        }
+	}
+
+	/**
+	 * 第三方参数
+	 * @param adapter
+	 * @param squidInfo
+	 * @param squid
+	 * @throws Exception
+	 */
+	public void fullThirdPartyParamsInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,
+			Squid squid) throws Exception{
+		IThirdPartyParamsDao paramsDao = new ThirdPartyParamsDaoImpl(adapter);
+		List<ThirdPartyParams> params = paramsDao.findThirdPartyParamsByWSEID(squid.getId());
+		if (params!=null&&params.size()>0){
+			squidInfo.setParamsList(params);
+		}
+	}
+	
+	/**
+	 * ESColumn导出
+	 * @param adapter
+	 * @param squidInfo
+	 * @param squid
+	 */
+	public void fullDsEsColumnInfo(IRelationalDataManager adapter, SquidModuleInfo squidInfo,Squid squid ){
+		Map<String,Object> map = new HashMap<String,Object>();
+		map.put("squid_id",squid.getId());
+		if(squid.getSquid_type()==SquidTypeEnum.DESTES.value()) {
+			List<EsColumn> listEsColumn = adapter.query2List2(true,map,EsColumn.class);
+			if (listEsColumn != null && listEsColumn.size() > 0) {
+				squidInfo.setEsColumns(listEsColumn);
+			}
+		} else if(SquidTypeEnum.DEST_HDFS.value()==squid.getSquid_type() || SquidTypeEnum.DESTCLOUDFILE.value()==squid.getSquid_type()){
+			List<DestHDFSColumn> listEsColumn = adapter.query2List2(true,map,DestHDFSColumn.class);
+			if (listEsColumn != null && listEsColumn.size() > 0) {
+				squidInfo.setHdfsColumns(listEsColumn);
+			}
+		} else if(SquidTypeEnum.DEST_IMPALA.value()==squid.getSquid_type()){
+			List<DestImpalaColumn> listEsColumn = adapter.query2List2(true,map,DestImpalaColumn.class);
+			if (listEsColumn != null && listEsColumn.size() > 0) {
+				squidInfo.setImpalaColumns(listEsColumn);
+			}
+		} else if(SquidTypeEnum.DEST_HIVE.value()==squid.getSquid_type()){
+			List<DestHiveColumn> listHiveColumn = adapter.query2List2(true,map,DestHiveColumn.class);
+			if(listHiveColumn!=null && listHiveColumn.size()>0){
+				squidInfo.setHiveColumns(listHiveColumn);
+			}
+		}else if(SquidTypeEnum.DEST_CASSANDRA.value()==squid.getSquid_type()){
+			List<DestCassandraColumn> listCassandraColumn = adapter.query2List2(true,map,DestCassandraColumn.class);
+			if(listCassandraColumn!=null && listCassandraColumn.size()>0){
+				squidInfo.setCassandraColumns(listCassandraColumn);
+			}
+		}
+	}
+	
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public String getKey() {
+		return key;
+	}
+
+	public void setKey(String key) {
+		this.key = key;
+	}
+}

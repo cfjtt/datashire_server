@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.TrainingSquidDao" >
+
+    <insert id="insertTrainDBSquid" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.TrainingDBSquid" >
+        <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        insert into ds_squid (course_id,name,description,table_name,source_is_show_all,is_show_all,database_name,host,password,user_name,db_type_id,port,filter,SQUID_FLOW_ID,SQUID_TYPE_ID,LOCATION_X,LOCATION_Y,SQUID_HEIGHT,SQUID_WIDTH)
+        values
+        (#{course_id},#{name,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},#{table_name},#{source_is_show_all},#{is_show_all},
+        #{db_name},#{host},#{password},#{user_name},#{db_type},#{port},#{filter},
+        #{squidflow_id,jdbcType=VARCHAR},#{squid_type,jdbcType=VARCHAR},#{location_x,jdbcType=VARCHAR},#{location_y,jdbcType=VARCHAR},#{squid_height,jdbcType=VARCHAR},#{squid_width,jdbcType=VARCHAR}
+        )
+    </insert>
+    <insert id="insertTrainFileSquid" keyProperty="id" useGeneratedKeys="true" parameterType="com.eurlanda.datashire.server.model.TrainingFileSquid" >
+        <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        insert into ds_squid (course_id,name,description,host,user_name,password,file_path,unionall_flag,including_subfolders_flag,allowanonymous_flag,SQUID_FLOW_ID,SQUID_TYPE_ID,LOCATION_X,LOCATION_Y,SQUID_HEIGHT,SQUID_WIDTH,is_show_all,source_is_show_all,filter,encoding,max_travel_depth)
+        values
+        (#{course_id},#{name,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
+        #{host},#{user_name},#{password},#{file_path},#{unionall_flag},#{including_subfolders_flag},#{allowanonymous_flag},
+        #{squidflow_id,jdbcType=VARCHAR},#{squid_type,jdbcType=VARCHAR},#{location_x,jdbcType=VARCHAR},#{location_y,jdbcType=VARCHAR},#{squid_height,jdbcType=VARCHAR},#{squid_width,jdbcType=VARCHAR},#{is_show_all},#{source_is_show_all},#{filter},#{encoding},#{max_travel_depth}
+        )
+    </insert>
+    <update id="updateTrainDBSquid" parameterType="com.eurlanda.datashire.server.model.TrainingDBSquid" >
+        update ds_squid
+        <set >
+            <if test="course_id!=null">
+                course_id=#{course_id},
+            </if>
+            <if test="name != null" >
+                name = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null" >
+                description = #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="table_name!=null">
+                table_name=#{table_name},
+            </if>
+            <if test="source_is_show_all!=null">
+                source_is_show_all=#{source_is_show_all},
+            </if>
+            <if test="is_show_all!=null">
+                is_show_all=#{is_show_all},
+            </if>
+            <if test="db_name != null" >
+                database_name = #{db_name,jdbcType=VARCHAR},
+            </if>
+            <if test="host != null" >
+                host = #{host,jdbcType=VARCHAR},
+            </if>
+            <if test="password != null" >
+                password = #{password,jdbcType=VARCHAR},
+            </if>
+            <if test="user_name != null" >
+                user_name = #{user_name,jdbcType=VARCHAR},
+            </if>
+            <if test="db_type != null" >
+                db_type_id = #{db_type},
+            </if>
+            <if test="port != null" >
+                port = #{port},
+            </if>
+            <if test="filter != null" >
+                filter = #{filter},
+            </if>
+            <if test="squidflow_id != null" >
+                squid_flow_id = #{squidflow_id},
+            </if>
+            <if test="squid_type != null" >
+                squid_type_id = #{squid_type},
+            </if>
+            <if test="location_x != null" >
+                location_x = #{location_x},
+            </if>
+            <if test="location_y != null" >
+                location_y = #{location_y},
+            </if>
+        </set>
+        where ID = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateTrainFileSquid" parameterType="com.eurlanda.datashire.server.model.TrainingFileSquid" >
+        update ds_squid
+        <set >
+            <if test="course_id!=null">
+                course_id=#{course_id},
+            </if>
+            <if test="name != null" >
+                name = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="description != null" >
+                description = #{description,jdbcType=VARCHAR},
+            </if>
+            <if test="host != null" >
+                host = #{host,jdbcType=VARCHAR},
+            </if>
+            <if test="password != null" >
+                password = #{password,jdbcType=VARCHAR},
+            </if>
+            <if test="user_name != null" >
+                user_name = #{user_name,jdbcType=VARCHAR},
+            </if>
+            <if test="file_path != null" >
+                file_path = #{file_path},
+            </if>
+            <if test="unionall_flag != null" >
+                unionall_flag = #{unionall_flag},
+            </if>
+            <if test="including_subfolders_flag != null" >
+                including_subfolders_flag = #{including_subfolders_flag},
+            </if>
+            <if test="allowanonymous_flag != null" >
+                including_subfolders_flag = #{including_subfolders_flag},
+            </if>
+            <if test="filter != null" >
+                filter = #{filter},
+            </if>
+            <if test="squidflow_id != null" >
+                squid_flow_id = #{squidflow_id},
+            </if>
+            <if test="squid_type != null" >
+                squid_type_id = #{squid_type},
+            </if>
+            <if test="location_x != null" >
+                location_x = #{location_x},
+            </if>
+            <if test="location_y != null" >
+                location_y = #{location_y},
+            </if>
+            <if test="is_show_all != null" >
+                is_show_all = #{is_show_all},
+            </if>
+            <if test="source_is_show_all != null" >
+                source_is_show_all = #{source_is_show_all},
+            </if>
+            <if test="encoding != null" >
+                encoding = #{encoding},
+            </if>
+            <if test="max_travel_depth != null" >
+                max_travel_depth = #{max_travel_depth},
+            </if>
+        </set>
+        where ID = #{id,jdbcType=INTEGER}
+    </update>
+</mapper>

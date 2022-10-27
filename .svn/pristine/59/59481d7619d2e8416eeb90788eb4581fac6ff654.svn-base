@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eurlanda.datashire.server.dao.DestCassandraColumnDao" >
+  <resultMap id="BaseResultMap" type="com.eurlanda.datashire.server.model.DestCassandraColumn" >
+    <id column="id" property="id" jdbcType="INTEGER" />
+    <result column="column_id" property="columnId" jdbcType="INTEGER" />
+    <result column="squid_id" property="squidId" jdbcType="INTEGER" />
+    <result column="is_dest_column" property="isDestColumn" jdbcType="INTEGER" />
+    <result column="field_name" property="fieldName" jdbcType="VARCHAR" />
+    <result column="column_order" property="columnOrder" jdbcType="INTEGER" />
+    <result column="is_primary_column" property="is_primary_column" jdbcType="INTEGER" />
+    <result column="data_type" property="dataType" jdbcType="INTEGER" />
+    <result column="length" property="length" jdbcType="INTEGER" />
+    <result column="precision" property="precision" jdbcType="INTEGER" />
+    <result column="scale" property="scale" jdbcType="INTEGER" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    id, column_id, squid_id, is_dest_column, field_name, column_order, is_primary_column, 
+    data_type, length, precision, scale
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from ds_dest_cassandra_column
+    where id = #{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from ds_dest_cassandra_column
+    where id = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="com.eurlanda.datashire.server.model.DestCassandraColumn" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_dest_cassandra_column (column_id, squid_id, is_dest_column, 
+      field_name, column_order, is_primary_column, 
+      data_type, length, precision, 
+      scale)
+    values (#{columnId,jdbcType=INTEGER}, #{squidId,jdbcType=INTEGER}, #{isDestColumn,jdbcType=INTEGER}, 
+      #{fieldName,jdbcType=VARCHAR}, #{columnOrder,jdbcType=INTEGER}, #{is_primary_column,jdbcType=INTEGER}, 
+      #{dataType,jdbcType=INTEGER}, #{length,jdbcType=INTEGER}, #{precision,jdbcType=INTEGER}, 
+      #{scale,jdbcType=INTEGER})
+  </insert>
+  <insert id="insertSelective" parameterType="com.eurlanda.datashire.server.model.DestCassandraColumn" >
+    <selectKey resultType="java.lang.Integer" keyProperty="id" order="AFTER" >
+      SELECT LAST_INSERT_ID()
+    </selectKey>
+    insert into ds_dest_cassandra_column
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="columnId != null" >
+        column_id,
+      </if>
+      <if test="squidId != null" >
+        squid_id,
+      </if>
+      <if test="isDestColumn != null" >
+        is_dest_column,
+      </if>
+      <if test="fieldName != null" >
+        field_name,
+      </if>
+      <if test="columnOrder != null" >
+        column_order,
+      </if>
+      <if test="is_primary_column != null" >
+        is_primary_column,
+      </if>
+      <if test="dataType != null" >
+        data_type,
+      </if>
+      <if test="length != null" >
+        length,
+      </if>
+      <if test="precision != null" >
+        precision,
+      </if>
+      <if test="scale != null" >
+        scale,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="columnId != null" >
+        #{columnId,jdbcType=INTEGER},
+      </if>
+      <if test="squidId != null" >
+        #{squidId,jdbcType=INTEGER},
+      </if>
+      <if test="isDestColumn != null" >
+        #{isDestColumn,jdbcType=INTEGER},
+      </if>
+      <if test="fieldName != null" >
+        #{fieldName,jdbcType=VARCHAR},
+      </if>
+      <if test="columnOrder != null" >
+        #{columnOrder,jdbcType=INTEGER},
+      </if>
+      <if test="is_primary_column != null" >
+        #{is_primary_column,jdbcType=INTEGER},
+      </if>
+      <if test="dataType != null" >
+        #{dataType,jdbcType=INTEGER},
+      </if>
+      <if test="length != null" >
+        #{length,jdbcType=INTEGER},
+      </if>
+      <if test="precision != null" >
+        #{precision,jdbcType=INTEGER},
+      </if>
+      <if test="scale != null" >
+        #{scale,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="com.eurlanda.datashire.server.model.DestCassandraColumn" >
+    update ds_dest_cassandra_column
+    <set >
+      <if test="columnId != null" >
+        column_id = #{columnId,jdbcType=INTEGER},
+      </if>
+      <if test="squidId != null" >
+        squid_id = #{squidId,jdbcType=INTEGER},
+      </if>
+      <if test="isDestColumn != null" >
+        is_dest_column = #{isDestColumn,jdbcType=INTEGER},
+      </if>
+      <if test="fieldName != null" >
+        field_name = #{fieldName,jdbcType=VARCHAR},
+      </if>
+      <if test="columnOrder != null" >
+        column_order = #{columnOrder,jdbcType=INTEGER},
+      </if>
+      <if test="is_primary_column != null" >
+        is_primary_column = #{is_primary_column,jdbcType=INTEGER},
+      </if>
+      <if test="dataType != null" >
+        data_type = #{dataType,jdbcType=INTEGER},
+      </if>
+      <if test="length != null" >
+        length = #{length,jdbcType=INTEGER},
+      </if>
+      <if test="precision != null" >
+        precision = #{precision,jdbcType=INTEGER},
+      </if>
+      <if test="scale != null" >
+        scale = #{scale,jdbcType=INTEGER},
+      </if>
+    </set>
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.eurlanda.datashire.server.model.DestCassandraColumn" >
+    update ds_dest_cassandra_column
+    set column_id = #{columnId,jdbcType=INTEGER},
+      squid_id = #{squidId,jdbcType=INTEGER},
+      is_dest_column = #{isDestColumn,jdbcType=INTEGER},
+      field_name = #{fieldName,jdbcType=VARCHAR},
+      column_order = #{columnOrder,jdbcType=INTEGER},
+      is_primary_column = #{is_primary_column,jdbcType=INTEGER},
+      data_type = #{dataType,jdbcType=INTEGER},
+      length = #{length,jdbcType=INTEGER},
+      precision = #{precision,jdbcType=INTEGER},
+      scale = #{scale,jdbcType=INTEGER}
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+
+  <update id="updateColumnBySquIds" parameterType="java.util.List">
+    update ds_dest_cassandra_column set column_id=0
+      where squid_id in
+      <foreach collection="list" index="index" item="item" open="(" separator="," close=")">
+        #{item}
+      </foreach>
+  </update>
+</mapper>

@@ -1,0 +1,88 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.adapter.db.AdapterDataSourceManager;
+import com.eurlanda.datashire.adapter.db.INewDBAdapter;
+import com.eurlanda.datashire.entity.DBConnectionInfo;
+import com.eurlanda.datashire.entity.DBSourceSquid;
+import com.eurlanda.datashire.exception.SystemErrorException;
+import com.eurlanda.datashire.server.exception.ErrorMessageException;
+import com.eurlanda.datashire.server.utils.TokenUtil;
+import com.eurlanda.datashire.sprint7.service.squidflow.DataShirProcess;
+import com.eurlanda.datashire.utility.MessageCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class ExtractSquidService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExtractSquidService.class);
+    /**
+     * 根据sql语句 预览需要合并的表名
+     */
+
+    public List<String> getUnionTableNamesBySql(DBSourceSquid squid,String sql) throws Exception{
+        INewDBAdapter iNewDBAdapter=null;
+        List<String> tableNameList=new ArrayList<>();
+        try{
+            DataShirProcess dataShirProcess=new DataShirProcess(TokenUtil.getToken(),TokenUtil.getKey());
+            DBConnectionInfo dbs = new DBConnectionInfo();
+            LOGGER.debug(String.format("setDBInfo=====")+squid,sql);
+            dataShirProcess.setDBInfo(squid, dbs);
+            //创建连接
+            LOGGER.debug(String.format("getAdapter=====")+dbs);
+            iNewDBAdapter = AdapterDataSourceManager.getAdapter(dbs);
+            //获取表名
+            LOGGER.debug(String.format("queryForList=====")+sql);
+            List<Map<String, Object>> dataList = iNewDBAdapter.queryForList(sql);
+            if(dataList!=null && dataList.size()>0){
+                for(Map<String,Object> map:dataList){
+                    for(Map.Entry<String,Object> vMap : map.entrySet()){
+                        tableNameList.add(vMap.getValue().toString());
+                    }
+                }
+            }else{
+                LOGGER.debug(String.format("表数据为空!"));
+                throw new ErrorMessageException(MessageCode.ERR_VALUEEMPTY.value());
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+            if(e instanceof SystemErrorException){
+                //数据库连接信息出错
+                SystemErrorException sysError = (SystemErrorException) e;
+                if(sysError.getCode()==MessageCode.ERR_CONNECTION_NULL){
+                    throw new ErrorMessageException(MessageCode.ERR_DATABASE_CONNECT.value());
+                } else {
+                    throw new ErrorMessageException(MessageCode.ERR_UNSUPPORTDATATYPE.value());
+                }
+            }  else if(e instanceof RuntimeException){
+                throw new ErrorMessageException(MessageCode.SQL_IS_NOT_CORRECT.value());
+            } else if(e instanceof ErrorMessageException){
+                throw e;
+            } else {
+                String msg = e.getMessage();
+                if(msg.contains("ErrorCode")){
+                    String errorCode=msg.substring(15,msg.indexOf(","));
+                    if("1146".equals(errorCode)){
+                        throw new ErrorMessageException(MessageCode.TABLE_NOT_EXIST.value());
+                    } else if("911".equals(errorCode) || "904".equals(errorCode)){
+                        throw new ErrorMessageException(MessageCode.SQL_IS_NOT_CORRECT.value());
+                    } else {
+                        throw new ErrorMessageException(MessageCode.ERR_UNSUPPORTDATATYPE.value());
+                    }
+                }
+            }
+            LOGGER.error("预览数据表信息异常", e);
+        }finally {
+            if(iNewDBAdapter!=null){
+                iNewDBAdapter.close();
+            }
+        }
+        return tableNameList;
+    }
+
+}

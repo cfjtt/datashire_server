@@ -1,0 +1,48 @@
+package com.eurlanda.datashire.server.service;
+
+import com.eurlanda.datashire.server.model.PivotSquid;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+/**
+ * Created by test on 2017/11/24.
+ */
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration({"classpath:config/applicationContext.xml"})
+public class PivotSquidServiceTest {
+
+    @Autowired
+    private PivotSquidService pivotSquidService;
+
+
+    @Test
+    public void insertPivot(){
+        PivotSquid pivot = new PivotSquid();
+        pivot.setSquidflow_id(54485);
+        pivot.setName("今晚打老虎");
+        pivot.setSquid_type(77);
+        pivot.setLocation_x(116);
+        pivot.setLocation_y(38);
+        pivot.setSquid_width(70);
+        pivot.setSquid_height(70);
+
+        pivotSquidService.insertPivotSquid(pivot);
+    }
+
+    @Test
+    public void updatePivot(){
+        PivotSquid pivot = new PivotSquid();
+        pivot.setId(296518);
+        pivot.setSquidflow_id(54485);
+        pivot.setName("老虎打今晚");
+        pivot.setSquid_type(77);
+        pivot.setLocation_x(222);
+        pivot.setLocation_y(333);
+        pivot.setSquid_width(70);
+        pivot.setSquid_height(70);
+        pivotSquidService.updatePivotSquid(pivot);
+    }
+}

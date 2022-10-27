@@ -1,0 +1,945 @@
+package com.eurlanda.datashire.adapter.db;
+
+import cn.com.jsoft.jframe.utils.jdbc.ConnectionCallback;
+import cn.com.jsoft.jframe.utils.jdbc.IConnectionProvider;
+import com.eurlanda.datashire.adapter.datatype.DataTypeConvertor;
+import com.eurlanda.datashire.entity.DBConnectionInfo;
+import com.eurlanda.datashire.entity.SquidIndexes;
+import com.eurlanda.datashire.entity.operation.BasicTableInfo;
+import com.eurlanda.datashire.entity.operation.ColumnInfo;
+import com.eurlanda.datashire.entity.operation.TableForeignKey;
+import com.eurlanda.datashire.entity.operation.TableIndex;
+import com.eurlanda.datashire.entity.operation.TablePrimaryKey;
+import com.eurlanda.datashire.enumeration.DataBaseType;
+import com.eurlanda.datashire.enumeration.datatype.DbBaseDatatype;
+import com.eurlanda.datashire.exception.SystemErrorException;
+import com.eurlanda.datashire.server.utils.Constants;
+import com.eurlanda.datashire.utility.MessageCode;
+import com.eurlanda.datashire.utility.ReturnValue;
+import com.eurlanda.datashire.utility.StringUtils;
+import com.eurlanda.datashire.utility.objectsql.ObjectSQL;
+import com.eurlanda.datashire.utility.objectsql.TemplateParser;
+import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * 本抽象类屏蔽了老的DBAdapter接口实现，继承本类的子类实现新的接口即可
+ * <p/>
+ * 读取表定义 读取列定义 设置表存储分区 设置表空间/文件组 设置表索引 设置表外键 设置表主键 基本数据操作（增删改查）
+ *
+ * @author jiwei.zhang
+ * @date 2014-1-10
+ */
+public class AbsDBAdapter implements INewDBAdapter, IConnectionProvider {
+    protected DBConnectionInfo connectionInfo;
+    protected JDBCTemplate jdbcTemplate = new JDBCTemplate(this);
+    protected Connection connection = null;
+    protected Logger logger = Logger.getLogger(AbsDBAdapter.class);
+
+    public AbsDBAdapter() {
+
+    }
+
+    public AbsDBAdapter(DBConnectionInfo info) {
+        this.connectionInfo = info;
+        try {
+            this.connection = this.getConnection();
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new SystemErrorException(MessageCode.ERR_CONNECTION_NULL, "创建connection对象失败");
+        }
+    }
+
+    /**
+     * 关闭数据库连接。
+     *
+     * @param connection
+     */
+    protected void closeConnection(Connection connection) {
+        if (connection != null) {
+            if (connection instanceof ProxyConnection) {
+                try {
+                    ((ProxyConnection) connection).realClose();
+                } catch (SQLException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            } else {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            connection = null;
+        }
+    }
+
+    /**
+     * 关闭数据库连接。
+     *
+     * @param rs
+     */
+    protected void closeResultSet(ResultSet rs) {
+        if (rs != null) {
+            try {
+                rs.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            rs = null;
+        }
+    }
+
+    /**
+     * 取得数据库中所有的表
+     */
+    @Override
+    public List<BasicTableInfo> getAllTables(final String filter) {
+        final List<BasicTableInfo> tables = new ArrayList<BasicTableInfo>();
+
+        this.jdbcTemplate.execute(new ConnectionCallback<Object>() {
+            @Override
+            public Object doSomething(Connection conn) {
+                ResultSet rs = null;
+                try {
+                    if (StringUtils.isBlank(filter)) {
+                        if (connectionInfo.getDbType() == DataBaseType.TERADATA) {
+                            rs = conn.getMetaData().getTables(null, connectionInfo.getDbName(), null,
+                                    new String[]{"TABLE", "VIEW"});
+                        } else {
+                            rs = conn.getMetaData().getTables(null, null, null,
+                                    new String[]{"TABLE", "VIEW"});
+                        }
+                    } else {
+                        if (connectionInfo.getDbType() == DataBaseType.SQLSERVER) {
+                            //当不存在模式名的时候
+                            if (filter.indexOf(".") < 0) {
+                                rs = conn.getMetaData().getTables(null, null, filter,
+                                        new String[]{"TABLE", "VIEW"});
+                            } else {
+                                //存在模式名的时候
+                                rs = conn.getMetaData().getTables(null, filter.substring(0, filter.indexOf(".")), filter.substring(filter.indexOf(".") + 1),
+                                        new String[]{"TABLE", "VIEW"});
+                            }
+
+                        } else {
+                            if (connectionInfo.getDbType() == DataBaseType.TERADATA) {
+                                rs = conn.getMetaData().getTables(null, connectionInfo.getDbName(), null,
+                                        new String[]{"TABLE", "VIEW"});
+                            } else {
+                                rs = conn.getMetaData().getTables(null, null, null,
+                                        new String[]{"TABLE", "VIEW"});
+                            }
+
+                        }
+                    }
+                    while (rs.next()) {
+                        BasicTableInfo tableInfo = new BasicTableInfo();
+                        if (StringUtils.isNotBlank(rs.getString("TABLE_SCHEM"))) {
+                            if (("INFORMATION_SCHEMA").equals(rs.getString("TABLE_SCHEM")) || ("sys").equals(rs.getString("TABLE_SCHEM"))) {
+                                continue;
+                            }
+                            tableInfo.setScheme(rs.getString("TABLE_SCHEM"));
+                        }
+                        String tableName = rs.getString("TABLE_NAME");
+                        if (tableName.equals("trace_xe_action_map") ||
+                                tableName.equals("trace_xe_event_map")/*||tableName.indexOf(filter)<0*/) {
+                            continue;
+                        } else {
+                            tableInfo.setTableName(tableName);
+                        }
+
+						/*Integer recordCount = getRecordCount(tableName);
+                        tableInfo.setRecordCount(recordCount);
+						ResultSet tmprs = conn.getMetaData().getImportedKeys(null, null, tableName);
+						closeResultSet(tmprs);
+						tmprs = conn.getMetaData().getIndexInfo(null, null, tableName, false, false);
+						while (tmprs.next()) {
+
+						}
+						closeResultSet(tmprs);*/
+                        tables.add(tableInfo);
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                } finally {
+                    closeResultSet(rs);
+                }
+                return null;
+            }
+
+        });
+
+        return tables;
+    }
+
+    /**
+     * 取得数据库中所有的表
+     */
+    @Override
+    public List<BasicTableInfo> getAllTables(final String filter, final String schema) throws Exception {
+        final List<BasicTableInfo> tables = new ArrayList<BasicTableInfo>();
+
+        this.jdbcTemplate.execute(new ConnectionCallback<Object>() {
+            @Override
+            public Object doSomething(Connection conn) {
+                ResultSet rs = null;
+                try {
+                    if (StringUtils.isBlank(filter)) {
+                        rs = conn.getMetaData().getTables(null, null, null,
+                                new String[]{"TABLE", "VIEW"});
+                    } else {
+                        rs = conn.getMetaData().getTables(null, null, filter,
+                                new String[]{"TABLE", "VIEW"});
+                    }
+                    while (rs.next()) {
+                        BasicTableInfo tableInfo = new BasicTableInfo();
+                        String table_schema = rs.getString("TABLE_SCHEM");
+                        String tableName = rs.getString("TABLE_NAME");
+                        if (StringUtils.isNotBlank(table_schema) && table_schema.equals(schema)) {
+                            tableInfo.setTableName(tableName);
+                            tables.add(tableInfo);
+                        }
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                } finally {
+                    closeResultSet(rs);
+                }
+                return null;
+            }
+
+        });
+        return tables;
+    }
+
+    /*
+     * 输出列头。 int colCount = rs.getMetaData().getColumnCount(); rs.next();
+     * for(int i=0;i<colCount;i++){
+     * System.out.print(rs.getMetaData().getColumnName(i+1)+"\t"); }
+     * System.out.println(); for(int i=0;i<colCount;i++){
+     * System.out.print(rs.getString(i+1)+"\t"); }
+     */
+    @Override
+    public List<ColumnInfo> getTableColumns(final String tableName, String DatabaseName) throws TException {
+        final List<ColumnInfo> columnList = new ArrayList<ColumnInfo>();
+        final String[] SchemaAndName = this.getSchemaAndName(tableName);
+        this.jdbcTemplate.execute(new ConnectionCallback<Object>() {
+            @Override
+            public Object doSomething(Connection conn) {
+                ResultSet rs = null;
+                try {
+                    // 主键
+                    Set<String> primaryKeys = new HashSet<String>();
+                    if (null != SchemaAndName && SchemaAndName.length == 2) {
+                        rs = conn.getMetaData().getPrimaryKeys(null, SchemaAndName[0], SchemaAndName[1]);
+                    } else {
+                        rs = conn.getMetaData().getPrimaryKeys(null, null, tableName);
+                    }
+                    while (rs.next()) {
+                        primaryKeys.add(rs.getString("COLUMN_NAME"));
+                    }
+                    closeResultSet(rs);
+                    if (null != SchemaAndName && SchemaAndName.length == 2) {
+                        rs = conn.getMetaData().getColumns(null, SchemaAndName[0], SchemaAndName[1], null);
+                    } else {
+                        rs = conn.getMetaData().getColumns(null, null, tableName, null);
+                    }
+                    while (rs.next()) {
+                        ColumnInfo column = new ColumnInfo();
+                        //column.setComment(rs.getString("REMARKS"));
+                        column.setOrderNumber(rs.getInt("ORDINAL_POSITION"));
+                        column.setName(rs.getString("COLUMN_NAME"));
+                        String typeName = rs.getString("TYPE_NAME");
+                        // column.setIdentity(rs.getBoolean("IS_AUTOINCREMENT"));
+                        column.setTypeName(typeName);
+                        //column.setSystemDatatype(SystemDatatype.parse(typeName));
+                        column.setDbBaseDatatype(DbBaseDatatype.parse(typeName));
+                        column.setTableName(rs.getString("TABLE_NAME"));
+
+                        if (rs.getString("TYPE_NAME").toLowerCase().equals("decimal")) {
+                            column.setPrecision(rs.getInt("COLUMN_SIZE"));
+                            column.setScale(rs.getInt(9));
+                        } else {
+                            column.setLength(rs.getInt("COLUMN_SIZE"));
+                        }
+                        //column.setPrecision(rs.getInt(""));
+//						column.setNullable(rs.getBoolean("IS_NULLABLE"));
+                        column.setNullable(rs.getBoolean("NULLABLE"));
+                        if (primaryKeys.contains(column.getName())) {
+                            column.setPrimary(true);
+                        } else {
+                            column.setPrimary(false);
+                        }
+                        columnList.add(column);
+						/*if (rs.getString("TYPE_NAME").toLowerCase().equals("decimal")){
+							for (int i = 0; i < cnt; i++) {
+									System.out.println(rs.getString("COLUMN_NAME")+":"+rs.getObject(i+1));
+							}
+							break;
+						}*/
+                    }
+                    closeResultSet(rs);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    closeResultSet(rs);
+                }
+                return null;
+            }
+        });
+        return columnList;
+    }
+
+    @Override
+    public List<Map<String, Object>> queryForList(ObjectSQL objSql, Map<String, String> map) {
+        objSql.setDatabase(this.connectionInfo.getDbType());
+        String strSql = objSql.createSQL();
+        return this.jdbcTemplate.queryForList(strSql, map);
+    }
+
+    @Override
+    public Map<String, Object> queryForMap(ObjectSQL objSql, Map<String, String> map) {
+        objSql.setDatabase(this.connectionInfo.getDbType());
+        String strSql = objSql.createSQL();
+        return this.jdbcTemplate.queryForMap(strSql, map);
+    }
+
+    @Override
+    public Integer queryForInt(ObjectSQL objSql) {
+        objSql.setDatabase(this.connectionInfo.getDbType());
+        String strSql = objSql.createSQL();
+        return this.jdbcTemplate.queryForInt(strSql);
+    }
+
+    /**
+     * 删除表
+     */
+    @Override
+    public void deleteTable(String tableName) {
+        this.jdbcTemplate.update("drop table " + tableName);
+    }
+
+    @Override
+    public boolean deleteMongoTable(String tableName) {
+        return false;
+    }
+
+    /**
+     * 删除表列
+     */
+    @Override
+    public void deleteTableColumn(String tableName, String columnName) {
+        String sql = "ALTER TABLE " + tableName + " DROP COLUMN  " + columnName;
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void addForeignKey(String tableName, TableForeignKey foreignKey) {
+        String temp = "ALTER TABLE ${tableName} ADD CONSTRAINT ${keyName} FOREIGN KEY (${sourceColumn}) REFERENCES ${referenceTable}(${referenceColumn})";
+        TemplateParser parser = new TemplateParser();
+        parser.addBeanParam(foreignKey);
+        parser.addParam("keyName", "fk_" + tableName + "_" + foreignKey.getSourceColumn());
+        parser.addParam("tableName", tableName);
+        String sql = parser.parseTemplate(temp);
+        logger.debug("增加表外键:" + sql);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void addPrimaryKey(String tableName, TablePrimaryKey primaryKey) {
+        String temp = "ALTER TABLE ${tableName} ADD CONSTRAINT ${primaryKeyName} PRIMARY KEY (${primaryKeyColumn})";
+        TemplateParser parser = new TemplateParser();
+        parser.addBeanParam(primaryKey);
+        parser.addParam("tableName", tableName);
+        parser.addParam("primaryKeyName", "pk_" + tableName + "_" + primaryKey.getSourceColumn());
+        String sql = parser.parseTemplate(temp);
+        logger.debug("增加表主键:" + sql);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void addIndex(String tableName, TableIndex index) {
+        String temp = "CREATE ${unique} INDEX ${indexName} ON ${tableName} (${columnName})";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("unique", index.isUnique());
+        if (index.getIndexName() == null || StringUtils.isEmpty(index.getIndexName())) {
+            parser.addParam("indexName", "index_" + tableName + "_" + index.getColumnName());
+        } else {
+            parser.addParam("indexName", index.getIndexName());
+        }
+        parser.addParam("tableName", tableName);
+        parser.addParam("columnName", index.getColumnName());
+        String sql = parser.parseTemplate(temp);
+        logger.info("增加表索引:" + sql);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void deleteForeignKey(String tableName, String keyName) {
+        String temp = "ALTER TABLE ${tableName} DROP CONSTRAINT ${keyName}";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("tableName", tableName);
+        parser.addParam("keyName", keyName);
+        String sql = parser.parseTemplate(temp);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void deletePrimaryKey(String tableName, String keyName) {
+        String temp = "ALTER TABLE ${tableName} DROP CONSTRAINT ${keyName}";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("tableName", tableName);
+        parser.addParam("keyName", keyName);
+        String sql = parser.parseTemplate(temp);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void deleteIndex(String tableName, String indexName) {
+        String temp = "DROP INDEX ${indexName} ON ${tableName}";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("tableName", tableName);
+        parser.addParam("indexName", indexName);
+        String sql = parser.parseTemplate(temp);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void deleteIndex(String tableName, TableIndex index) {
+        String temp = "DROP INDEX ${indexName} ON ${tableName}";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("tableName", tableName);
+        parser.addParam("indexName", index.getIndexName());
+        String sql = parser.parseTemplate(temp);
+        this.jdbcTemplate.update(sql);
+    }
+
+    /**
+     * 查询索引
+     *
+     * @param tableName
+     * @param dataBaseName
+     * @return
+     * @author bo.dang
+     */
+    @Override
+    public List<SquidIndexes> getTableIndexes(final String tableName, String dataBaseName) {
+        final List<SquidIndexes> squidIndexList = new ArrayList<SquidIndexes>();
+        final String[] SchemaAndName = this.getSchemaAndName(tableName);
+        this.jdbcTemplate.execute(new ConnectionCallback<Object>() {
+            @Override
+            public Object doSomething(Connection conn) {
+                ResultSet rs = null;
+                try {
+                    // 主键
+                    Set<String> primaryKeys = new HashSet<String>();
+                    if (null != SchemaAndName && SchemaAndName.length == 2) {
+                        rs = conn.getMetaData().getPrimaryKeys(null, SchemaAndName[0], SchemaAndName[1]);
+                    } else {
+                        rs = conn.getMetaData().getPrimaryKeys(null, null, tableName);
+                    }
+                    while (rs.next()) {
+                        primaryKeys.add(rs.getString("COLUMN_NAME"));
+                    }
+                    closeResultSet(rs);
+                    if (null != SchemaAndName && SchemaAndName.length == 2) {
+                        rs = conn.getMetaData().getIndexInfo(null, SchemaAndName[0], SchemaAndName[1], false, false);
+                        //rs = conn.getMetaData().getColumns(null, SchemaAndName[0], SchemaAndName[1], null);
+                    } else {
+                        rs = conn.getMetaData().getIndexInfo(null, null, tableName, false, false);
+                        //rs = conn.getMetaData().getColumns(null, null, tableName, null);
+                    }
+                    SquidIndexes squidIndexes = null;
+                    int count = 0;
+                    Integer ordinal_position = 0;
+                    String columnName = null;
+                    String indexName = null;
+                    while (rs.next()) {
+
+                        // 索引名
+                        indexName = rs.getString("INDEX_NAME");
+                        if (StringUtils.isNull(indexName)) {
+                            continue;
+                        }
+                        count++;
+                        indexName = indexName.toLowerCase();
+                        if (1 == count) {
+                            squidIndexes = new SquidIndexes();
+                            squidIndexes.setIndex_name(indexName);
+                        }
+                        if (count > 1 && !squidIndexes.getIndex_name().equals(indexName)) {
+                            squidIndexList.add(squidIndexes);
+                            squidIndexes = new SquidIndexes();
+                            squidIndexes.setIndex_name(indexName);
+                        }
+                        ordinal_position = rs.getInt("ORDINAL_POSITION");
+                        columnName = rs.getString("COLUMN_NAME").toLowerCase();
+                        setColumnName(ordinal_position, columnName, squidIndexes);
+                    }
+                    if (StringUtils.isNotNull(squidIndexes)) {
+                        squidIndexList.add(squidIndexes);
+                    }
+                    closeResultSet(rs);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    closeResultSet(rs);
+                }
+                return squidIndexList;
+            }
+        });
+        return squidIndexList;
+    }
+
+    /**
+     * 查询Sql server表的索引
+     */
+    @Override
+    public List<SquidIndexes> selectTableIndex(String tableName) {
+        String indexSql = "SELECT                                                                                       "
+                + "TableId=O.[object_id],                                                                                 "
+                + "TableName=O.Name,                                                                                      "
+                + "IndexId=ISNULL(KC.[object_id],IDX.index_id),                                                           "
+                + "IndexName=IDX.Name,                                                                                    "
+                + "IndexType=ISNULL(KC.type_desc,'Index'),                                                                "
+                + "Index_Column_id=IDXC.index_column_id,                                                                  "
+                + "ColumnID=C.Column_id,                                                                                  "
+                + "ColumnName=C.Name,                                                                                     "
+                + "Sort=CASE INDEXKEY_PROPERTY(IDXC.[object_id],IDXC.index_id,IDXC.index_column_id,'IsDescending')        "
+                + "WHEN 1 THEN 'DESC' WHEN 0 THEN 'ASC' ELSE '' END,                                                      "
+                + "PrimaryKey=CASE WHEN IDX.is_primary_key=1 THEN N'√'ELSE N'' END,                                       "
+                + "[UQIQUE]=CASE WHEN IDX.is_unique=1 THEN N'√'ELSE N'' END,                                              "
+                + "Ignore_dup_key=CASE WHEN IDX.ignore_dup_key=1 THEN N'√'ELSE N'' END,                                   "
+                + "Disabled=CASE WHEN IDX.is_disabled=1 THEN N'√'ELSE N'' END,                                            "
+                + "Fill_factor=IDX.fill_factor,                                                                           "
+                + "Padded=CASE WHEN IDX.is_padded=1 THEN N'√'ELSE N'' END                                                 "
+                + "FROM sys.indexes IDX                                                                                   "
+                + "INNER JOIN sys.index_columns IDXC                                                                      "
+                + "ON IDX.[object_id]=IDXC.[object_id]                                                                    "
+                + "AND IDX.index_id=IDXC.index_id                                                                         "
+                + "LEFT JOIN sys.key_constraints KC                                                                       "
+                + "ON IDX.[object_id]=KC.[parent_object_id]                                                               "
+                + "AND IDX.index_id=KC.unique_index_id                                                                    "
+                + "INNER JOIN sys.objects O                                                                               "
+                + "ON O.[object_id]=IDX.[object_id]                                                                       "
+                + "INNER JOIN sys.columns C                                                                               "
+                + "ON O.[object_id]=C.[object_id]                                                                         "
+                + "AND O.type='U'                                                                                         "
+                + "AND O.is_ms_shipped=0                                                                                  "
+                + "AND IDXC.Column_id=C.Column_id  where O.name='" + tableName + "'                                       ";
+        // 取得Index
+        List<Map<String, Object>> indexList = this.jdbcTemplate.queryForList(indexSql, null);
+        if (StringUtils.isNull(indexList) || indexList.isEmpty()) {
+            return null;
+        }
+        List<SquidIndexes> squidIndexList = new ArrayList<SquidIndexes>();
+        SquidIndexes squidIndexes = null;
+        Map<String, Object> indexMap = null;
+        Integer indexId = 0;
+        Integer index_column_id = 0;
+        for (int i = 0; i < indexList.size(); i++) {
+            indexMap = indexList.get(i);
+            indexId = Integer.parseInt(indexMap.get("INDEXID").toString());
+            if (i == 0) {
+                squidIndexes = new SquidIndexes();
+                squidIndexes.setIndex_name(indexMap.get("INDEXNAME").toString());
+            }
+            if (i > 1 && !indexId.equals(Integer.parseInt(indexList.get(i - 1).get("INDEXID").toString()))) {
+                squidIndexList.add(squidIndexes);
+                squidIndexes = new SquidIndexes();
+                squidIndexes.setIndex_name(indexMap.get("INDEXNAME").toString());
+            }
+            index_column_id = Integer.parseInt(indexMap.get("INDEX_COLUMN_ID").toString());
+//			squidIndexes.setColumn_name_1(indexList.get(i).get("COLUMNNAME").toString());
+            setColumnName(index_column_id, indexMap.get("COLUMNNAME").toString(), squidIndexes);
+            if (i == indexList.size() - 1) {
+                squidIndexList.add(squidIndexes);
+            }
+        }
+        return squidIndexList;
+    }
+
+    /**
+     * 设置columnName
+     *
+     * @param index_column_id
+     * @param columnName
+     * @param squidIndexes
+     * @return
+     * @author bo.dang
+     */
+    public SquidIndexes setColumnName(Integer index_column_id, String columnName, SquidIndexes squidIndexes) {
+        switch (index_column_id) {
+            case 1:
+                squidIndexes.setColumn_name_1(columnName);
+                break;
+            case 2:
+                squidIndexes.setColumn_name_2(columnName);
+                break;
+            case 3:
+                squidIndexes.setColumn_name_3(columnName);
+                break;
+            case 4:
+                squidIndexes.setColumn_name_4(columnName);
+                break;
+            case 5:
+                squidIndexes.setColumn_name_5(columnName);
+                break;
+            case 6:
+                squidIndexes.setColumn_name_6(columnName);
+                break;
+            case 7:
+                squidIndexes.setColumn_name_7(columnName);
+                break;
+            case 8:
+                squidIndexes.setColumn_name_8(columnName);
+                break;
+            case 9:
+                squidIndexes.setColumn_name_9(columnName);
+                break;
+            case 10:
+                squidIndexes.setColumn_name_10(columnName);
+                break;
+
+        }
+        return squidIndexes;
+    }
+
+    @Override
+    public String createTable(String persist_sql, ReturnValue out) {
+        this.beginTransaction();
+        String tableName = "";
+        String sql = persist_sql;
+        int firstIndex = " create table ".length() - 1;
+        int endIndex = sql.indexOf("(");
+        tableName = sql.substring(firstIndex, endIndex).intern();
+        try {
+            if (tableName != null) {
+                sql = sql.replaceFirst(",$", "");
+                sql += "\n\t";
+                logger.debug("建表:" + sql);
+                System.out.println(sql);
+                this.jdbcTemplate.execute(sql);
+                this.commit();
+            } else {
+                out.setMessageCode(MessageCode.NODATA);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            this.rollback();
+            out.setMessageCode(MessageCode.SQL_ERROR);
+            throw new RuntimeException(e);
+
+        }
+        return tableName;
+    }
+
+    @Override
+    public void createTable(BasicTableInfo table) {
+        createTable(table, new ReturnValue());
+    }
+
+    @Override
+    public void createTable(BasicTableInfo table, ReturnValue out) {
+        this.beginTransaction();
+        String tableName = table.getTableName();
+        try {
+            String sql = this.getSQLForTable(table, out);
+            sql = sql.replaceFirst(",$", "");
+            sql += "\n\t";
+            logger.debug("建表:" + sql);
+            System.out.println(sql);
+            this.jdbcTemplate.update(sql);
+            // 外键
+            for (TableForeignKey foreignKey : table.getForeignKeyList()) {
+                this.addForeignKey(tableName, foreignKey);
+            }
+            // 索引
+            for (TableIndex key : table.getTableIndexList()) {
+                this.addIndex(table.getTableName(), key);
+            }
+            this.commit();
+        } catch (Exception e) {
+            e.printStackTrace();
+            this.rollback();
+            out.setMessageCode(MessageCode.SQL_ERROR);
+            throw e;
+        }
+    }
+
+
+    /**
+     * 同过表名得到SQL语句
+     *
+     * @param table
+     * @param out
+     * @return
+     */
+    @Override
+    public String getSQLForTable(BasicTableInfo table, ReturnValue out) {
+        List<String> list = new ArrayList<String>();
+        List<String> uList = new ArrayList<String>();
+        String tableName = table.getTableName();
+        String sql = "create table " + tableName;
+        if (table.getDbType().value() == DataBaseType.SQLSERVER.value()) {
+            if (tableName.contains(".")) {
+                String schema = tableName.split("\\.")[0];
+                int count = this.queryForList("select * from SYS.SCHEMAS where name='" + schema + "'").size();
+                if (count == 0) {
+                    this.executeUpdate("CREATE SCHEMA " + schema + " AUTHORIZATION dbo;");
+                }
+            }
+        }
+        if (table.getDbType().value() == DataBaseType.MYSQL.value()) {
+            if (tableName.contains(".")) {
+                out.setMessageCode(MessageCode.ERR_MYSQL_TABLENAME);
+            }
+        }
+        if (table.getDbType().value() == DataBaseType.ORACLE.value()) {
+            if (tableName.contains(".")) {
+                out.setMessageCode(MessageCode.ERR_ORACLE_TABLENAME);
+            }
+        }
+        sql += "(";
+        for (ColumnInfo col : table.getColumnList()) {
+            sql += "\n\t" + this.buildColumnSql(table.getDbType().value(), col) + ",";
+            if (col.isPrimary()) {
+                list.add(col.getName());
+            } else if (col.isUniqueness()) {
+                //修改bug5248,为什么这样改，因为之前修改过bug5153,导致了extraction_date建表时会加上唯一索引
+                if (Constants.DEFAULT_EXTRACT_COLUMN_NAME.equals(col.getName())) {
+                    continue;
+                }
+                uList.add(col.getName());
+            }
+        }
+        if (list.size() > 0) {
+            String keyName = "pk_" + tableName + "_temp";
+            String tempName = "";
+            for (String key : list) {
+                tempName += "," + initColumnNameByDbType(table.getDbType().value(), key) + "";
+            }
+            if (tempName != "") {
+                tempName = tempName.substring(1);
+            }
+            sql += "\n\tCONSTRAINT " + keyName + " PRIMARY KEY (" + tempName + "),";
+        }
+        if (uList.size() > 0) {
+            String keyName = "uq_" + tableName + "_temp";
+            String tempName = "";
+            for (String key : uList) {
+                tempName += "," + initColumnNameByDbType(table.getDbType().value(), key) + "";
+            }
+            if (tempName != "") {
+                tempName = tempName.substring(1);
+            }
+            sql += "\n\tCONSTRAINT " + keyName + " UNIQUE (" + tempName + "),";
+        }
+        sql = sql.replaceFirst(",$", "");
+        sql += "\n\t)";
+        return sql;
+    }
+
+    /**
+     * 默认的创建表列的SQL，实际可根据具体数据库，具体调整，默认不支持自增长。
+     *
+     * @param col
+     * @return
+     * @date 2014-1-18
+     * @author jiwei.zhang
+     */
+    protected String buildColumnSql(ColumnInfo col) {
+        String column_template = "${colName} ${colType} ${nullable} ${auto_increment}";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("colName", col.getName());
+
+        //String typeStr = DataTypeManager.decode(DataBaseType.MYSQL, col.getSystemDatatype());
+        String typeStr = col.getSystemDatatype().name();
+        switch (col.getSystemDatatype()) {
+            case NVARCHAR:
+                parser.addParam("colType", typeStr + "(" + col.getLength() + ")");
+                break;
+            default:
+                parser.addParam("colType", typeStr);
+        }
+        if (col.isNullable() && !col.isIdentity()) {
+            parser.addParam("nullable", "NULL");
+        } else {
+            parser.addParam("nullable", "NOT NULL");
+        }
+        if (col.isIdentity()) {
+            // parser.addParam("auto_increment", "AUTO_INCREMENT");
+            // 不支持自增长.各个数据库自行实现。
+        }
+        String sql = parser.parseTemplate(column_template);
+        return sql;
+    }
+
+
+    protected String buildColumnSql(int dbType, ColumnInfo col) {
+        String column_template = "${colName} ${colType} ${nullable} ${auto_increment}";
+        TemplateParser parser = new TemplateParser();
+        parser.addParam("colName", initColumnNameByDbType(dbType, col.getName().trim()));
+        int a = 1;
+        String typeStr = DataTypeConvertor.getOutTypeByColumn(dbType, col);
+        parser.addParam("colType", typeStr);
+        if (col.isNullable() && !col.isIdentity()) {
+            /*parser.addParam("nullable", "DEFAULT NULL");*/
+            //当数据库为DB2时，要么不加null，要么需要时default null
+            parser.addParam("nullable", "DEFAULT NULL");
+        } else {
+            parser.addParam("nullable", "NOT NULL");
+        }
+        if (col.isIdentity()) {
+            // parser.addParam("auto_increment", "AUTO_INCREMENT");
+            // 不支持自增长.各个数据库自行实现。
+        }
+        String sql = parser.parseTemplate(column_template);
+        return sql;
+    }
+
+    @Override
+    public void addTableColumn(String tableName, ColumnInfo col) {
+        String sql = "ALTER TABLE " + tableName + " ADD COLUMN " + this.buildColumnSql(col);
+        logger.debug("添加表列:" + sql);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public void modifyTableColumn(String tableName, String oldCol, ColumnInfo newCol) {
+        String sql = "ALTER TABLE " + tableName + " CHANGE COLUMN " + oldCol + " " + this.buildColumnSql(newCol);
+        logger.debug("修改表列：" + sql);
+        this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public int executeUpdate(String sql) {
+        logger.debug("执行语句：" + sql);
+        return this.jdbcTemplate.update(sql);
+    }
+
+    @Override
+    public int executeUpdate(String sql, Object... sqlArgs) {
+        logger.debug("执行语句：" + sql);
+        return this.jdbcTemplate.update(sql, sqlArgs);
+    }
+
+    public Map<String, Object> queryForMap2(String sql, Map<String, String> map) {
+        return this.jdbcTemplate.queryForMap(sql, map);
+    }
+
+    @Override
+    public void beginTransaction() {
+        try {
+            this.connection.setAutoCommit(false);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void commit() {
+        try {
+            this.connection.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void rollback() {
+        try {
+            this.connection.rollback();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public Connection getConnection() throws Exception {
+        if (this.connection == null || this.connection.isClosed()) {
+            this.connection = AdapterDataSourceManager.createConnection(this.connectionInfo);
+            this.connection = new ProxyConnection(this.connection, true);
+        }
+        return this.connection;
+    }
+
+    @Override
+    public void close() {
+        closeConnection(this.connection);
+    }
+
+    @Override
+    public Integer getRecordCount(String tableName) {
+        String sql = "select count(*) from " + tableName;
+        int count = this.jdbcTemplate.queryForInt(sql);
+        return count;
+    }
+
+    /**
+     * 获取schema和tableName
+     *
+     * @param tableName
+     * @return
+     */
+    protected String[] getSchemaAndName(String tableName) {
+        String[] SchemaAndName = null;
+        if (tableName.indexOf(".") > 0) {
+            SchemaAndName = tableName.split("\\.");
+        }
+        return SchemaAndName;
+    }
+
+    public static String initColumnNameByDbType(int dbType, String columnName) {
+        String temp = "";
+        DataBaseType dataBaseType = DataBaseType.parse(dbType);
+        switch (dataBaseType) {
+            case SQLSERVER:
+                temp = "[" + columnName + "]";
+                break;
+            case MYSQL:
+                temp = "`" + columnName + "`";
+                break;
+            case ORACLE:
+            case HBASE_PHOENIX:
+            case DB2:
+                temp = "\"" + columnName + "\"";
+                break;
+            default:
+                temp = columnName;
+                break;
+        }
+        return temp;
+    }
+
+    @Override
+    public List<Map<String, Object>> queryForList(String sql) {
+        return this.jdbcTemplate.queryForList(sql, null);
+    }
+
+    @Override
+    public Map<String, Object> queryForMap(String sql, Map<String, String> map) {
+        return this.jdbcTemplate.queryForMap(sql, map);
+    }
+
+/*	@Override
+	public List<SquidIndexes> selectTableIndex(String tableName) {
+		return this.selectTableIndex(tableName);
+		// TODO Auto-generated method stub return null;
+	}*/
+}

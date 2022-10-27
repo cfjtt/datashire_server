@@ -1,0 +1,10 @@
+启动cloud的项目时,需要添加-Dspring.profiles.active=cloud参数
+
+私有部署不需要添加该参数
+
+需要在部署的时候在hdfs-site.xml中添加
+
+<property>
+    <name>fs.hdfs.impl.disable.cache</name>
+    <value>true</value>
+</property>

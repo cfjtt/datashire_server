@@ -1,0 +1,985 @@
+package com.eurlanda.datashire.utility;
+
+
+/**
+ * 消息枚举 错误信息：ERR_ 一般信息：INF_ 通信类：COM_
+ *
+ * @author Fumin
+ * @version 1.0
+ * @created 16-May-2013 5:41:19 PM
+ */
+public enum MessageCode {
+
+    //成功
+    SUCCESS(1),
+
+    //完成
+    COMPLETE(69999),
+
+    //数据库执行错误
+    SQL_ERROR(80000),
+
+    //没有数据
+    NODATA(80001),
+
+    //系统数据库连接错误
+    ERR_SYSDBLINK(80002),
+
+    //Squid类型不为EXTRACT
+    ERR_NOT_EXTRACTSQUID(80003),
+
+    //EXTRACT Squid表不能为空
+    ERR_EXTRACTSQUID_TABLE_NULL(80004),
+
+    //EXTRACT Squid没有对应的入口链接
+    ERR_EXTRACTSQUID_NOLINK(80005),
+
+    //获取数据源数据库链接失败
+    ERR_DBSOURCE_CONNECTION(80006),
+
+    //创建失败
+    INSERT_ERROR(80007),
+
+    //更新失败
+    UPDATE_ERROR(80008),
+
+    //错误的xml数据
+    ERR_XMLDATA(80009),
+
+    //删除数据失败
+    ERR_DELETE(80010),
+
+    //登陆用户名不能为空
+    ERR_LONGIN_USERNAME_ISNULL(80011),
+
+    //登陆密码不能为空
+    ERR_LONGIN_PASSWORD_ISNULL(80012),
+
+    //登陆用户信息不能为空
+    ERR_LONGIN_DATA_ISNULL(80013),
+
+    //RESITORY信息不能为空
+    ERR_RESITORY_DATA_ISNULL(80014),
+
+    //RESITORY服务器地址不能为空
+    ERR_RESITORY_HOST(80015),
+
+    //RESITORY服务器端口不能为空
+    ERR_RESITORY_PORT(80016),
+
+    //RESITORY数据库不能为空
+    ERR_RESITORY_DB(80017),
+
+    //RESITORY用户名不能为空
+    ERR_RESITORY_USERNAME(80018),
+
+    //RESITORY数据库类型不能为空
+    ERR_RESITORY_DBTYPE(80019),
+
+    //RESITORY密码不能为空
+    ERR_RESITORY_PASSWORD(80020),
+
+    //错误的用户名或密码
+    ERR_USERNAME_OR_PASSWORD(80021),
+
+    //用户账号被锁定
+    ERR_USER_LOCKED(80022),
+
+    //文件路径错误
+    ERR_URL(80023),
+
+    //用户不存在
+    ERR_USER_NOT_EXIST(80024),
+
+    //违反唯一约束
+    ERR_UNIQUENESS(80025),
+
+    //来源squidId不能为空
+    ERR_CREATE_FROM_SQUIDID_NULL(80026),
+
+    //SquidFlowId不能为空
+    ERR_SQUIDFLOWID_NULL(80027),
+
+    //不完整的SquidFlow
+    ERR_SQUIDFLOW(80028),
+
+    //表名为空
+    ERR_TABLENAME_NULL(80029),
+
+    //数值为负数
+    ERR_RECORDCOUNT_MINUS(80030),
+
+    //schema为空
+    ERR_SCHEMA_NULL(80031),
+
+    //返回数据不唯一
+    DATA_IS_NOT_THE_ONLY(80032),
+
+    //列数据为空(SquidAdpate)
+    COLUMNLIST_NULL(80033),
+
+    //排序值错误
+    ERR_SEQENCING(80034),
+
+    //删除失败，该项目下没有数据
+    ERR_DELETE_NOT_DATA(80035),
+
+    //条件绑定错误
+    ERR_CONDITION_BIND(80036),
+
+    //squidID不能为空
+    ERR_SQUID_ID_NULL(80037),
+
+    //projectID不能为空
+    ERR_PROJECT_ID_NULL(80038),
+
+    //数据转换失败
+    ERR_DATA_CONVERSION(80039),
+
+    //SquidFlow不存在
+    ERR_SQUIDFLOW_NOT_EXIST(80040),
+
+    //SquidFlow对象为空
+    ERR_SQUIDFLOW_NULL(80041),
+
+    //EProject对象为空
+    ERR_PROJECT_NULL(80042),
+
+    //SquidFlowID不能为空
+    ERR_SQUIDFLOW_ID_NULL(80043),
+
+    //Squid对象为空
+    ERR_SQUID_NULL(80044),
+
+    //SquidLink对象为空
+    ERR_SQUIDLINK_NULL(80045),
+
+    //Column对象为空
+    ERR_COLUMN_NULL(80046),
+
+    //transformation对象为空
+    ERR_TRANSFORMATION_NULL(80047),
+
+    //TransformationLink对象为空
+    ERR_TRANSFORMATIONLINK_NULL(80048),
+
+    //EUser对象为空
+    ERR_USER_NULL(80049),
+
+    //用户名为空
+    ERR_USERNAME_NULL(80050),
+
+    //数据库对象为空
+    ERR_DATABASE_NULL(80051),
+
+    //创建Squid，squid 类型不存在
+    CREATE_SQUID_TYPE_WAS_NOT_FOUND(80052),
+
+    //ConnectionID为空
+    ERR_CONNECTION_ID_NULL(80053),
+
+    //Connection对象为空
+    ERR_CONNECTION_NULL(80054),
+
+    //枚举错误
+    ERR_ENUM(80055),
+
+    //CONVERT对象为空
+    ERR_CONVERT_NULL(80056),
+
+    //xml格式错误pattern
+    ERR_XML_PATTERN(80057),
+
+    //类型为空
+    ERR_TYPE_NULL(80058),
+
+    //ID为空
+    ERR_ID_NULL(80059),
+
+    //GUID为空
+    ERR_GUID_NULL(80060),
+    //EDBSourceTable
+    ERR_EDBSOURCETABLE_NULL(80061),
+
+    //执行失败
+    ERR_EXEC_SQUIDFLOW(80062),
+
+    /**
+     * 反序列化失败（前台接口请求参数不合法）
+     */
+    DESERIALIZATION_FAILED(80063),
+    // 更新对象不存在
+    UPDATE_NOTEXISTS(80064),
+    // 删除对象不存在
+    DELETE_NOTEXISTS(80065),
+    //执行SQUIDBASIC错误
+    ERR_EXEC_RUNSQUIDBASIC(80066),
+
+    //Project集合对象为空
+    ERR_PROJECT_LIST_NULL(80067),
+
+    //SQUIDlINK集合对象为空
+    ERR_SQUIDlINK_LIST_NULL(80068),
+
+    // DS_REPOSITORY表不存在
+    ERR_DS_REPOSITORY_NULL(80069),
+
+    //DS_DB_TYPE表不存在
+    ERR_DS_DB_TYPE_NULL(80070),
+
+    // DS_CONNECTION表不存在
+    ERR_DS_CONNECTION_NULL(80071),
+
+    // DS_PERSISTED_SQUID表不存在
+    ERR_DS_PERSISTED_SQUID_NULL(80072),
+
+    // DS_SOURCE_TABLE 表不存在
+    ERR_DS_SOURCE_TABLE_NULL(80073),
+
+    // DS_COLUMN 表不存在
+    ERR_DS_COLUMN_NULL(80074),
+
+    // DS_SQUID表不存在
+    ERR_DS_SQUID_NULL(80075),
+
+    // DS_SQUID_FLOW 表不存在
+    ERR_DS_SQUID_FLOW_NULL(80076),
+
+    // DS_PROJECT表不存在
+    ERR_DS_PROJECT_NULL(80077),
+
+    // DS_SQUID_TYPE表不存在
+    ERR_DS_SQUID_TYPE_NULL(80078),
+
+    // DS_TRANSFORMATION表不存在
+    ERR_DS_TRANSFORMATION_NULL(80079),
+
+    // DS_TRANSFORMATION_LINK表不存在
+    ERR_DS_TRANSFORMATION_LINK_NULL(80080),
+
+    // DS_TRANSFORMATION_TYPE表不存在
+    ERR_DS_TRANSFORMATION_TYPE_NULL(80081),
+
+    // DS_JOIN_TYPE表不存在
+    ERR_DS_JOIN_TYPE_NULL(80082),
+
+    // DS_JOIN 表不存在
+    ERR_DS_JOIN_NULL(80083),
+
+    // DS_SQUID_LINK表不存在
+    ERR_DS_SQUID_LINK_NULL(80084),
+
+    // DS_BREAKPOINT表不存在
+    ERR_DS_BREAKPOINT_NULL(80085),
+
+    // Arrays方法处理错误
+    ERR_ARRAYS(80086),
+
+    // DS_DB_TYPE枚举值不一致
+    ERR_DS_DB_TYPE_Enum(80087),
+
+    // DS_JOIN_TYPE枚举值不一致
+    ERR_DS_JOIN_TYPE_TYPE_Enum(80088),
+
+    // DS_TRANSFORMATION_TYPE枚举值不一致
+    ERR_DS_TRANSFORMATION_TYPE_Enum(80089),
+
+    // DS_SQUID_TYPE枚举值不一致
+    ERR_DS_SQUID_TYPE_Enum(80090),
+
+    // Repository数据有效性校验错误
+    ERR_REPOSITORY_CHECK(80091),
+
+    // DS_SQUID_FLOW 数据完整性错误
+    ERR_FK_DS_SQUID_FLOW(80092),
+
+    // DS_SQUID数据完整性错误
+    ERR_FK_DS_SQUID(80093),
+
+    // DS_CONNECTION数据完整性错误
+    ERR_FK_DS_CONNECTION(80094),
+
+    // DS_SOURCE_TABLE数据完整性错误
+    ERR_FK_DS_SOURCE_TABLE(80095),
+
+    // DS_COLUMN数据完整性错误
+    ERR_FK_DS_COLUMN(80096),
+
+    // DS_TRANSFORMATION数据完整性错误
+    ERR_FK_DS_TRANSFORMATION(80097),
+
+    // DS_SQUID_LINK数据完整性错误
+    ERR_FK_DS_SQUID_LINK(80098),
+
+    // DS_JOIN数据完整性错误
+    ERR_FK_DS_JOIN(80099),
+
+    // DS_TRANSFORMATION_LINK数据完整性错误
+    ERR_FK_DS_TRANSFORMATION_LINK(80100),
+    //squid类型为空
+    ERR_SQUID_TYPE_NULL(80101),
+
+    //来源Squid为空
+    ERR_SOURCESQUID_NULL(80102),
+    //来源Column信息为空
+    ERR_SOURCECOLUMN_NULL(80103),
+
+    //创建物理数据库失败
+    ERR_CREATE_PHYSICS_DATABASE(80104),
+
+    //获得数据集合为空
+    ERR_DATALIST_NULL(80105),
+    //REPOSITORY路径为空
+    ERR_REPOSITORY_PATH(80106),
+    //创建物理数据库名已存在
+    ERR_PDB_EXIST(80107),
+    //查找join表key错误
+    ERR_GETJOINBYID(80108),
+    //获取stageSquid错误
+    ERR_STAGESQUID(80109),
+    //创建Join错误
+    ERR_CREATEJOIN(80110),
+    //更新Join错误
+    ERR_UPDATEJOIN(80111),
+    //获取SquidFlowID错误
+    ERR_SQUIDTWO(80112),
+    //REPOSITORY状态错误
+    ERR_REPOSITORY_STATUS(80113),
+    //REPOSITORY的TEAM_ID为空
+    ERR_REPOSITORY_TEAM_ID_NULL(80114),
+    //DBSQUID连接信息不完整incomplete
+    ERR_DBSQUID_DATA_INCOMPLETE(80115),
+    //PROJECT必要数据不完整
+    ERR_PROJECT_DATA_INCOMPLETE(80116),
+    //SQUIDlINK必要数据不完整
+    ERR_SQUIDLINK_DATA_INCOMPLETE(80117),
+    //SQUIDFLOW必要数据不完整
+    ERR_SQUIDFLOW_DATA_INCOMPLETE(80118),
+    //transformation必要数据不完善
+    ERR_TRANSFORMATION_DATA_INCOMPLETE(80119),
+    //COLUMN的必要数据不完善
+    ERR_COLUMN_DATA_INCOMPLETE(80120),
+    //连接信息有误
+    ERR_CONNECTION_FAIL(80121),
+    //连接信息不完善建立数据库连接失败
+    ERR_CONNECTION_DATA_INCOMPLETE_FAIL(80122),
+    //更新ReferenceColumnGroup失败
+    ERR_UPDATE_REFERENCECOLUMNGROUP(80123),
+    //删除ReferenceColumnGroup失败
+    ERR_DELETE_REFERENCECOLUMNGROUP(80124),
+    //删除column失败
+    ERR_DELETE_COLUM(80125),
+    //DS_SOURCE_COLUMN表不存在
+    ERR_DS_SOURCE_COLUMN_NULL(80126),
+    //DS_SQL_CONNECTION表不存在
+    ERR_DS_SQL_CONNECTION_NULL(80127),
+    //DS_DATA_SQUID表不存在
+    ERR_DS_DATA_SQUID_NULL(80128),
+    //DS_STAGE_SQUID表不存在
+    ERR_DS_STAGE_SQUID_NULL(80129),
+    //DS_REFERENCE_COLUMN表不存在
+    ERR_DS_REFERENCE_COLUMN_NULL(80130),
+    //DS_REFERENCE_COLUMN_GROUP表不存在
+    ERR_DS_REFERENCE_COLUMN_GROUP_NULL(80131),
+    // DS_SOURCE_COLUMN数据完整性错误
+    ERR_FK_DS_SOURCE_COLUMN(80132),
+    // DS_REFERENCE_COLUMN数据完整性错误
+    ERR_FK_DS_REFERENCE_COLUMN(80133),
+    // DS_REFERENCE_COLUMN_GROUP数据完整性错误
+    ERR_FK_DS_REFERENCE_COLUMN_GROUP(80134),
+    // DS_SQL_CONNECTION数据完整性错误
+    ERR_FK_DS_SQL_CONNECTION(80135),
+    // DS_STAGE_SQUID数据完整性错误
+    ERR_FK_DS_STAGE_SQUID(80136),
+    // DS_DATA_SQUID数据完整性错误
+    ERR_FK_DS_DATA_SQUID(80137),
+    //执行错误
+    ERR_EXECUTE(80138),
+    /**
+     * 创建表失败。
+     */
+    ERR_CREATE_TABLE(80139),
+    //游览数据库信息错误
+    ERR_BROWSECONNECTION(80140),
+    //读取文件信息错误(请检查连接信息是否正确)
+    ERR_FILE(80141),
+    //读取ftp文件信息错误(请检查连接信息是否正确)
+    ERR_FTPFILE(80142),
+    //读取的文件名为空
+    ERR_FILENAME(80143),
+    //该路径下无该文件,或者文件类型不支持
+    ERR_FILEPATH(80144),
+    //读取file文件内容错误
+    ERR_FILECONTENT(80145),
+    //读取ftp文件内容错误
+    ERR_FTPCONTENT(80146),
+    //读取数据库具体信息错误
+    ERR_DATEBASECONTENT(80147),
+    //读取Hdfs信息错误(请检查连接信息是否正确)
+    ERR_HDFS(80148),
+    //读取微博信息错误(请检查连接信息是否正确)
+    ERR_WEIBO(80149),
+    //读取网页信息错误(请检查连接信息是否正确)
+    ERR_WEB(80150),
+    //操作DS_SOURCE_TABLE表数据错误
+    ERR_DS_SOURCE_TABLE(80151),
+    //操作ERR_DS_TRAN_INPUTS表数据错误
+    ERR_DS_TRANSFORMATION_INPUT(80152),
+    //获取所有jobSchedules错误
+    ERR_GETALLJOBSCHEDULES(80153),
+    //jobSchedules新增删除或者更新错误
+    ERR_JOBSCHEDULES(80154),
+    //运行日志错误
+    ERR_JOBLOG(80155),
+    //询问squidFlow是否加锁
+    ERR_ISSQUIDFLOWLOCKED(80156),
+    //squidflow加锁错误
+    ERR_LOCKSQUIDFLOW(80157),
+    //squidflow解锁错误
+    ERR_UNLOCKSQUIDFLOW(80158),
+    //获取squidflow状态错误
+    ERR_GETSQUIDFLOWSTATUS(80159),
+    //删除project(部分squidflows非正常状态)
+    WARN_DELETEPROJECT(60001),
+    //删除squidflow(处于非正常状态)
+    WARN_DELETESQUIDFLOW(60002),
+    //删除jobschedule(处于非暂停状态)
+    WARN_DELETEJOBSCHEDULE(60003),
+    //加载squidflow(处于非正常状态)
+    WARN_GETSQUIDFLOW(60004),
+    //squidflow更新(处于非正常状态)
+    WARN_UPDATESQUIDFLOW(60005),
+    //project更新(处于非正常状态)
+    WARN_UPDATEPROJECT(60006),
+    //创建落地表名已存在
+    WARN_PERSISTTABLEALREADYEXIST(60007),
+    //当前落地目标，必须设置Column主键
+    ERR_PERSISTTABLE_TABLE_PK_NULL(60008),
+    //落地表名不能超过30个字符，并且不能带有中文及除下划线外的特殊符号，首字母不能为下划线和数字，且小数点只能存在一位
+    ERR_PERSISTTABLE_TABLE_NAME(60009),
+    //落地Column中存在UNKNOWN类型，不能落地
+    ERR_PERSISTTABLE_UNKNOWN(60010),
+    //落地表名还未创建
+    ERR_PERSISTTABLE_NOT_TABLENAME(60011),
+    //SQUID未设置落地属性
+    ERR_PERSISTTABLE_NOT_CHECKED(60012),
+    //落地表名长度超过30
+    ERR_PERSISTTABLE_OVER_LENGTH(60018),
+    //url网页列表新增失败
+    ERR_CREATEWEBURLS(80160),
+    //URL网页列表更新失败
+    ERR_UPDATEWEBURLS(80161),
+    //RPC连接未开启或者连接失败
+    ERR_RPCDISCONNECTED(80162),
+    // 解析Table、DOC、XML、Web、Weibo、Weblog失败或者没有源数据
+    ERR_EXTRACT_SQUID_NO_DATA(80163),
+    //数据库事务回滚失败
+    ERR_ROLLBACK(80164),
+    //Transformation的数据类型不匹配，连线失败
+    ERR_TRANSFORMATION_INPUT_TYPE(80165),
+    //调试任务运行错误
+    ERR_LAUNCHENGINEJOB(80166),
+    //新增用户失败
+    ERR_CREATEUSER(80167),
+    //更新用户失败
+    ERR_UPDATEUSER(80168),
+    //获取所有用户失败
+    ERR_GETALLUSER(80169),
+    //用户名或密码错误
+    ERR_USER(80170),
+    //删除用户失败
+    ERR_DELETEUSER(80171),
+    //缺少仓库信息,请检查数据库连接是否正常
+    ERR_REPOSITORYLIST(80172),
+    //缺少仓库信息,请检查数据库数据正确性
+    ERR_REPOSITORYEMPTY(80173),
+    //表数据为空
+    ERR_VALUEEMPTY(80174),
+    // 报表名称重复
+    ERR_DUPLICATE_REPORT_NAME(80175),
+    //数据库连接失败,请检查(用户名,密码,端口,数据库名称)的正确性
+    ERR_DATABASE_CONNECT(80176),
+    //Transformation数据类型不匹配
+    ERR_TRANSFORMATION_DATA_TYPE(80177),
+    //获取当前SquidFlow中所有的Squid的总数量有错误
+    ERR_SQUID_COUNT(80178),
+    //该落地目标中未找到index索引
+    ERR_SQUIDINDEXS_NOT_INDEXNAME(80179),
+    //Squid中未找到index对象集合
+    ERR_SQUIDINDEXS_NOT_INDEXS(80180),
+    //删除的jobschedule不存在
+    WARN_NOT_EXIST_JOBSCHEDULE(60013),
+    //获取所有project信息异常
+    ERR_GETALLPROJECT(60014),
+    //license正常,但使用期限不足
+    WARN_LICENSE(60015),
+    //复制中的名字已存在
+    WARN_VARIABLE_EXISTS(60016),
+    //落地对象中的主键无效
+    WARN_IDENTITY_PK(60017),
+    //输入的路径有误
+    ERR_PATH(80182),
+    //license已经过期
+    ERR_LICENSE(80183),
+    //连接webservice异常
+    ERR_WEBSERVICE(80184),
+    //变量名已存在
+    ERR_VARIABLE_EXISTS(80185),
+    //第三方参数并非值类型
+    ERR_WEBSERVICE_PARAMS(80186),
+    //第三方参数为空
+    ERR_WEBSERVICE_PARAMS_NULL(80187),
+    //第三方链接异常
+    ERR_WEBSERVICE_CONNECTION(80188),
+    //Squid节点已达到最大使用数量，请更新License
+    ERR_SQUID_COUNT_MAX(80189),
+    //当前licenseKey不存在或激活版本不对
+    ERR_LICENSE_NOT_EXISTS(80190),
+    //导入的模板信息版本不匹配
+    ERR_IMPORT_VERSION(80191),
+    //导入的数据格式不正确
+    ERR_IMPORT_DATA_FORMAT(80192),
+    //导出的数据内容已超出范围
+    ERR_EXPORT_DATA(80193),
+    //落地带MYSQL数据库中表名不能带小数点
+    ERR_MYSQL_TABLENAME(80194),
+    //落地带ORACLE数据库中表名不能带小数点
+    ERR_ORACLE_TABLENAME(80195),
+    ERR_OLD_PASS_VERIFY(80196),
+    //未知错误
+    ERR(-9999),
+    //BINARY类型的列不能创建索引
+    ERR_BINARY_NOT_INDEX(80197),
+    //打开project失败
+    ERR_OPEN_PROJECT(80198),
+    //数据中存在不支持的类型，无法预览
+    ERR_UNSUPPORTDATATYPE(80199),
+    //该文件内容不支持预览
+    ERR_UNSUPPORTVIEW(80200),
+    //ID Column存在
+    ERR_ID_COLUMN_EXIST(80201),
+    //column为空
+    ERR_COLUMN_EMPTY(80202),
+    //无效的OLE2文件
+    ERR_FILEOLE2(80203),
+
+    /**
+     * 数列云登录
+     */
+    QUEUE_ISMAX(80204),
+    //时间过期
+    LOGIN_TIMEOUT(80205),
+    //新的squid类型,sourceCloudFile,读取文件信息错误(请检查连接信息是否正确)
+    ERR_SOURCE_CLOUD_FILE_HDFS(80206),
+
+    //创建落地对象时，column字段不合法
+    ERR_CREATE_DEST_TABLE_COLUMN_ISILLEAGEL(80207),
+    //hive落地列设置时column的数据类型不匹配
+    ERR_COLUMN_INPUT_TYPE(80208),
+    //任务队列已满，请稍后重试
+    SQUIDFLOW_QUEUE_ISMAX(80209),
+    //ExtractSquid连接已断开，请重新抽取
+    Extract_IS_Connection_break (80210),
+    //非法union,两个数据集列出不一致
+    UNION_COLUMN_SIZE_IS_NOT_EQUALS(80211),
+    //已达到允许运行的最大并行数
+    PARALLEL_NUM_IS_MAX(80212),
+    //特殊分隔符需要转义
+    ERR_Special_characters(80213),
+    /**
+     * 表达式错误
+     */
+    EXPRESSION_ERROR(80214),
+    //pivot列值与pivot列类型不兼容
+    ERR_PIVOTSQUID_PIVOTCOLUMN_INCOMPATIBLE(80217),
+    //valueColumn与所选聚合方式不兼容
+    ERR_PIVOTSQUID_VALUECOLUMN_INCOMPATIBLE(80218),
+    //创建落地对象时，column列精度或长度不匹配
+    ERR_CREATE_DEST_TABLE__PRECISION(80219),
+    //pivotSquid数据不完整
+    ERR_PIVOTSQUID_DATA_DEFECT(80220),
+
+    /**
+     * 导入错误信息(数猎场类型不匹配)
+     */
+    ERR_SQUIDFLOW_TYPE(70000),
+    /**
+     * 数猎场squid不正确
+     */
+    ERR_SQUIDFLOW_SQUID(70003),
+    /**
+     * 数猎场登陆（只能登陆一次）
+     */
+    ERR_SPACE_LOGIN(70002),
+    //数据表不存在
+    TABLE_NOT_EXIST(90012),
+    //hive数据库不存在
+    HIVE_DATABASENAME_NOTEXIST(90013),
+    //hive数据库或表不存在
+    HIVE_DATABASE_OR_TABLE_NO_EXIST(90017),
+    //cassandra需要权限认证(请输入用户名密码)
+    CASSANDRA_NOT_AUTH(90014),
+    CASSANDRA_KEYSPACEORCLUSTERIS_NOT_EXIST(90015),
+    CASSANDRA_IPORPORT_ISNOTAVAILABLE(90016),
+    //cassandra 落地目标或落地表名不存在
+    CASSANDRA_DATASOURCE_OR_TABLE_NO_EXIST(90018),
+
+    //存在相同名字的squidflow
+    ERR_SQUIDFLOW_EXISTS_NAME(80215),
+    ERR_PROJECT_NAME_EXISTS(80216),
+    /**
+     * 编译状态检查
+     */
+    //信息正确
+    COMPILE_SUCCESS(10000000),
+    //孤立的squid
+    SINGLE_SQUID(10000001),
+    //落地目标库是否存在
+    ERR_DESTSOURCE_ISNULL(10000003),
+    //落地sql语法错误
+    ERR_DESTSQL_ISERROR(10000004),
+    //DBSOURCE IP端口为空
+    ERR_DBSOURCE_IP_ILLEGAL(10000007),
+    //DBSOURCE IP端口不合法
+    ERR_DBSOURCE_IP_NULL(10000006),
+    //DBSOURCE 用户名为空
+    ERR_DBSOURCE_USERNAME_NULL(10000008),
+    //密码为空
+    ERR_DBSOURCE_PWD_NULL(10000009),
+    //数据库名字为空
+    ERR_DBSOURCE_DBNAME_NULL(10000010),
+
+    //mongob ip端口为空
+    ERR_MONGODB_IP_NULL(10000028),
+    //MongoDB ip端口不合法
+    ERR_MONGODB_IP_ILLEGAL(10000029),
+    //MongoDB用户名为空
+    ERR_MONGODB_USERNAME_NULL(10000030),
+    //密码为空
+    ERR_MONGODB_PWD_NULL(10000031),
+    //数据库为空
+    ERR_MONGODB_DBNAME_NULL(10000032),
+
+    //hdfs ip端口为空
+    ERR_HDFS_IP_NULL(10000011),
+    //HDFS ip端口不合法
+    ERR_HDFS_IP_ILLEGAL(10000012),
+    //hdfs用户名为空
+    ERR_HDFS_USERNAME_NULL(10000013),
+    //hdfs密码为空
+    ERR_HDFS_PWD_NULL(10000014),
+    //HDFS 文件路劲为空
+    ERR_HDFS_FILEPATH_NULL(10000015),
+
+    //FTP ip端口为空
+    ERR_FTP_IP_NULL(10000016),
+    //ftp ip端口不合法
+    ERR_FTP_IP_ILLEGAL(10000017),
+    //ftp 用户名为空
+    ERR_FTP_USERNAME_NULL(10000018),
+    //FTP 密码为空
+    ERR_FTP_PWD_NULL(10000019),
+    //FTP 文件路径为空
+    ERR_FTP_FILEPATH_NULL(10000020),
+
+    //File ip端口为空
+    ERR_FILE_IP_NULL(10000021),
+    //File ip端口不合法
+    ERR_FILE_IP_ILLEGAL(10000022),
+    //File 用户名为空
+    ERR_FILE_USERNAME_NULL(10000023),
+    //File 密码为空
+    ERR_FILE_PWD_NULL(10000024),
+    //File 文件路径为空
+    ERR_FILE_FILEPATH_NULL(10000025),
+
+    //hbase ip端口为空
+    ERR_HABSE_IP_NULL(10000026),
+    //HBASE ip端口不合法
+    ERR_HABSE_IP_ILLEGAL(10000027),
+
+    //DataSquid落地表名为空
+    ERR_DATASQUID_TABLENAME_NULL(10000002),
+    //落地的squid ip和端口是否合法
+    ERR_DEST_SQUID_ILLEGAL(10000005),
+    //抽取条件为空
+    ERR_INCREMENTAL_NULL(10000033),
+    //分隔符为空
+    ERR_DELIMITED_NULL(10000034),
+    //字段长度fixedLength为0
+    ERR_FIXEDLENGTH_null(10000035),
+    //换行符不能为空
+    ERR_ROW_DELIMITED_NULL(10000036),
+    //校验连接失败
+    ERR_CONNECTION(10000037),
+    //未获取元数据
+    ERR_NOTGETDATA(10000038),
+    //statge 未导入column
+    ERR_NOT_COLUMN(10000039),
+    //XML_EXTRACT 定义文件为空
+    ERR_XMLEXTRACT_FILE_ISNULL(10000040),
+    //XML_EXTRACT 元数据路径为空
+    ERR_XMLEXTRACT_FILEPATH_ISNULL(10000041),
+    //XML_EXTRACT 元数据路径不合法
+    ERR_XMLEXTRACT_FILEPATH_ISILLEGAL(10000042),
+    //dest_hdfs文件路径为空
+    ERR_DESTHDFS_ISNULL(10000043),
+    //hdfs column_delimiter为空
+    ERR_DESTHDFS_DELIMITER_ISNULL(10000044),
+    //impala 库名为空
+    ERR_IMPALA_STORENAME_ISNULL(10000045),
+    //impala 表名为空
+    ERR_IMPALA_TABLENAME_ISNULL(10000046),
+    //落地Squidip端口为空
+    ERR_DEST_IPANDPORT_ISNULL(10000047),
+    //数据库类型为空
+    ERR_DBSOURCE_TYPE_ISNULL(10000048),
+    //空squidflow
+    ERR_SQUIDFLOW_ISNULL(10000049),
+    //stage上游为空
+    ERR_STAGEFORMSQUID_ISNULL(10000050),
+    //dataming 没有上游
+    ERR_DATAMINGFROMSQUID_ISNULL(10000051),
+    //exception squid没有上游
+    ERR_EXCEPTIONFROMSQUID_ISNULL(10000052),
+    //exception squid上游的上游不合法
+    ERR_EXCEPTIONGRANDSQUID_ISILLEGAL(10000053),
+    //destination squid没有上游
+    ERR_DESTSFROMSQUID_ISNULL(10000054),
+    //ESSquid 索引为空
+    ERR_DESTSINDEX_ISNULL(10000055),
+    //ESSQUID 类型为空
+    ERR_DESTTYPE_ISNULL(10000056),
+    //trans没有出参
+    ERR_TRANSOUTPUTS_ISNULL(10000057),
+    //join condition不能为空
+    ERR_JOINCONDITION_ISNULL(10000058),
+    //DataInc 增减值不能为空
+    ERR_DATAINC_ISNULL(10000059),
+    //destination列为空
+    ERR_DESTINATION_COLUMN_ISNULL(10000060),
+    //kafka ip端口为空
+    ERR_KAFKA_IP_ISNULL(10000061),
+    //KAFKA IP端口不合法
+    ERR_KAFKA_IP_ISLEEGAL(10000062),
+    //topic squid的group id为空
+    ERR_KAFKA_EXTRACE_GROUPID_ISNULL(10000063),
+    //HIVE数据库表名为空
+    ERR_HIVE_DATABASENAME_ISNULL(10000064),
+    //cassandra keyspace为空
+    ERR_CASSANDRA_KEYSPACE_ISNULL(10000065),
+    //cassandra cluster为空
+    ERR_CASSANDRA_CLUSTER_ISNULL(10000066),
+    //cassandra host为空
+    ERR_CASSANDRA_HOST_ISNULL(10000067),
+    //CASSANDRA USERNAME为空
+    ERR_CASSANDRA_USERNAME_ISNULL(10000068),
+    //CASSANDRA PASSWORD为空
+    ERR_CASSANDRA_PASSWORD_ISNULL(10000069),
+    //CASSANDRA port为空
+    ERR_CASSANDRA_PORT_ISNULL(10000084),
+    //训练集比例小于50%
+    ERR_TRAINPERC_LT(20000000),
+    //Transformation入参不完整
+    ERR_TRANSINPUS_NOTALL(20000001),
+    //孤立的TransFormation
+    ERR_SINGLE_TRANS(20000002),
+    //Team Extract Transformation表达式不合法
+    ERR_TEAMSTRACT_ISILLEGAL(20000003),
+    //TEAMSTRACT tranformation 表达式为空
+    ERR_TEAMEXTRACT_NULL(20000004),
+    //Predict 模型不存在
+    ERR_PREDICT_NULL(20000005),
+    //Tokenization 字典不存在
+    ERR_TOKENIZATION_NULL(20000006),
+    //INVERSWQUANTITY 引用模型不存在
+    ERR_INVERSWQUANTITY_NULL(20000007),
+    //Extract Squid存在没有Link的column
+    ERR_EXTRACT_COLUMN_LINK_NULL(30000000),
+    //stage 存在column link没有接入
+    ERR_STAGE_COLUMN_LINK_NULL(30000001),
+    //无效的squid
+    NOT_AVAIL_SQUID(30000002),
+    //extractSquid分片控制列为空
+    ERR_SPLIT_COL_ISNULL(30000003),
+    //增量抽取时间类型格式不正确
+    ERR_INCREMENT_TIMEFORMAT_ERROR(30000004),
+    //校验表达式
+    ERR_EXPRESS_ISILLEGAL(40000000),
+    //GroupTagSquid的sortColumn为空
+    ERR_TAGSQUID_SORTCOLUMN_ISNULL(40000009),
+    //GroupTagSquid的tagColumn为空
+    ERR_TAGSQUID_TAGCOLUMN_ISNULL(40000010),
+    //GroupTagSquid没有column
+    ERR_TAGSQUID_ISNOTCOLUMN(40000011),
+
+
+
+
+    /**
+     * 版本控制，调度进度
+     */
+    PROCESS_SQUID(40000001),
+    PROCESS_SQUID_LINK(40000002),
+    PROCESS_JOIN(40000003),
+    PROCESS_COLUMN(40000004),
+    PROCESS_REFERENCE_COLUMN(40000005),
+    PROCESS_TRANFORMATION(40000006),
+    PROCESS_TRANFORMATION_LINK(40000007),
+    DELETE_SQUIDFLOWHISTORY_ERR(40000008),
+
+
+
+    /**
+     * 批量操作时，用于多波
+     */
+    BATCH_CODE(50000000),
+
+    //自定义squid
+    USERDEFINED_CLASSNAME_ISNOT_SELECT(10000070),
+    USERDEFINED_DATAMAPCOLUMN_NOT_HAVE_COLUMNID(10000071),
+    USERDEFINED_PARAMETER_VALUE_ISNULL(10000072),
+    //hive落地表名不存在
+    ERR_DEST_HIVE_TABLENAME_ISNULL(10000073),
+    //hive数据库名称为空
+    ERR_DATABASENAME_ISNULL(10000074),
+    //落地hive column未设置
+    ERR_DEST_HIVE_COLUMN_ISNOT_SET(10000075),
+    //extract_squid  增量模式为空
+    ERR_EXTRACT_INCREMENTAL_MODE_IS_NULL(10000076),
+    ERR_CHECK_COLUMN_IS_NULL(10000077),
+    ERR_STATISTIC_NAME_IS_NULL(10000078),
+    STATTISTICS_DATAMAPCOLUMN_NOT_HAVE_COLUMNID(10000079),
+    STATISTICS_PARAMETER_VALUE_ISNULL(10000080),
+    STATISTICS_PARAMETER_PCA_VALUE_ISMAX(10000085),
+    //cassandra落地表名为空
+    ERR_DEST_CASSANDRA_TABLENAME_ISNULL(10000081),
+    //cassandra数据源为空
+    ERR_CASSANDRA_DATASOURCE_ISNULL(10000082),
+    //落地cassandra column未设置
+    ERR_DEST_CASSANDRA_COLUMN_ISNOT_SET(10000083),
+    //MultilayerPerceptronClass网络层为空
+    ERR_MultilayerPerceptron_Layers_ISNULL(10000087),
+    //MultilayerPerceptronClass网络层的值不是CSN格式
+    ERR_MultilayerPerceptron_Layers_ISNOT_CSN(10000088),
+    //MultilayerPerceptronClass初始权值的值不是CSN格式
+    ERR_MultilayerPerceptron_Initialweights_ISNOT_CSN(10000089),
+    //RandomforestRegression采样率的值不能等于0
+    ERR_RandomforestRegression_SubsamplingRate_NotEqualTo_ZERO(10000090),
+    //RandomForestClassifier采样率的值不能等于0
+    ERR_RandomForestClassifier_SubsamplingRate_NotEqualTo_ZERO(10000091),
+    //步长的值要大于0
+    ERR_Step_size_NotEqualTo_ZERO(10000092),
+    //RandomforestRegression特征子集比例不能等于0
+    ERR_RandomforestRegression_Feature_Subset_Scale_NotEqualTo_ZERO(10000093),
+    //RandomforestRegression特征子集比例大于1时要是整数
+    ERR_RandomforestRegression_Feature_Subset_Scale_Not_INTEGER(10000094),
+    //RandomForestClassifier特征子集比例不能等于0
+    ERR_RandomForestClassifier_Feature_Subset_Scale_NotEqualTo_ZERO(10000095),
+    //RandomForestClassifier特征子集比例大于1时要是整数
+    ERR_RandomForestClassifier_Feature_Subset_Scale_Not_INTEGER(10000096),
+    //cassandra落地表名不存在
+    ERR_DEST_CASSANDRA_TABLENAME_ISEXIST(10000097),
+    //MultilayerPerceptronClas容许误差的值要大于等于0
+    ERR_MultilayerPerceptron_Tolerance_IS_GreaterThan_Or_EqualToZero(10000098),
+    //MultilayerPerceptronClass容许误差的值要大于等于0且小于等于1
+    ERR_MultilayerPerceptron_Tolerance_IS_Between_0and1(10000099),
+    //最大特征数必须大于等于2
+    ERR_Max_Bins_Greater_Than_Or_Equal_To_2(10000101),
+    //最小数据量必须大于0 小于或等于1
+    ERR_Min_batch_fraction_IS_Between_0and1(10000102),
+    //训练集比例必须大于0 小于等于100
+    ERR_Training_Percentage_Greater_Than_0_Is_Less_Than_100(10000103),
+    //最大深度必须大于等于0 小于或等于30
+    ERR_Max_Depth_IS_Between_0and30(10000104),
+    //并行数必须大于0
+    ERR_Parallel_Runs_IS_GreaterThanZero(10000105),
+    //K值必须大于0
+    ERR_K_IS_GreaterThanZero(10000106),
+    //pls  X和Y标准化模型为空
+    ERR_X_Model_ISNULL(10000107),
+    ERR_Y_Model_ISNULL(10000108),
+    //NORMALIZER 量化区间的最大值要大于最小值
+    ERR_Max_is_Greater_Than_Min(10000109),
+    //当trans为NUMASSEMBLE和CSVASSEMBLE时，必须要有一个入参
+    ERR_TRANSINPUS_At_Least_One(10000110),
+    //最大迭代次数要大于等于1
+    ERR_Integer_Greater_Than_Or_Equal_To_One(10000111),
+    //特征离散阈值要大于等于2
+    ERR_Max_Categories_Greater_Than_Or_Equal_To_2(10000112),
+    //弹性网参数取值区间[0,1]
+    ERR_Elastic_Net_Param_Between_0_and_1(10000113),
+    //每个节点最小实例数要大于等于1
+    ERR_Min_Instances_Per_Node_Greater_Than_Or_Equal_To_1(10000114),
+    //最大特征数大于等于特征离散阈值
+    ERR_Max_Bins_Greater_Than_Or_Equal_To_Max_Categories(10000115),
+    //分类阈值不是CSN格式('0,1,2,3.3'),且元素要是非负数
+    ERR_Threshold_ISNOT_CSN(10000116),
+    //分类阈值中只能有一个元素为0
+    ERR_Threshold_Only_One_Is_0(10000117),
+    //K值必须大于或者等于2
+    ERR_K_IS_GreaterThan2(10000118),
+    //minDivisibleClusterSize值必须大于0
+    ERR_minDivisibleClusterSize_IS_GreaterThanZero(10000119),
+    //iteration_number值必须大于等于1
+    ERR__BISECTINGSQUID_ITERATION_NUMBER_GreaterThan1(10000120),
+    //初始步数要大于0
+    ERR_KMEANS_InitSteps_GreaterThanZero(10000121),
+    //容许误差要大于等于0
+    ERR_KMEANS_tolerance_GreaterThanZero(10000122),
+    //SamplingSquid SamplingPercent要大于0
+    ERR_SAMPLINGSQUID_Percent_GreaterThanZero(10000123),
+    //SamplingSquid 下游的samplingSquid percent 不能大于100
+    ERR_SAMPLINGSQUID_SumPercent_Greater100(10000124),
+    //pivotSquid数据不完整
+    ERR_PIVOTSQUID_DATA_DEFECT_MSG(10000125),
+    //valueColumn与所选聚合方式不兼容
+    ERR_PIVOTSQUID_VALUECOLUMN_INCOMPATIBLE_MSG(10000126),
+    //pivotSquid上游column为空
+    ERR_PIVOTSQUID_REFERENCE_COLUMN_IS_NULL(10000127),
+    //pivotColumnId为空
+    ERR_PIVOTSQUID_PIVOT_COLUMN_ID_IS_NULL(10000128),
+    //valueColumn为空
+    ERR_PIVOTSQUID_VALUE_COLUMN_ID_IS_NULL(10000129),
+    //分组列id为空
+    ERR_PIVOTSQUID_GROUP_BY_IDS_IS_NULL(10000130),
+    //pivotColumnId与valueColumnId相同
+    ERR_PIVOTSQUID_PIVOTCOLUMNID_EQUALS_VALUECOLUMNID(10000131),
+    //分组列包含pivot列
+    ERR_PIVOTSQUID_GROUPBYIDS_CONTAIN_PIVOTCOLUMNID(10000132),
+    //分组列包含value列
+    ERR_PIVOTSQUID_GROUPBYIDS_CONTAIN_VALUECOLUMNID(10000133),
+    //pivot列值与pivot列类型不兼容
+    ERR_PIVOTSQUID_PIVOTCOLUMN_INCOMPATIBLE_MSG(10000134);
+    private int _value;
+
+    /**
+     * 构造方法
+     *
+     * @param value
+     */
+    private MessageCode(int value) {
+        this._value = value;
+    }
+
+    /**
+     * 从int到enum的转换函数
+     *
+     * @param t
+     * @return
+     * @throws Exception
+     */
+    public static MessageCode parse(int t) {
+        for (MessageCode result : values()) {
+            if (result.value() == t) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    public int value() {
+        return _value;
+    }
+
+}
